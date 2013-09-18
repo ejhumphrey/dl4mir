@@ -48,11 +48,12 @@ def assign_labels_to_time_points(time_points, boundaries, labels):
     Parameters
     ----------
     time_points : array_like
-
+        Points in time to assign chord labels.
     boundaries : np.ndarray
-
+        Time boundaries between labels.
     labels : array_like
-
+        Chord labels corresponding to the interval between adjacent boundaries. 
+        
     Returns
     -------
     output_labels : list
