@@ -86,7 +86,6 @@ class Network(object):
         """
         self.name = name
         self.layers = layers
-#        self.layers = [Layer(args) for args in layer_args]
 
     @property
     def name(self):
@@ -194,25 +193,6 @@ class Network(object):
         for layer in self.layers:
             layer.param_values = param_values
 
-    @property
-    def dropout(self):
-        """
-        Dropout states over the graph.
-
-        Returns
-        -------
-
-        """
-        return [l.dropout for l in self.layers]
-
-    @dropout.setter
-    def dropout(self, states):
-        """
-        set dropout bools over the graph
-        """
-        for l, b in zip(self.layers, states):
-            l.dropout = b
-
     def transform(self, x_in):
         """
         Forward transform an input through the network
@@ -232,4 +212,10 @@ class Network(object):
             layer_input = layer.transform(layer_input)
 
         return layer_input
+
+    @property
+    def scalars(self):
+        all_scalars = dict()
+        [all_scalars.update(layer.scalars) for layer in self.layers]
+        return all_scalars
 

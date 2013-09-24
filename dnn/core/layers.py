@@ -4,6 +4,7 @@
 
 import json
 import numpy as np
+import os
 import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
@@ -25,8 +26,7 @@ class BaseLayerArgs(dict):
     def __init__(self, name,
                  input_shape=None,
                  param_shapes=None,
-                 activation="linear",
-                 dropout=False):
+                 activation="linear"):
         """
         Parameters
         ----------
@@ -36,7 +36,6 @@ class BaseLayerArgs(dict):
             shape of input array, regardless of batch size
         activation : string
             Name of the activation function.
-        dropout : bool, default=False
         """
 
         if param_shapes is None:
@@ -47,8 +46,7 @@ class BaseLayerArgs(dict):
         args = {'type':self.type,
                 'name':name,
                 'param_shapes':param_shapes,
-                'activation':activation,
-                'dropout':dropout, }
+                'activation':activation, }
 
         self.update(args)
 
@@ -107,8 +105,7 @@ class AffineArgs(BaseLayerArgs):
     def __init__(self, name,
                  input_shape,
                  output_shape,
-                 activation="tanh",
-                 dropout=False):
+                 activation="tanh"):
 
         """
         Parameters
@@ -122,8 +119,7 @@ class AffineArgs(BaseLayerArgs):
                                input_shape=(n_in,),
                                param_shapes=dict(weights=weight_shape,
                                                  bias=output_shape),
-                               activation=activation,
-                               dropout=dropout)
+                               activation=activation)
         self.update(input_shape=self.input_shape,
                     output_shape=self.output_shape)
 
@@ -144,8 +140,7 @@ class Conv3DArgs(BaseLayerArgs):
         pool_shape=(1, 1),
         downsample_shape=(1, 1),
         activation="tanh",
-        border_mode='valid',
-        dropout=False):
+        border_mode='valid'):
         """
         input_shape : tuple
             (in_maps, in_dim0, in_dim1), the last three dims of a 4d tensor
@@ -169,8 +164,7 @@ class Conv3DArgs(BaseLayerArgs):
         BaseLayerArgs.__init__(self, name,
                                input_shape=input_shape,
                                param_shapes=param_shapes,
-                               activation=activation,
-                               dropout=dropout)
+                               activation=activation)
         self.update(pool_shape=pool_shape,
                     downsample_shape=downsample_shape,
                     border_mode=border_mode)
@@ -208,7 +202,7 @@ class SoftmaxArgs(AffineArgs):
         AffineArgs.__init__(self, name,
                             input_shape=(input_dim,),
                             output_shape=(output_dim,),
-                            activation="linear", dropout=False)
+                            activation="linear")
 
 # --- Layer Class Implementations ------
 class BaseLayer(dict):
@@ -224,14 +218,17 @@ class BaseLayer(dict):
         self.numpy_rng = np.random.RandomState()
         self.theano_rng = RandomStreams(self.numpy_rng.randint(2 ** 30))
 
-        self.dropout_prob = theano.shared(0.0, allow_downcast=True)
-        self.dropout_scalar = theano.shared(0.5, allow_downcast=True)
-        self.dropout = self.dropout
         # Theta is the local set of all symbolic parameters in this layer.
         self._theta = dict([(k, None) for k in self.param_names])
+        self._scalars = dict(dropout=T.scalar(name=self.own("dropout"),
+                                              dtype=FLOATX))
 
     def __str__(self):
         return json.dumps(self, indent=2)
+
+    @property
+    def scalars(self):
+        return dict([(self.own(k), v) for k, v in self._scalars.iteritems()])
 
     @property
     def type(self):
@@ -256,8 +253,7 @@ class BaseLayer(dict):
             Symbolic parameters of the layer, keyed by full name.
         """
 
-        return dict([("%s/%s" % (self.name, k),
-                        self._theta.get(k)) for k in self._theta])
+        return dict([(self.own(k), v) for k, v in self._theta.iteritems()])
 
     @property
     def param_values(self):
@@ -282,7 +278,7 @@ class BaseLayer(dict):
 
         """
         for full_name, value in param_values.items():
-            layer_name, param_name = full_name.split("/")
+            layer_name, param_name = os.path.split(full_name)
             # Bypass all values that do not correspond to this layer. 
             if self.name != layer_name:
                 continue
@@ -326,22 +322,15 @@ class BaseLayer(dict):
         """
         raise NotImplementedError("Subclass me!")
 
+    def own(self, name):
+        return os.path.join(self.name, name)
+
     @property
     def dropout(self):
-        return self.get("dropout")
-
-    @dropout.setter
-    def dropout(self, state):
         """
-        Parameters
-        ----------
-        state : bool
-            turn dropout on or off
+        Used as a probability.
         """
-        self.update(dropout=state)
-        self.dropout_prob.set_value(0.5 if self.dropout else 0.0)
-        # if dropout is off, we need to halve the weights
-        self.dropout_scalar.set_value(1.0 if self.dropout else 0.5)
+        return self._scalars.get("dropout")
 
 
 class Affine(BaseLayer):
@@ -360,8 +349,8 @@ class Affine(BaseLayer):
         BaseLayer.__init__(self, layer_args)
         weights = np.zeros(self.param_shapes.get("weights"))
         bias = np.zeros(self.output_shape)
-        self.param_values = {'%s/weights' % self.name:weights,
-                             '%s/bias' % self.name:bias, }
+        self.param_values = {self.own('weights'):weights,
+                             self.own('bias'):bias, }
 
     def transform(self, x_in):
         """
@@ -403,10 +392,9 @@ class Conv3D(BaseLayer):
             weights *= 4
 
         bias = np.zeros(weight_shape[0])
-        self.param_values = {'%s/weights' % self.name:weights,
-                             '%s/bias' % self.name:bias, }
+        self.param_values = {self.own('weights'):weights,
+                             self.own('bias'):bias, }
 
-#        self.dropout_scalar = theano.shared(cast(1.0,dtype=FLOATX), allow_downcast=True, broadcastable=(True,True,True,True))
 
     def transform(self, x_in):
         """
@@ -449,8 +437,8 @@ class Softmax(BaseLayer):
         weights = self.numpy_rng.normal(loc=0.0, scale=scale, size=weight_shape)
         bias = np.zeros(self.output_shape)
 
-        self.param_values = {'%s/weights' % self.name:weights,
-                             '%s/bias' % self.name:bias, }
+        self.param_values = {self.own('weights'):weights,
+                             self.own('bias'):bias, }
 
     def transform(self, x_in):
         """
