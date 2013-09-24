@@ -23,8 +23,8 @@ layer_1 = Layer(Conv3DArgs(name='convlayer1',
                            activation='tanh'))
 
 layer_2 = Layer(AffineArgs(name='affine2',
-                           input_dim=layer_1.output_shape[0],
-                           output_dim=128,
+                           input_shape=layer_1.output_shape,
+                           output_shape=(128,),
                            activation='tanh'))
 
 classifier = Layer(SoftmaxArgs(name='classifier',

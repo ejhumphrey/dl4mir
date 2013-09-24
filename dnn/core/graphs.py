@@ -10,39 +10,54 @@ import os
 import time
 
 import theano.tensor as T
-import numpy as np
 
 from . import FLOATX
 from .layers import Layer
 
-TIME_FMT = "%Y_%m_%H%M%S"
-DEF_EXT = ".definition"
-PARAMS_EXT = ".params"
+TIME_FMT = "%Y%m%d_%H%M%S"
+DEF_EXT = "definition"
+PARAMS_EXT = "params"
 
-def save(net, base_directory):
+def timestamp():
+    """Returns a string representation of the time, like:
+    YYYYMMDD_HHMMSSmMMM
+    """
+    return time.strftime(TIME_FMT) + "m%3d" % int((time.time() % 1) * 1000)
+
+def save(net, filebase):
     """Serialize a network to disk.
 
+    Parameters
+    ----------
     net : Network
         Instantiated network to serialize.
-    base_directory : string
-        Path to write the appropriate information.
+    filebase : string
+        Path to write the appropriate information. Two time-stamped files are
+        created:
+        1. A human-readable json dump of the network architecture.
+        2. A pickled dictionary of the networks numerical parameters.
     """
-    now = time.strftime(TIME_FMT) + "m%3d" % int((time.time() % 1) * 1000)
-    model_directory = os.path.join(base_directory, net.name)
+    model_directory = os.path.split(filebase)[0]
     if not os.path.exists(model_directory):
         os.makedirs(model_directory)
 
-    filebase = os.path.join(model_directory, "%s-%s" % (net.name, now))
-    model_def = open(filebase + DEF_EXT, "w")
+    nowstamp = timestamp()
+    # Save json-encoded architecture.
+    model_def_file = "%s-%s.%s" % (filebase, nowstamp, DEF_EXT)
+    model_def = open(model_def_file, "w")
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
-
-    model_params = open(filebase + PARAMS_EXT, "w")
+    # Save pickled parameters.
+    model_params_file = "%s-%s.%s" % (filebase, nowstamp, PARAMS_EXT)
+    model_params = open(model_params_file, "w")
     cPickle.dump(net.param_values, model_params)
     model_params.close()
 
 def load(filebase):
-    """
+    """Load a network from disk.
+
+    Parameters
+    ----------
     filebase : string
         Path to a file that matches a definition and parameter file.
     """

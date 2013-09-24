@@ -105,8 +105,8 @@ class AffineArgs(BaseLayerArgs):
     """
 
     def __init__(self, name,
-                 input_dim,
-                 output_dim,
+                 input_shape,
+                 output_shape,
                  activation="tanh",
                  dropout=False):
 
@@ -115,11 +115,13 @@ class AffineArgs(BaseLayerArgs):
         ----------
 
         """
-        weight_shape = (input_dim, output_dim)
+        n_in = np.prod(input_shape, dtype=int)
+        assert len(output_shape) == 1
+        weight_shape = (n_in, output_shape[0])
         BaseLayerArgs.__init__(self, name=name,
-                               input_shape=(input_dim,),
+                               input_shape=(n_in,),
                                param_shapes=dict(weights=weight_shape,
-                                                 bias=(output_dim,)),
+                                                 bias=output_shape),
                                activation=activation,
                                dropout=dropout)
         self.update(input_shape=self.input_shape,
@@ -203,8 +205,10 @@ class SoftmaxArgs(AffineArgs):
                  output_dim):
         """
         """
-        AffineArgs.__init__(self,
-            name, input_dim, output_dim, activation="linear", dropout=False)
+        AffineArgs.__init__(self, name,
+                            input_shape=(input_dim,),
+                            output_shape=(output_dim,),
+                            activation="linear", dropout=False)
 
 # --- Layer Class Implementations ------
 class BaseLayer(dict):
@@ -369,10 +373,10 @@ class Affine(BaseLayer):
         b = self._theta['bias'].dimshuffle('x', 0)
         # TODO(ejhumphrey): This sucks.
         x_in = T.flatten(x_in, outdim=2)
-        selector = self.theano_rng.binomial(size=self.input_shape,
-                                            p=1.0 - self.dropout_prob,
-                                            dtype=FLOATX)
-        W = W * selector.dimshuffle(0, 'x') * self.dropout_scalar
+#        selector = self.theano_rng.binomial(size=self.input_shape,
+#                                            p=1.0 - self.dropout_prob,
+#                                            dtype=FLOATX)
+#        W = W * selector.dimshuffle(0, 'x') * self.dropout_scalar
         return self.activation(T.dot(x_in, W) + b)
 
 
