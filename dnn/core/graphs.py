@@ -9,6 +9,7 @@ import json
 import os
 import time
 
+import theano
 import theano.tensor as T
 
 from . import FLOATX
@@ -69,9 +70,24 @@ def load(filebase):
     assert os.path.exists(model_params), \
         "Model parameter file '%s' does not exist." % model_params
 
-    net = Network([Layer(args) for args in json.load(open(model_def))])
+    layer_args = convert(json.load(open(model_def)))
+    net = Network([Layer(args) for args in layer_args])
     net.param_values = cPickle.load(open(model_params))
     return net
+
+def convert(obj):
+    """Convert unicode to strings.
+
+    Known issue: Uses dictionary comprehension, and is incompatible with 2.6.
+    """
+    if isinstance(obj, dict):
+        return {convert(key): convert(value) for key, value in obj.iteritems()}
+    elif isinstance(obj, list):
+        return [convert(element) for element in obj]
+    elif isinstance(obj, unicode):
+        return obj.encode('utf-8')
+    else:
+        return obj
 
 
 class Network(object):
@@ -86,6 +102,11 @@ class Network(object):
         """
         self.name = name
         self.layers = layers
+        self._input_name = "x_input"
+        self._output_name = "z_output"
+        self._inputs = []
+        self._outputs = {}
+        self._fx = None
 
     @property
     def name(self):
@@ -207,15 +228,58 @@ class Network(object):
         z_out : theano symbolic type
 
         """
+        self._inputs = list()
+        self._outputs.clear()
+        self._input_name = x_in.name
+        self._inputs.append(x_in)
         layer_input = x_in
         for layer in self.layers:
             layer_input = layer.transform(layer_input)
+            layer_key = os.path.join(layer.name, "output")
+            self._outputs[layer_key] = layer_input
+        self._inputs.extend(self.scalars)
+        return self._outputs[layer_key]
 
-        return layer_input
+    @property
+    def inputs(self):
+        return list(self._inputs)
+
+    @property
+    def outputs(self):
+        return dict(self._outputs)
 
     @property
     def scalars(self):
-        all_scalars = dict()
-        [all_scalars.update(layer.scalars) for layer in self.layers]
+        all_scalars = list()
+        [all_scalars.extend(layer.scalars) for layer in self.layers]
         return all_scalars
 
+
+    def compile(self, input_name=None, output_name=None):
+        if input_name is None:
+            input_name = self._input_name
+        if output_name is None:
+            output_name = self._output_name
+        self._outputs[output_name] = self.transform(
+            self.symbolic_input(input_name))
+        self._fx = theano.function(inputs=self.inputs,
+                                   outputs=self.outputs.get(output_name),
+                                   allow_input_downcast=True,
+                                   on_unused_input='warn')
+
+    def __call__(self, inputs):
+        if self._fx is None:
+            self.compile()
+        return self._fx(**inputs)
+
+    def empty_inputs(self, fill_value=0.0):
+        return dict([(x.name, fill_value) for x in self.inputs])
+
+    @property
+    def vars(self):
+        """Return all symbolic variables
+        """
+        all_vars = dict()
+        all_vars.update(self.outputs)
+        all_vars.update(self.params)
+        return all_vars

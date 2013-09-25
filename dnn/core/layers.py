@@ -228,7 +228,7 @@ class BaseLayer(dict):
 
     @property
     def scalars(self):
-        return dict([(self.own(k), v) for k, v in self._scalars.iteritems()])
+        return [v for v in self._scalars.itervalues()]
 
     @property
     def type(self):
