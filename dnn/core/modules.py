@@ -119,6 +119,9 @@ class Loss(object):
                 self._inputs.append(x)
 
         fx = LossFunctions.get(loss_type)
+        assert input_name in graph.vars, \
+            "No variable named '%s' in vars: %s" % (input_name,
+                                                    self.vars.keys())
         loss_input = graph.vars.get(input_name)
         scalar_loss, extra_inputs = fx(loss_input)
         self._total += scalar_loss

@@ -25,7 +25,31 @@ def timestamp():
     """
     return time.strftime(TIME_FMT) + "m%3d" % int((time.time() % 1) * 1000)
 
-def save(net, filebase):
+def save_params(net, filebase):
+    """Serialize a network to disk.
+
+    Parameters
+    ----------
+    net : Network
+        Instantiated network to serialize.
+    filebase : string
+        Path to write the appropriate information. Two time-stamped files are
+        created:
+        1. A human-readable json dump of the network architecture.
+        2. A pickled dictionary of the networks numerical parameters.
+    """
+    model_directory = os.path.split(filebase)[0]
+    if not os.path.exists(model_directory):
+        os.makedirs(model_directory)
+
+    nowstamp = timestamp()
+    # Save pickled parameters.
+    model_params_file = "%s-%s.%s" % (filebase, nowstamp, PARAMS_EXT)
+    model_params = open(model_params_file, "w")
+    cPickle.dump(net.param_values, model_params)
+    model_params.close()
+
+def save_definition(net, filebase):
     """Serialize a network to disk.
 
     Parameters
@@ -48,11 +72,6 @@ def save(net, filebase):
     model_def = open(model_def_file, "w")
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
-    # Save pickled parameters.
-    model_params_file = "%s-%s.%s" % (filebase, nowstamp, PARAMS_EXT)
-    model_params = open(model_params_file, "w")
-    cPickle.dump(net.param_values, model_params)
-    model_params.close()
 
 def load(filebase):
     """Load a network from disk.
