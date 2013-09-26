@@ -104,23 +104,25 @@ class Loss(object):
         self._inputs = list()
         self._total = 0.0
 
-    def register(self, graph, loss_pairs):
+    def register(self, graph, input_name, loss_type):
         """
         Parameters
         ----------
         graph : Instance of a dnn.core.graph
-        loss_pairs : list of tuples
-            Key pairs to a symbolic variable in graph.vars and a registered loss
-            function in LossFunctions.
+        loss_pairs : tuple
+            Pair of strings pointing to a symbolic variable in graph.vars and a
+            registered loss function in LossFunctions.
 
         """
-        self._inputs.extend(graph.inputs)
-        for input_name, loss_type in loss_pairs:
-            fx = LossFunctions.get(loss_type)
-            loss_input = graph.vars.get(input_name)
-            scalar_loss, extra_inputs = fx(loss_input)
-            self._total += scalar_loss
-            self._inputs.extend(extra_inputs)
+        for x in graph.inputs:
+            if not x in self._inputs:
+                self._inputs.append(x)
+
+        fx = LossFunctions.get(loss_type)
+        loss_input = graph.vars.get(input_name)
+        scalar_loss, extra_inputs = fx(loss_input)
+        self._total += scalar_loss
+        self._inputs.extend(extra_inputs)
 
     @property
     def total(self):
@@ -133,7 +135,7 @@ class Loss(object):
     def empty_inputs(self, fill_value=0.0):
         return dict([(x.name, fill_value) for x in self.inputs])
 
-    def compile(self, input_name=None, output_name=None):
+    def compile(self):
         self._fx = theano.function(inputs=self.inputs,
                                    outputs=self.total,
                                    allow_input_downcast=True,

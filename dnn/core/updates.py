@@ -48,6 +48,7 @@ class SGD(object):
         self._outputs = {}
         self._updates = OrderedDict()
         self._fx = None
+        self.iteration = 0
 
     @property
     def inputs(self):
@@ -97,6 +98,7 @@ class SGD(object):
         """
         if self._fx is None:
             self.compile()
+        self.iteration += 1
         return self._fx(**inputs)
 
     def empty_inputs(self, fill_value=0.0):

@@ -102,8 +102,8 @@ class Network(object):
         """
         self.name = name
         self.layers = layers
-        self._input_name = "x_input"
-        self._output_name = "z_output"
+        self.input_name = "x_input"
+        self.output_name = "z_output"
         self._inputs = []
         self._outputs = {}
         self._fx = None
@@ -230,7 +230,7 @@ class Network(object):
         """
         self._inputs = list()
         self._outputs.clear()
-        self._input_name = x_in.name
+        self.input_name = x_in.name
         self._inputs.append(x_in)
         layer_input = x_in
         for layer in self.layers:
@@ -257,9 +257,11 @@ class Network(object):
 
     def compile(self, input_name=None, output_name=None):
         if input_name is None:
-            input_name = self._input_name
+            input_name = self.input_name
         if output_name is None:
-            output_name = self._output_name
+            output_name = self.output_name
+
+        self.output_name = output_name
         self._outputs[output_name] = self.transform(
             self.symbolic_input(input_name))
         self._fx = theano.function(inputs=self.inputs,
