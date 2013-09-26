@@ -23,9 +23,9 @@ def timestamp():
     """Returns a string representation of the time, like:
     YYYYMMDD_HHMMSSmMMM
     """
-    return time.strftime(TIME_FMT) + "m%3d" % int((time.time() % 1) * 1000)
+    return time.strftime(TIME_FMT) + "m%03d" % int((time.time() % 1) * 1000)
 
-def save_params(net, filebase):
+def save_params(net, filebase, add_time=True):
     """Serialize a network to disk.
 
     Parameters
@@ -42,14 +42,16 @@ def save_params(net, filebase):
     if not os.path.exists(model_directory):
         os.makedirs(model_directory)
 
-    nowstamp = timestamp()
+    nowstamp = ""
+    if add_time:
+        nowstamp += "-" + timestamp()
     # Save pickled parameters.
-    model_params_file = "%s-%s.%s" % (filebase, nowstamp, PARAMS_EXT)
+    model_params_file = "%s%s.%s" % (filebase, nowstamp, PARAMS_EXT)
     model_params = open(model_params_file, "w")
     cPickle.dump(net.param_values, model_params)
     model_params.close()
 
-def save_definition(net, filebase):
+def save_definition(net, filebase, add_time=True):
     """Serialize a network to disk.
 
     Parameters
@@ -66,9 +68,11 @@ def save_definition(net, filebase):
     if not os.path.exists(model_directory):
         os.makedirs(model_directory)
 
-    nowstamp = timestamp()
+    nowstamp = ""
+    if add_time:
+        nowstamp += "-" + timestamp()
     # Save json-encoded architecture.
-    model_def_file = "%s-%s.%s" % (filebase, nowstamp, DEF_EXT)
+    model_def_file = "%s%s.%s" % (filebase, nowstamp, DEF_EXT)
     model_def = open(model_def_file, "w")
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
@@ -304,3 +308,11 @@ class Network(object):
         all_vars.update(self.outputs)
         all_vars.update(self.params)
         return all_vars
+
+    def save_params(self, filebase, add_time):
+        save_params(self, filebase, add_time)
+
+    def save_definition(self, filebase, add_time):
+        save_definition(self, filebase, add_time)
+
+

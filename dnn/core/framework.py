@@ -4,9 +4,10 @@
 
 from ejhumphrey.dnn.core.layers import Layer
 from ejhumphrey.dnn.core.graphs import Network
-from ejhumphrey.dnn.core.graphs import save
 from ejhumphrey.dnn.core.modules import Loss
 from ejhumphrey.dnn.core.updates import SGD
+
+import json
 import os
 import time
 
@@ -15,6 +16,28 @@ def select_update(base, newdict):
     for k, v in newdict.iteritems():
         if k in base:
             base[k] = v
+
+def json_save(obj, filename):
+    """Serialize a network to disk.
+
+    Parameters
+    ----------
+    net : Network
+        Instantiated network to serialize.
+    filebase : string
+        Path to write the appropriate information. Two time-stamped files are
+        created:
+        1. A human-readable json dump of the network architecture.
+        2. A pickled dictionary of the networks numerical parameters.
+    """
+    base_directory = os.path.split(filename)[0]
+    if not os.path.exists(base_directory):
+        os.makedirs(base_directory)
+
+    # Save json-encoded architecture.
+    file_handle = open(filename, "w")
+    json.dump(obj, file_handle, indent=2)
+    file_handle.close()
 
 class Trainer(object):
 
@@ -27,6 +50,8 @@ class Trainer(object):
         self.target_name = "y_target"
         self.name = name
         self.save_directory = save_directory
+        self.save_filebase = os.path.join(self.save_directory, self.name)
+        self.stats_handle = open("%s-stats.txt" % self.save_filebase, 'w')
 
 
     def build_network(self, layer_args):
@@ -38,6 +63,7 @@ class Trainer(object):
         """
         self.network = Network([Layer(args) for args in layer_args])
         self.network.compile(self.input_name, self.output_name)
+        self.network.save_definition(self.save_filebase, False)
 
     def configure_losses(self, loss_args):
         """
@@ -52,6 +78,7 @@ class Trainer(object):
         for iname, ltype in loss_args:
             self.loss.register(self.network, iname, ltype)
         self.loss.compile()
+        json_save(loss_args, "%s-loss_args.txt" % self.save_filebase)
 
     def configure_updates(self, update_args=None):
         """
@@ -67,9 +94,11 @@ class Trainer(object):
         params = dict([(k, self.network.params.get(k)) for k in update_args])
         self.update.compute_updates(self.loss, params)
         self.update.compile()
+        json_save(update_args, "%s-update_args.txt" % self.save_filebase)
 
 
     def run(self, sources, train_params, hyperparams):
+        print "Running ..."
         assert self.network, "Network must be built first."
         assert self.loss, "Loss must be configured first."
         assert self.update, "Update must be configured first."
@@ -80,7 +109,8 @@ class Trainer(object):
 
         loss_inputs = self.loss.empty_inputs()
         select_update(loss_inputs, hyperparams)
-
+        json_save(hyperparams, "%s-hyperparams.txt" % self.save_filebase)
+        json_save(train_params, "%s-train_params.txt" % self.save_filebase)
         while not Done:
             try:
                 batch = sources['train'].next_batch(train_params.get("batch_size"))
@@ -100,8 +130,14 @@ class Trainer(object):
         print "\nFinished.\n"
 
     def checkpoint(self, train_loss):
-        save(self.network, os.path.join(self.save_directory, self.name))
-        print "[%s] %d: %0.4f" % (time.asctime(),
-                                  self.update.iteration,
-                                  train_loss)
+        self.network.save_params("%s_%07d" % (self.save_filebase,
+                                              self.update.iteration),
+                                 True)
+        stat_line = "[%s]\t iter: %07d \ttrain loss: %0.4f" % \
+            (time.asctime(), self.update.iteration, train_loss)
+        self.stats_handle.write(stat_line + "\n")
+        print stat_line
+
+    def __del__(self):
+        self.stats_handle.close()
 
