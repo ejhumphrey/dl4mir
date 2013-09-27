@@ -1,14 +1,22 @@
+#!/usr/bin/env python
+"""Train a deepnet for the MNIST dataset.
 
+Sample Call:
+bash$ python 'mnist_classifier' \
+'/home/ejhumphrey/dnn_models' \
+'/home/ejhumphrey/mnist.dpf' \
+"""
 
+import argparse
 
 from marl.hewey import file
 from marl.hewey import sources
+
 from ejhumphrey.dnn.core.framework import Trainer
 from ejhumphrey.dnn.core.layers import Conv3DArgs
 from ejhumphrey.dnn.core.layers import AffineArgs
 from ejhumphrey.dnn.core.layers import SoftmaxArgs
 from ejhumphrey.dnn.core.layers import Layer
-
 
 training_params = {'num_iter':10000,
                    'batch_size': 100}
@@ -40,7 +48,7 @@ parameter_updates = ['affine2/bias',
                      'convlayer1/weights']
 
 base_train_params = {"max_iterations":1000,
-                     "checkpoint_freq":25,
+                     "checkpoint_freq":50,
                      "batch_size":50}
 
 def build_layers():
@@ -80,26 +88,43 @@ def training_source(filepath):
     return sources.RandomSource(file_handle, cache_size=5000)
 
 
-def main():
+def main(args):
     layers = build_layers()
 
-    trainer = Trainer(name="mnist_classifier",
-                      save_directory="/Users/ejhumphrey/Desktop/dnnmodels")
+    trainer = Trainer(name=args.name,
+                      save_directory=args.save_directory)
+
     trainer.build_network(layers)
     trainer.configure_losses(loss_pairs)
     trainer.configure_updates(parameter_updates)
 
-    dset = training_source('/Volumes/speedy/mnist.dpf')
+    dset = training_source(args.training_data)
     dset.set_value_shape((1, 28, 28))
     dset.set_label_map(dict([("%d" % n, n) for n in range(10)]))
 
     sources = {'train':dset}
-    hyperparams = set_all_learning_rates(base_hyperparams, 0.1)
+    hyperparams = set_all_learning_rates(base_hyperparams, 0.02)
     train_params = base_train_params.copy()
-    train_params.update(checkpoint_freq=5)
 
     trainer.run(sources, train_params, hyperparams)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        description="Deepnet training for MNIST."
+                    "collection of audio files")
+
+    parser.add_argument("name",
+                        metavar="name", type=str,
+                        help="Name for this trained model.")
+
+    parser.add_argument("save_directory",
+                        metavar="save_directory", type=str,
+                        help="Base directory to save data.")
+
+    parser.add_argument("training_data",
+                        metavar="training_data", type=str,
+                        help="Hewey file to use for training.")
+
+    main(parser.parse_args())
+
