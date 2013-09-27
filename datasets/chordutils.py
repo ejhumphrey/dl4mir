@@ -95,6 +95,3 @@ def count_chords(lab_files):
     [(keys.append(k), values.append(v)) for k, v in all_chords.iteritems()]
     sorted_index = np.array(values).argsort()[::-1]
     return OrderedDict([(keys[i], values[i]) for i in sorted_index])
-
-
-    return unique_labels
