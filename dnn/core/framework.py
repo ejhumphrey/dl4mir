@@ -49,7 +49,9 @@ class Trainer(object):
         self.input_name, self.output_name = "input", "output"
         self.target_name = "y_target"
         self.name = name
-        self.save_directory = save_directory
+        self.save_directory = os.path.join(save_directory, self.name)
+        if not os.path.exists(self.save_directory):
+            os.makedirs(self.save_directory)
         self.save_filebase = os.path.join(self.save_directory, self.name)
         self.stats_handle = open("%s-stats.txt" % self.save_filebase, 'w')
 
@@ -98,10 +100,10 @@ class Trainer(object):
 
 
     def run(self, sources, train_params, hyperparams):
-        print "Running ..."
         assert self.network, "Network must be built first."
         assert self.loss, "Loss must be configured first."
         assert self.update, "Update must be configured first."
+        print "[%s]\t Running ..." % time.asctime()
 
         Done = False
         train_inputs = self.update.empty_inputs()

@@ -77,7 +77,7 @@ def save_definition(net, filebase, add_time=True):
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
 
-def load(filebase):
+def load(definition_file, param_file):
     """Load a network from disk.
 
     Parameters
@@ -85,17 +85,11 @@ def load(filebase):
     filebase : string
         Path to a file that matches a definition and parameter file.
     """
-    model_def = filebase + DEF_EXT
-    assert os.path.exists(model_def), \
-        "Model definition file '%s' does not exist." % model_def
 
-    model_params = filebase + PARAMS_EXT
-    assert os.path.exists(model_params), \
-        "Model parameter file '%s' does not exist." % model_params
-
-    layer_args = convert(json.load(open(model_def)))
+    layer_args = convert(json.load(open(definition_file)))
     net = Network([Layer(args) for args in layer_args])
-    net.param_values = cPickle.load(open(model_params))
+    net.param_values = cPickle.load(open(param_file))
+    net.compile()
     return net
 
 def convert(obj):
