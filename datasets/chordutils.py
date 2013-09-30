@@ -3,6 +3,7 @@
 
 import numpy as np
 from collections import OrderedDict
+from marl.hewey.core import DataPoint
 
 NO_CHORD = "N"
 
@@ -95,3 +96,75 @@ def count_chords(lab_files):
     [(keys.append(k), values.append(v)) for k, v in all_chords.iteritems()]
     sorted_index = np.array(values).argsort()[::-1]
     return OrderedDict([(keys[i], values[i]) for i in sorted_index])
+
+def circshift_data(x, y, n, bins_per_octave):
+    """
+    x : np.ndarray
+    y : int
+    n : int
+        Pitch shift, not bins.
+    bins_per_octave : int
+    """
+    r = n * bins_per_octave / 12
+    x = circshift(x, 0, r)
+    ys = ((y + n) % 12) + (int(y) / 12) * 12
+    return x, ys
+
+def circshift(x, dim0=0, dim1=0):
+    """Circular shift a matrix in two dimensions.
+
+    For example...
+
+          dim0
+         aaa|bb      dd|ccc
+    dim1 ------  ->  ------
+         ccc|dd      bb|aaa
+
+    Default behavior is a pass-through.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input 2d matrix.
+    dim0 : int
+        Rotation along the first axis.
+    dim1 : int
+        Rotation along the second axis.
+
+    Returns
+    -------
+    y : np.ndarray
+        The circularly shifted matrix.
+    """
+    # Sanity check
+    assert x.ndim == 2
+
+    d0, d1 = x.shape
+    z = np.zeros([d0, d1])
+
+    # Make sure the rotation is bounded on [0,d0) & [0,d1)
+    dim0, dim1 = dim0 % d0, dim1 % d1
+    if not dim0 and dim1:
+        z[:, :dim1] = x[:, -dim1:]  # A
+        z[:, dim1:] = x[:, :-dim1]  # C
+    elif not dim1 and dim0:
+        z[:dim0, :] = x[-dim0:, :]  # A
+        z[dim0:, :] = x[:-dim0, :]  # B
+    elif dim0 and dim1:
+        z[:dim0, :dim1] = x[-dim0:, -dim1:]  # A
+        z[dim0:, :dim1] = x[:-dim0, -dim1:]  # B
+        z[:dim0, dim1:] = x[-dim0:, :-dim1]  # C
+        z[dim0:, dim1:] = x[:-dim0, :-dim1]  # D
+    else:
+        z = x
+    return z
+
+
+def align_array_and_labels(cqt_file, lab_file, framerate):
+    cqt = np.load(cqt_file)
+    boundaries, labels = load_labfile(lab_file)
+    time_points = np.arange(len(cqt), dtype=float) / framerate
+    timed_labels = assign_labels_to_time_points(time_points,
+                                                           boundaries,
+                                                           labels)
+    return cqt, timed_labels
