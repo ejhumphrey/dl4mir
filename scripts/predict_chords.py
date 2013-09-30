@@ -1,58 +1,25 @@
 #!/usr/bin/env python
-"""Train a deepnet for chord identification.
+"""Consumes a filelist of cqt-arrays, producing posteriorgrams.
 
 Sample Call:
-bash$ ipython ejhumphrey/scripts/predict_chords.py \
-
-"/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926.txt"
-
+MODELDIR=/home/ejhumphrey/chords/models/majmin_chord_classifier_000
+ipython ejhumphrey/scripts/predict_chords.py \
+/home/ejhumphrey/chords/cqt_list.txt \
+$MODELDIR/majmin_chord_classifier_000.definition \
+$MODELDIR/majmin_chord_classifier_000_final-20130928.params \
+$MODELDIR/majmin_chord_classifier_000-train_params.txt \
 """
 
 
 import argparse
 import numpy as np
 
-from ejhumphrey.datasets import chordutils
-from marl.hewey.core import DataSequence, context_slice
-from marl.hewey.file import DataSequenceFile
-from marl.hewey.keyutils import uniform_keygen
-
+from marl.hewey.core import context_slice
 from ejhumphrey.dnn.core.graphs import load
 
 import json
 import os
 import time
-
-cqt_param_file = "/Volumes/Audio/Chord_Recognition/cqt_params.txt"
-track_filelist = "/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926.txt"
-hewey_file = '/Volumes/speedy/chordrec.dsf'
-
-
-def collect_track_tuples(filelist):
-    """Compile a list of (audio_file, cqt_file, label_file) tuples.
-
-    It is guaranteed that all files exist on disk.
-
-    Returns
-    -------
-    results : list
-        List of three item tuples; audio, cqt, and label.
-    """
-    results = []
-    for line in open(filelist):
-        audio_file = line.strip('\n')
-        assert os.path.exists(audio_file), \
-            "Audio file does not exist: %s" % audio_file
-        cqt_file = os.path.splitext(audio_file)[0] + "-cqt.npy"
-        assert os.path.exists(cqt_file), \
-            "CQT file does not exist: %s" % cqt_file
-        label_file = os.path.splitext(audio_file)[0] + ".lab"
-        assert os.path.exists(label_file), \
-            "Label file does not exist: %s" % label_file
-        results.append((audio_file, cqt_file, label_file))
-
-    return results
-
 
 def context_slicer(X, left, right, batch_size=100, newshape=None):
     """Generator to step through a CQT array as batches of datapoints.
@@ -88,7 +55,7 @@ def context_slicer(X, left, right, batch_size=100, newshape=None):
             batch = list()
     yield np.array(batch)
 
-def predict_cqt(cqt_array, dnet, train_params):
+def predict_cqt(cqt_array, dnet, train_params, batch_size=100):
     """
     Parameters
     ----------
@@ -107,24 +74,31 @@ def predict_cqt(cqt_array, dnet, train_params):
     gen = context_slicer(X=cqt_array,
                          left=train_params.get("left"),
                          right=train_params.get("right"),
+                         batch_size=batch_size,
                          newshape=dnet.input_shape)
-    posterior = list()
+    posterior = None
     inputs = dnet.empty_inputs()
-    for batch in gen:
+    for i, batch in enumerate(gen):
         inputs[dnet.input_name] = batch
-        posterior.append(dnet(inputs))
-    return np.concatenate(posterior, axis=0)
+        batch_posterior = dnet(inputs)
+        if posterior is None:
+            posterior = np.zeros([len(cqt_array), batch_posterior.shape[1]])
+        idx0, idx1 = i * batch_size, i * batch_size + len(batch_posterior)
+        posterior[idx0:idx1] = batch_posterior
+    return posterior
 
 
 def main(args):
     dnet = load(args.def_file, args.param_file)
     model_name = os.path.split(os.path.splitext(args.def_file)[0])[-1]
     train_params = json.load(open(args.train_params))
-    for cqt_file in open(args.file_list):
-        posterior = predict_cqt(cqt_file, dnet, train_params)
-        output_file = "%s-%s_pred.npy" % (cqt_file.strip("-cqt.npy"),
-                                          model_name)
+    for cqt_file in open(args.filelist):
+        cqt_file = cqt_file.strip("\n")
+        posterior = predict_cqt(np.load(cqt_file), dnet, train_params)
+        output_file = "%s-%s-posterior.npy" % (cqt_file.strip("-cqt.npy"),
+                                               model_name)
         np.save(output_file, posterior)
+        print "[%s] Finished: %s" % (time.asctime(), output_file)
 
 
 if __name__ == '__main__':
@@ -147,8 +121,8 @@ if __name__ == '__main__':
                         metavar="train_params", type=str,
                         help="JSON file of training parameters.")
 
-    parser.add_argument("output_directory",
-                        metavar="output_directory", type=str,
-                        help="Directory to save output posteriors.")
+#    parser.add_argument("output_directory",
+#                        metavar="output_directory", type=str,
+#                        help="Directory to save output posteriors.")
 
     main(parser.parse_args())
