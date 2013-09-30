@@ -10,15 +10,17 @@ majmin_chord_classifier_000 \
 """
 
 import argparse
-
+import numpy as np
 from marl.hewey import file
 from marl.hewey import sources
+from marl.hewey.core import Batch
 
 from ejhumphrey.dnn.core.framework import Trainer
 from ejhumphrey.dnn.core.layers import Conv3DArgs
 from ejhumphrey.dnn.core.layers import AffineArgs
 from ejhumphrey.dnn.core.layers import SoftmaxArgs
 from ejhumphrey.dnn.core.layers import Layer
+from ejhumphrey.datasets.chordutils import circshift_data
 import json
 
 base_hyperparams = {'classifier/dropout': 0.0,
@@ -102,21 +104,37 @@ def load_label_map(filepath):
     """
     return dict([(k, int(v)) for k, v in json.load(open(filepath)).iteritems()])
 
+def chord_shift(batch):
+    new_batch = Batch()
+    for x, y in zip(batch.values, batch.labels):
+        shp = x.shape
+        x = x.squeeze()
+        shift = np.random.randint(low= -8, high=9)
+        xs, ys = circshift_data(x, y, shift, 24)
+        new_batch.add_value(np.reshape(xs, newshape=shp))
+        new_batch.add_label(ys)
+
+    return new_batch
+
 
 def main(args):
     layers = build_layers()
-
-    trainer = Trainer(name=args.name,
+    name = args.name
+    if args.circshift:
+        name = "%s-circ" % name
+    trainer = Trainer(name=name,
                       save_directory=args.save_directory)
 
     trainer.build_network(layers)
     trainer.configure_losses(loss_pairs)
     trainer.configure_updates(parameter_updates)
-    print layers
     train_params = base_train_params.copy()
     dset = training_source(args.training_data, train_params)
     dset.set_value_shape((1, N_DIM, P_DIM))
     dset.set_label_map(load_label_map(args.label_map))
+    if args.circshift:
+        print "Circularly shifting ..."
+        dset.set_transformer(chord_shift)
 
     sources = {'train':dset}
     hyperparams = set_all_learning_rates(base_hyperparams, 0.02)
@@ -142,6 +160,11 @@ if __name__ == '__main__':
     parser.add_argument("label_map",
                         metavar="label_map", type=str,
                         help="JSON file mapping chords to integers.")
+
+    parser.add_argument("circshift",
+                        metavar="circshift", type=int,
+                        default=0,
+                        help="Apply circular shifting during training.")
 
     main(parser.parse_args())
 
