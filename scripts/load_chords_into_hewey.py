@@ -1,23 +1,22 @@
-'''
-Created on Sep 25, 2013
+"""Import a collection of CQT arrays into a Hewey DataSequenceFile.
 
-@author: ejhumphrey
-'''
+Sample Call:
+$ ipython ejhumphrey/scripts/predict_chords.py \
+/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926.txt \
+/Volumes/Audio/Chord_Recognition/cqt_params.txt \
+/Volumes/speedy/chordrec.dsf
+"""
 
-import numpy as np
+import argparse
+import json
+import os
+import time
 
 from ejhumphrey.datasets import chordutils
 from marl.hewey.core import DataSequence
 from marl.hewey.file import DataSequenceFile
 from marl.hewey.keyutils import uniform_keygen
 
-import json
-import os
-import time
-
-cqt_param_file = "/Volumes/Audio/Chord_Recognition/cqt_params.txt"
-track_filelist = "/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926.txt"
-hewey_file = '/Volumes/speedy/chordrec.dsf'
 
 def collect_track_tuples(filelist):
     """Compile a list of (audio_file, cqt_file, label_file) tuples.
@@ -44,14 +43,6 @@ def collect_track_tuples(filelist):
 
     return results
 
-def align_cqt_and_labels(cqt_file, lab_file, cqt_params):
-    cqt = np.load(cqt_file)
-    boundaries, labels = chordutils.load_labfile(lab_file)
-    time_points = np.arange(len(cqt), dtype=float) / cqt_params.get("framerate")
-    timed_labels = chordutils.assign_labels_to_time_points(time_points,
-                                                           boundaries,
-                                                           labels)
-    return cqt, timed_labels
 
 def create_datasequence_file(tracklist, filename, cqt_params):
     file_handle = DataSequenceFile(filename)
@@ -59,7 +50,9 @@ def create_datasequence_file(tracklist, filename, cqt_params):
     for i, tuples in enumerate(collect_track_tuples(tracklist)):
         audio_file, cqt_file, label_file = tuples
         print "%03d: Importing %s" % (i, audio_file)
-        X, y = align_cqt_and_labels(cqt_file, label_file, cqt_params)
+        X, y = chordutils.align_array_and_labels(cqt_file,
+                                                 label_file,
+                                                 cqt_params.get("framerate"))
         metadata = {"timestamp": time.asctime(),
                     "filesource": audio_file}
         dseq = DataSequence(value=X, label=y, metadata=metadata)
@@ -69,10 +62,25 @@ def create_datasequence_file(tracklist, filename, cqt_params):
     file_handle.create_tables()
 
 
-def main():
-    cqt_params = json.load(open(cqt_param_file))
-    create_datasequence_file(track_filelist, hewey_file, cqt_params)
+def main(args):
+    cqt_params = json.load(open(args.cqt_param_file))
+    create_datasequence_file(args.track_filelist, args.hewey_file, cqt_params)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        description="Push CQT files through a trained deepnet.")
+
+    parser.add_argument("track_filelist",
+                        metavar="track_filelist", type=str,
+                        help="File list of CQT arrays to import.")
+
+    parser.add_argument("cqt_param_file",
+                        metavar="cqt_param_file", type=str,
+                        help="Parameters used to compute the CQT.")
+
+    parser.add_argument("output_file",
+                        metavar="output_file", type=str,
+                        help="Filepath to write the output Hewey filesystem.")
+
+    main(parser.parse_args())
