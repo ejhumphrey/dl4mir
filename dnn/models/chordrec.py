@@ -4,40 +4,44 @@
 Sample Call:
 bash$ ipython ejhumphrey/dnn/models/chordrec.py \
 majmin_chord_classifier_000 \
-/home/ejhumphrey/chords/models \
-/home/ejhumphrey/chords/chordrec.dsf \
-/home/ejhumphrey/chords/MIREX09_chord_map.txt
+/media/attic/chords/models \
+/home/ejhumphrey/chords/chordrec_20130930_train0.dsf \
+/home/ejhumphrey/chords/MIREX09_chord_map.txt \
+1
 """
 
 import argparse
+import json
 import numpy as np
+
 from marl.hewey import file
 from marl.hewey import sources
 from marl.hewey.core import Batch
 
+from ejhumphrey.datasets import chordutils
 from ejhumphrey.dnn.core.framework import Trainer
 from ejhumphrey.dnn.core.layers import Conv3DArgs
 from ejhumphrey.dnn.core.layers import AffineArgs
 from ejhumphrey.dnn.core.layers import SoftmaxArgs
 from ejhumphrey.dnn.core.layers import Layer
-from ejhumphrey.datasets.chordutils import circshift_data
-import json
 
-base_hyperparams = {'classifier/dropout': 0.0,
-                    'affine2/dropout': 0.0,
-                    'convlayer1/dropout': 0.0,
-                    'convlayer0/dropout': 0.0,
-                    'classifier/bias/learning_rate': 0.0,
-                    'classifier/weights/learning_rate': 0.0,
-                    'affine2/bias/learning_rate': 0.0,
-                    'affine2/weights/learning_rate': 0.0,
-                    'convlayer1/bias/learning_rate': 0.0,
-                    'convlayer1/weights/learning_rate': 0.0,
-                    'convlayer0/bias/learning_rate': 0.0,
-                    'convlayer0/weights/learning_rate': 0.0, }
+
+learning_rate = 0.02
+hyperparams = {'classifier/dropout': 0.0,
+                'affine2/dropout': 0.0,
+                'convlayer1/dropout': 0.0,
+                'convlayer0/dropout': 0.0,
+                'classifier/bias/learning_rate': learning_rate,
+                'classifier/weights/learning_rate': learning_rate,
+                'affine2/bias/learning_rate': learning_rate,
+                'affine2/weights/learning_rate': learning_rate,
+                'convlayer1/bias/learning_rate': learning_rate,
+                'convlayer1/weights/learning_rate': learning_rate,
+                'convlayer0/bias/learning_rate': learning_rate,
+                'convlayer0/weights/learning_rate': learning_rate, }
 
 base_train_params = {"max_iterations":50000,
-                     "checkpoint_freq":50,
+                     "checkpoint_freq":100,
                      "batch_size":50,
                      "left":40,
                      "right":39, }
@@ -98,19 +102,13 @@ def training_source(filepath, train_params):
                                    cache_size=250)
 
 
-def load_label_map(filepath):
-    """JSON refuses to store integer zeros, so they are written as strings and
-    interpreted as integers on load.
-    """
-    return dict([(k, int(v)) for k, v in json.load(open(filepath)).iteritems()])
-
-def chord_shift(batch):
+def rotate_chord_batch(batch):
     new_batch = Batch()
     for x, y in zip(batch.values, batch.labels):
         shp = x.shape
         x = x.squeeze()
         shift = np.random.randint(low= -8, high=9)
-        xs, ys = circshift_data(x, y, shift, 24)
+        xs, ys = chordutils.circshift_chord(x, y, shift, 24, 24)
         new_batch.add_value(np.reshape(xs, newshape=shp))
         new_batch.add_label(ys)
 
@@ -131,13 +129,12 @@ def main(args):
     train_params = base_train_params.copy()
     dset = training_source(args.training_data, train_params)
     dset.set_value_shape((1, N_DIM, P_DIM))
-    dset.set_label_map(load_label_map(args.label_map))
+    dset.set_label_map(chordutils.load_label_map(args.label_map))
     if args.circshift:
         print "Circularly shifting ..."
-        dset.set_transformer(chord_shift)
+        dset.set_transformer(rotate_chord_batch)
 
     sources = {'train':dset}
-    hyperparams = set_all_learning_rates(base_hyperparams, 0.02)
     trainer.run(sources, train_params, hyperparams)
 
 
