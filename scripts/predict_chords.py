@@ -11,7 +11,8 @@ MODELDIR=/media/attic/chords/models/majmin_chord_classifier_000-circ
 ipython ejhumphrey/scripts/predict_chords.py \
 /media/attic/chords/cqt_list.txt \
 $MODELDIR/majmin_chord_classifier_000-circ_0050000-20131001_063439m662.params \
-/media/attic/chords/posteriors
+/media/attic/chords/posteriors \
+--force
 """
 
 import argparse
@@ -57,7 +58,8 @@ def context_slicer(X, left, right, batch_size=100, newshape=None):
         if len(batch) == batch_size:
             yield np.array(batch)
             batch = list()
-    yield np.array(batch)
+    if len(batch):
+        yield np.array(batch)
 
 def predict_cqt(cqt_array, dnet, train_params, batch_size=100):
     """
@@ -106,8 +108,7 @@ def main(args):
     param_base = os.path.split(os.path.splitext(args.param_file)[0])[-1]
     train_params = json.load(open(train_params[0]))
     output_dir = os.path.join(args.output_directory,
-                              param_base,
-                              time.strftime("%Y%m%d_%H%M%S"))
+                              param_base)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -115,8 +116,12 @@ def main(args):
     print "[%s] Output Directory: %s" % (time.asctime(), output_dir)
     for cqt_file in open(args.filelist):
         cqt_file = cqt_file.strip("\n")
-        posterior = predict_cqt(np.load(cqt_file), dnet, train_params)
         output_file = os.path.join(output_dir, os.path.split(cqt_file)[-1])
+        if os.path.exists(output_file) and not args.overwrite:
+            print "[%s] Skipping: %s" % (time.asctime(),
+                                         os.path.split(output_file)[-1])
+            continue
+        posterior = predict_cqt(np.load(cqt_file), dnet, train_params)
         np.save(output_file, posterior)
         print "[%s] Finished: %s" % (time.asctime(),
                                      os.path.split(output_file)[-1])
@@ -137,5 +142,10 @@ if __name__ == '__main__':
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Directory to save output posteriors.")
+
+    parser.add_argument("--overwrite",
+                        action='store_true',
+                        default=False, dest='overwrite',
+                        help="Overwrite if output file exists.")
 
     main(parser.parse_args())
