@@ -18,6 +18,7 @@ def Layer(layer_args):
     """Layer factory; uses 'type' in the layer_args dictionary."""
     return eval("%s(layer_args)" % layer_args.get("type"))
 
+
 # --- Layer Argument Classes --- 
 class BaseLayerArgs(dict):
     """
@@ -330,7 +331,7 @@ class BaseLayer(dict):
         """
         Used as a probability.
         """
-        return self._scalars.get("dropout")
+        return self._scalars.get("dropout", None)
 
 
 class Affine(BaseLayer):
@@ -360,14 +361,14 @@ class Affine(BaseLayer):
         """
         W = self._theta["weights"]
         b = self._theta['bias'].dimshuffle('x', 0)
-        # TODO(ejhumphrey): This sucks.
+        # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
-#        selector = self.theano_rng.binomial(size=self.input_shape,
-#                                            p=1.0 - self.dropout_prob,
-#                                            dtype=FLOATX)
-#        W = W * selector.dimshuffle(0, 'x') * self.dropout_scalar
-        return self.activation(T.dot(x_in, W) + b)
+        z_out = self.activation(T.dot(x_in, W) + b)
 
+        selector = self.theano_rng.binomial(size=self.output_shape,
+                                            p=1.0 - self.dropout,
+                                            dtype=FLOATX)
+        return z_out * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
 
 
 class Conv3D(BaseLayer):
@@ -439,13 +440,14 @@ class Softmax(BaseLayer):
 
         self.param_values = {self.own('weights'):weights,
                              self.own('bias'):bias, }
+        self._scalars.clear()
 
     def transform(self, x_in):
         """
         will fix input tensors to be matrices as the following:
         (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
         """
-        # TODO(ejhumphrey): This sucks.
+        # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = x_in.flatten(2)
         W = self._theta["weights"]
         b = self._theta["bias"]
