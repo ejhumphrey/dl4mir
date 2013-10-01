@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 """Consumes a filelist of cqt-arrays, producing posteriorgrams.
 
-Sample Call:
-MODELDIR=/home/ejhumphrey/chords/models/majmin_chord_classifier_000
-ipython ejhumphrey/scripts/predict_chords.py \
-/home/ejhumphrey/chords/cqt_list.txt \
-$MODELDIR/majmin_chord_classifier_000.definition \
-$MODELDIR/majmin_chord_classifier_000_final-20130928.params \
-$MODELDIR/majmin_chord_classifier_000-train_params.txt \
-"""
+Importantly, a two additional files are assumed to exist in the same directory
+as the provided parameters:
+    1. A "*.definition" file.
+    2. A "*-train_params.txt" file.
 
+Sample Call:
+MODELDIR=/media/attic/chords/models/majmin_chord_classifier_000-circ
+ipython ejhumphrey/scripts/predict_chords.py \
+/media/attic/chords/cqt_list.txt \
+$MODELDIR/majmin_chord_classifier_000-circ_0050000-20131001_063439m662.params \
+/media/attic/chords/posteriors
+"""
 
 import argparse
 import numpy as np
@@ -20,6 +23,7 @@ from ejhumphrey.dnn.core.graphs import load
 import json
 import os
 import time
+import glob
 
 def context_slicer(X, left, right, batch_size=100, newshape=None):
     """Generator to step through a CQT array as batches of datapoints.
@@ -89,16 +93,33 @@ def predict_cqt(cqt_array, dnet, train_params, batch_size=100):
 
 
 def main(args):
-    dnet = load(args.def_file, args.param_file)
-    model_name = os.path.split(os.path.splitext(args.def_file)[0])[-1]
-    train_params = json.load(open(args.train_params))
+    def_files = glob.glob(os.path.join(os.path.split(args.param_file)[0],
+                                       "*.definition"))
+    assert len(def_files) == 1, \
+        "More than one definition file found? %s" % def_files
+    train_params = glob.glob(os.path.join(os.path.split(args.param_file)[0],
+                                         "*-train_params.txt"))
+    assert len(train_params) == 1, \
+        "More than one definition file found? %s" % train_params
+
+    dnet = load(def_files[0], args.param_file)
+    param_base = os.path.split(os.path.splitext(args.param_file)[0])[-1]
+    train_params = json.load(open(train_params[0]))
+    output_dir = os.path.join(args.output_directory,
+                              param_base,
+                              time.strftime("%Y%m%d_%H%M%S"))
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    print "[%s] Output Directory: %s" % (time.asctime(), output_dir)
     for cqt_file in open(args.filelist):
         cqt_file = cqt_file.strip("\n")
         posterior = predict_cqt(np.load(cqt_file), dnet, train_params)
-        output_file = "%s-%s-posterior.npy" % (cqt_file.strip("-cqt.npy"),
-                                               model_name)
+        output_file = os.path.join(output_dir, os.path.split(cqt_file)[-1])
         np.save(output_file, posterior)
-        print "[%s] Finished: %s" % (time.asctime(), output_file)
+        print "[%s] Finished: %s" % (time.asctime(),
+                                     os.path.split(output_file)[-1])
 
 
 if __name__ == '__main__':
@@ -109,20 +130,12 @@ if __name__ == '__main__':
                         metavar="filelist", type=str,
                         help="Text file of filepaths to predict.")
 
-    parser.add_argument("def_file",
-                        metavar="def_file", type=str,
-                        help="JSON definition file of the network.")
-
     parser.add_argument("param_file",
                         metavar="param_file", type=str,
                         help="Pickled dictionary of parameters.")
 
-    parser.add_argument("train_params",
-                        metavar="train_params", type=str,
-                        help="JSON file of training parameters.")
-
-#    parser.add_argument("output_directory",
-#                        metavar="output_directory", type=str,
-#                        help="Directory to save output posteriors.")
+    parser.add_argument("output_directory",
+                        metavar="output_directory", type=str,
+                        help="Directory to save output posteriors.")
 
     main(parser.parse_args())
