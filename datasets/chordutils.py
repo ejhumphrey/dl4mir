@@ -4,6 +4,7 @@
 import numpy as np
 from collections import OrderedDict
 from marl.hewey.core import DataPoint
+import json
 
 NO_CHORD = "N"
 
@@ -84,11 +85,12 @@ def collect_unique_labels(lab_files):
     return unique_labels
 
 
-def count_chords(lab_files):
+def count_chords(lab_files, label_map):
     all_chords = dict()
     for lab_file in lab_files:
         boundaries, labels = load_labfile(lab_file)
         for n, chord_label in enumerate(labels):
+            chord_label = label_map.get(chord_label, chord_label)
             if not chord_label in all_chords:
                 all_chords[chord_label] = 0.0
             all_chords[chord_label] += (boundaries[n + 1] - boundaries[n])
@@ -97,17 +99,21 @@ def count_chords(lab_files):
     sorted_index = np.array(values).argsort()[::-1]
     return OrderedDict([(keys[i], values[i]) for i in sorted_index])
 
-def circshift_data(x, y, n, bins_per_octave):
+def circshift_chord(x, y, n, bins_per_octave, no_chord_index):
     """
     x : np.ndarray
     y : int
     n : int
         Pitch shift, not bins.
     bins_per_octave : int
+    no_chord_index : int
     """
     r = n * bins_per_octave / 12
     x = circshift(x, 0, r)
-    ys = ((y + n) % 12) + (int(y) / 12) * 12
+    if y == no_chord_index:
+        ys = y
+    else:
+        ys = ((y + n) % 12) + (int(y) / 12) * 12
     return x, ys
 
 def circshift(x, dim0=0, dim1=0):
@@ -160,11 +166,100 @@ def circshift(x, dim0=0, dim1=0):
     return z
 
 
-def align_array_and_labels(cqt_file, lab_file, framerate):
-    cqt = np.load(cqt_file)
+def align_lab_file_to_array(array, lab_file, framerate):
     boundaries, labels = load_labfile(lab_file)
-    time_points = np.arange(len(cqt), dtype=float) / framerate
+    time_points = np.arange(len(array), dtype=float) / framerate
     timed_labels = assign_labels_to_time_points(time_points,
-                                                           boundaries,
-                                                           labels)
-    return cqt, timed_labels
+                                                boundaries,
+                                                labels)
+    return timed_labels
+
+def load_label_map(filepath):
+    """JSON refuses to store integer zeros, so they are written as strings and
+    interpreted as integers on load.
+    """
+    return OrderedDict([(k, int(v)) for k, v in json.load(open(filepath)).iteritems()])
+
+# cid is 32 bit integer 1-4 bits for root, 5-8 bits for bass, 9-20 bits for
+# quality, 21-32 bits for extensions(tension)
+def chord_int_to_id(chord_int):
+    """
+    Parameters
+    ----------
+    chord_int : uint32
+
+    Returns
+    -------
+    chord_id : str
+    """
+    BIT_DEPTH = 32
+    chord_id = bin(chord_int)[2:]
+    num_bits = len(chord_id)
+    if num_bits != BIT_DEPTH:
+        # Need to fill in leading zeros
+        chord_id = "0"*(BIT_DEPTH - num_bits) + chord_id
+    return chord_id
+
+qualities = ['maj', 'min', 'maj7', 'min7', '7', 'maj6', 'min6',
+             'dim', 'aug', 'sus4', 'sus2', 'hdim7', 'dim7']
+
+quality_map = {'maj':  '100010010000',
+               'min':  '100100010000',
+               'maj7': '100010010001',
+               'min7': '100100010010',
+               '7':    '100010010010',
+               'maj6': '100010010100',
+               'min6': '100100010100',
+               'dim':  '100100100000',
+               'aug':  '100010001000',
+               'sus4': '100001010000',
+               'sus2': '101000010000',
+               'hdim7':'100100100010',
+               'dim7': '100100100100', }
+
+def chord_id_to_index(chord_id, valid_qualities):
+    """
+    Parameters
+    ----------
+    chord_id : str
+        32-bit vector representation of a chord.
+    valid_qualities : list
+        Qualities to label; if not found, the chord is labeled as -1.
+
+    Returns
+    chord_index : int
+        Position in a dense vector for the chord.
+    """
+    qual_list = [quality_map.get(q) for q in valid_qualities]
+    root = int(chord_id[:4], 2)
+    qual = chord_id[8:20]
+    if qual in qual_list:
+        return root + 12 * qual_list.index(qual)
+    elif int(chord_id) == 0:
+        return len(qual_list) * 12
+    else:
+        return -1
+
+def bigram_histogram(lab_files, label_map):
+    """Compute the histogram of chord transitions from a set of label files.
+
+    Parameters
+    ----------
+    lab_files : list
+        List of lab files.
+    label_map : dict
+        Mapping from chord names to integers.
+
+    Returns
+    histogram : np.ndarray
+    """
+    num_files = len(lab_files)
+    num_classes = len(set(label_map.values()))
+
+    hist = np.zeros([num_classes, num_classes, num_files], dtype=np.int32)
+    for n, lab_file in enumerate(lab_files):
+        chord_indexes = [label_map.get(y) for y in load_labfile(lab_file)[1]]
+        for i in range(len(chord_indexes) - 1):
+            hist[chord_indexes[i], chord_indexes[i + 1], n] += 1.0
+
+    return hist
