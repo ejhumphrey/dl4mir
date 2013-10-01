@@ -1,15 +1,14 @@
 """
 """
 
+import os
+import time
 
 from ejhumphrey.dnn.core.layers import Layer
 from ejhumphrey.dnn.core.graphs import Network
 from ejhumphrey.dnn.core.modules import Loss
 from ejhumphrey.dnn.core.updates import SGD
 
-import json
-import os
-import time
 
 def select_update(base, newdict):
     """Update a dictionary with only the intersection of the two key sets."""
@@ -17,24 +16,6 @@ def select_update(base, newdict):
         if k in base:
             base[k] = v
 
-def json_save(obj, filename):
-    """Serialize data to disk.
-
-    Parameters
-    ----------
-    obj : iterable
-        Data structure to serialize.
-    filename : string
-        Path to write data.
-    """
-    base_directory = os.path.split(filename)[0]
-    if not os.path.exists(base_directory):
-        os.makedirs(base_directory)
-
-    # Save json-encoded architecture.
-    file_handle = open(filename, "w")
-    json.dump(obj, file_handle, indent=2)
-    file_handle.close()
 
 class Trainer(object):
 
@@ -63,7 +44,7 @@ class Trainer(object):
         """
         self.network = Network([Layer(args) for args in layer_args])
         self.network.compile(self.input_name, self.output_name)
-        self.network.save_definition(self.save_filebase, False)
+#        self.network.save_definition(self.save_filebase, False)
 
     def configure_losses(self, loss_args):
         """
@@ -78,7 +59,7 @@ class Trainer(object):
         for iname, ltype in loss_args:
             self.loss.register(self.network, iname, ltype)
         self.loss.compile()
-        json_save(loss_args, "%s-loss_args.txt" % self.save_filebase)
+#        json_save(loss_args, "%s-loss_args.txt" % self.save_filebase)
 
     def configure_updates(self, update_args=None):
         """
@@ -94,7 +75,7 @@ class Trainer(object):
         params = dict([(k, self.network.params.get(k)) for k in update_args])
         self.update.compute_updates(self.loss, params)
         self.update.compile()
-        json_save(update_args, "%s-update_args.txt" % self.save_filebase)
+#        json_save(update_args, "%s-update_args.txt" % self.save_filebase)
 
 
     def run(self, sources, train_params, hyperparams):
@@ -109,8 +90,8 @@ class Trainer(object):
 
         loss_inputs = self.loss.empty_inputs()
         select_update(loss_inputs, hyperparams)
-        json_save(hyperparams, "%s-hyperparams.txt" % self.save_filebase)
-        json_save(train_params, "%s-train_params.txt" % self.save_filebase)
+#        utils.json_save(hyperparams, "%s-hyperparams.txt" % self.save_filebase)
+#        utils.json_save(train_params, "%s-train_params.txt" % self.save_filebase)
         while not Done:
             try:
                 batch = sources['train'].next_batch(train_params.get("batch_size"))

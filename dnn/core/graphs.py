@@ -7,23 +7,17 @@ Created on Nov 6, 2012
 import cPickle
 import json
 import os
-import time
 
 import theano
 import theano.tensor as T
 
-from . import FLOATX
-from .layers import Layer
+from ejhumphrey.dnn.core import FLOATX
+from ejhumphrey.dnn.core.layers import Layer
+from ejhumphrey.dnn import utils
 
-TIME_FMT = "%Y%m%d_%H%M%S"
+
 DEF_EXT = "definition"
 PARAMS_EXT = "params"
-
-def timestamp():
-    """Returns a string representation of the time, like:
-    YYYYMMDD_HHMMSSmMMM
-    """
-    return time.strftime(TIME_FMT) + "m%03d" % int((time.time() % 1) * 1000)
 
 def save_params(net, filebase, add_time=True):
     """Serialize a network to disk.
@@ -33,10 +27,7 @@ def save_params(net, filebase, add_time=True):
     net : Network
         Instantiated network to serialize.
     filebase : string
-        Path to write the appropriate information. Two time-stamped files are
-        created:
-        1. A human-readable json dump of the network architecture.
-        2. A pickled dictionary of the networks numerical parameters.
+        Path to save a parameter dictionary, with optional timestamp.
     """
     model_directory = os.path.split(filebase)[0]
     if not os.path.exists(model_directory):
@@ -44,7 +35,7 @@ def save_params(net, filebase, add_time=True):
 
     nowstamp = ""
     if add_time:
-        nowstamp += "-" + timestamp()
+        nowstamp += "-" + utils.timestamp()
     # Save pickled parameters.
     model_params_file = "%s%s.%s" % (filebase, nowstamp, PARAMS_EXT)
     model_params = open(model_params_file, "w")
@@ -59,10 +50,7 @@ def save_definition(net, filebase, add_time=True):
     net : Network
         Instantiated network to serialize.
     filebase : string
-        Path to write the appropriate information. Two time-stamped files are
-        created:
-        1. A human-readable json dump of the network architecture.
-        2. A pickled dictionary of the networks numerical parameters.
+        Path to save the model definition, with optional timestamp.
     """
     model_directory = os.path.split(filebase)[0]
     if not os.path.exists(model_directory):
@@ -70,41 +58,26 @@ def save_definition(net, filebase, add_time=True):
 
     nowstamp = ""
     if add_time:
-        nowstamp += "-" + timestamp()
+        nowstamp += "-" + utils.timestamp()
     # Save json-encoded architecture.
     model_def_file = "%s%s.%s" % (filebase, nowstamp, DEF_EXT)
     model_def = open(model_def_file, "w")
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
 
-def load(definition_file, param_file):
+def load_layers(definition_file):
     """Load a network from disk.
 
     Parameters
     ----------
-    filebase : string
-        Path to a file that matches a definition and parameter file.
+    definition_file : string
+        Path to a file that matches a JSON-ed model definition.
+    param_file : string
+        Path to a pickled dictionary of parameters.
     """
 
-    layer_args = convert(json.load(open(definition_file)))
-    net = Network([Layer(args) for args in layer_args])
-    net.param_values = cPickle.load(open(param_file))
-    net.compile()
-    return net
-
-def convert(obj):
-    """Convert unicode to strings.
-
-    Known issue: Uses dictionary comprehension, and is incompatible with 2.6.
-    """
-    if isinstance(obj, dict):
-        return {convert(key): convert(value) for key, value in obj.iteritems()}
-    elif isinstance(obj, list):
-        return [convert(element) for element in obj]
-    elif isinstance(obj, unicode):
-        return obj.encode('utf-8')
-    else:
-        return obj
+    layer_args = utils.convert(json.load(open(definition_file)))
+    return Network([Layer(args) for args in layer_args])
 
 
 class Network(object):
@@ -119,11 +92,27 @@ class Network(object):
         """
         self.name = name
         self.layers = layers
-        self.input_name = "x_input"
-        self.output_name = "z_output"
+        self.input_name = "input"
+        self.output_name = "output"
         self._inputs = []
         self._outputs = {}
         self._fx = None
+
+    @classmethod
+    def load(self, definition_file, param_file=None):
+        """Load a network from disk.
+
+        Parameters
+        ----------
+        definition_file : string
+            Path to a file that matches a JSON-ed model definition.
+        param_file : string
+            Path to a pickled dictionary of parameters.
+        """
+        net = load_layers(definition_file)
+        if param_file:
+            net.param_values = cPickle.load(param_file)
+        return net
 
     @property
     def name(self):
