@@ -12,19 +12,19 @@ ipython ejhumphrey/scripts/predict_chords.py \
 /media/attic/chords/cqt_list.txt \
 $MODELDIR/majmin_chord_classifier_000-circ_0050000-20131001_063439m662.params \
 /media/attic/chords/posteriors \
---force
 """
 
 import argparse
+import glob
 import numpy as np
-
-from marl.hewey.core import context_slice
-from ejhumphrey.dnn.core.graphs import load
-
-import json
 import os
 import time
-import glob
+
+from marl.hewey.core import context_slice
+
+from ejhumphrey.dnn.core.graphs import Network
+from ejhumphrey.dnn import utils
+
 
 def context_slicer(X, left, right, batch_size=100, newshape=None):
     """Generator to step through a CQT array as batches of datapoints.
@@ -100,15 +100,14 @@ def main(args):
     assert len(def_files) == 1, \
         "More than one definition file found? %s" % def_files
     train_params = glob.glob(os.path.join(os.path.split(args.param_file)[0],
-                                         "*-train_params.txt"))
+                                         "*.config"))
     assert len(train_params) == 1, \
         "More than one definition file found? %s" % train_params
 
-    dnet = load(def_files[0], args.param_file)
+    dnet = Network.load(def_files[0], args.param_file)
     param_base = os.path.split(os.path.splitext(args.param_file)[0])[-1]
-    train_params = json.load(open(train_params[0]))
-    output_dir = os.path.join(args.output_directory,
-                              param_base)
+    train_params = utils.json_load(train_params[0]).get("train_params")
+    output_dir = os.path.join(args.output_directory, param_base)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
