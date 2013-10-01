@@ -1,14 +1,15 @@
 """Import a collection of CQT arrays into a Hewey DataSequenceFile.
 
 Sample Call:
-$ ipython ejhumphrey/scripts/predict_chords.py \
-/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926.txt \
+$ ipython ejhumphrey/scripts/load_chords_into_hewey.py \
+/Volumes/Audio/Chord_Recognition/labeled_tracks_20130926_train0.txt \
 /Volumes/Audio/Chord_Recognition/cqt_params.txt \
-/Volumes/speedy/chordrec.dsf
+/Volumes/speedy/chordrec_20130930_train0.dsf
 """
 
 import argparse
 import json
+import numpy as np
 import os
 import time
 
@@ -45,17 +46,27 @@ def collect_track_tuples(filelist):
 
 
 def create_datasequence_file(tracklist, filename, cqt_params):
+    """
+    Parameters
+    ----------
+    tracklist : string
+        Path to a text file of absolute file paths.
+    filename : string
+        Output name for the DataSequenceFile
+    cqt_params : dict
+        Parameters used to compute the CQT.
+    """
     file_handle = DataSequenceFile(filename)
     keygen = uniform_keygen(2)
     for i, tuples in enumerate(collect_track_tuples(tracklist)):
         audio_file, cqt_file, label_file = tuples
         print "%03d: Importing %s" % (i, audio_file)
-        X, y = chordutils.align_array_and_labels(cqt_file,
-                                                 label_file,
-                                                 cqt_params.get("framerate"))
+        cqt_array = np.load(cqt_file)
+        labels = chordutils.align_lab_file_to_array(
+            cqt_array, label_file, cqt_params.get("framerate"))
         metadata = {"timestamp": time.asctime(),
                     "filesource": audio_file}
-        dseq = DataSequence(value=X, label=y, metadata=metadata)
+        dseq = DataSequence(value=cqt_array, label=labels, metadata=metadata)
         key = keygen.next()
         file_handle.write(key, dseq)
 
@@ -64,7 +75,7 @@ def create_datasequence_file(tracklist, filename, cqt_params):
 
 def main(args):
     cqt_params = json.load(open(args.cqt_param_file))
-    create_datasequence_file(args.track_filelist, args.hewey_file, cqt_params)
+    create_datasequence_file(args.track_filelist, args.output_file, cqt_params)
 
 
 if __name__ == '__main__':
