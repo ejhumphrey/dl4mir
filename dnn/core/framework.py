@@ -18,17 +18,14 @@ def select_update(base, newdict):
             base[k] = v
 
 def json_save(obj, filename):
-    """Serialize a network to disk.
+    """Serialize data to disk.
 
     Parameters
     ----------
-    net : Network
-        Instantiated network to serialize.
-    filebase : string
-        Path to write the appropriate information. Two time-stamped files are
-        created:
-        1. A human-readable json dump of the network architecture.
-        2. A pickled dictionary of the networks numerical parameters.
+    obj : iterable
+        Data structure to serialize.
+    filename : string
+        Path to write data.
     """
     base_directory = os.path.split(filename)[0]
     if not os.path.exists(base_directory):
@@ -53,8 +50,9 @@ class Trainer(object):
         if not os.path.exists(self.save_directory):
             os.makedirs(self.save_directory)
         self.save_filebase = os.path.join(self.save_directory, self.name)
-        self.stats_handle = open("%s-stats.txt" % self.save_filebase, 'w')
-
+        self.stats_file = "%s-stats.txt" % self.save_filebase
+        stats_handle = open(self.stats_file, 'w')
+        stats_handle.close()
 
     def build_network(self, layer_args):
         """
@@ -137,9 +135,9 @@ class Trainer(object):
                                  True)
         stat_line = "[%s]\t iter: %07d \ttrain loss: %0.4f" % \
             (time.asctime(), self.update.iteration, train_loss)
-        self.stats_handle.write(stat_line + "\n")
+        stats_handle = open(self.stats_file, 'a')
+        stats_handle.write(stat_line + "\n")
+        stats_handle.close()
         print stat_line
 
-    def __del__(self):
-        self.stats_handle.close()
 
