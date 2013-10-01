@@ -55,8 +55,8 @@ def main(args):
                       save_directory=args.save_directory)
 
     # Copy over input files:
-    shutil.copy(args.definition, args.save_directory)
-    shutil.copy(args.config, args.save_directory)
+    shutil.copy(args.definition, trainer.save_directory)
+    shutil.copy(args.config, trainer.save_directory)
 
     trainer.build_network(utils.json_load(args.definition))
     config = utils.json_load(args.config)
