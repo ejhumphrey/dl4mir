@@ -2,12 +2,12 @@
 """Compute a variety of evaluation metrics over a collection of posteriors.
 
 Sample Call:
-BASEDIR=/Volumes/Audio/Chord_Recognition
+BASEDIR=/media/attic/chords
 ipython ejhumphrey/scripts/score_chord_posteriors.py \
-$BASEDIR/chord_posterior_list.txt \
+$BASEDIR/chord_posterior_test0.txt \
 $BASEDIR/MIREX09_chord_map.txt \
-$BASEDIR/cqt_params.txt \
-$BASEDIR/test-stats.txt
+$BASEDIR/cqts/cqt_params_20130926.txt \
+$BASEDIR/chord_posterior_test0-stats.txt
 """
 
 
@@ -28,12 +28,28 @@ def load_prediction(posterior_file, lab_file, cqt_params, label_map):
     return y_true, y_pred
 
 def print_confusion_matrix(matrix, top_k_confusions=5):
+    """Print the top-k confusions per class.
+
+    Parameters
+    ----------
+    matrix : np.ndarray
+        Confusion matrix.
+    top_k_confusions : int
+        Number of confusions to print.
+
+    Returns
+    -------
+    results : str
+        Formatted string results.
+    """
     header = "Confusions"
     msg = "\n%s\n%s\n%s\n" % ("-" * len(header),
                               header,
                               "-" * len(header))
     true_positives = 0
-    for i, row in enumerate(matrix.copy()):
+    matrix = matrix.astype(float).copy()
+    total_count = matrix.sum()
+    for i, row in enumerate(matrix):
         true_positives += row[i]
         total = max([row.sum(), 1])
         row *= 100.0 / float(total)
@@ -43,7 +59,7 @@ def print_confusion_matrix(matrix, top_k_confusions=5):
         msg += ", ".join(["%3d: %0.2f" % (j, row[j]) for j in idx[:top_k_confusions]])
         msg += "]\n"
 
-    header = "Total Precision: %0.3f" % (true_positives / float(matrix.sum()))
+    header = "Total Precision: %0.3f" % (100 * true_positives / total_count)
     msg += "\n%s\n%s\n%s\n" % ("-" * len(header),
                               header,
                               "-" * len(header))
