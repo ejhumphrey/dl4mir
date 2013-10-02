@@ -348,7 +348,10 @@ class Affine(BaseLayer):
 
         """
         BaseLayer.__init__(self, layer_args)
-        weights = np.zeros(self.param_shapes.get("weights"))
+        weight_shape = self.param_shapes.get("weights")
+        weights = self.numpy_rng.normal(loc=0.0,
+                                        scale=np.sqrt(1. / np.sum(weight_shape)),
+                                        size=weight_shape)
         bias = np.zeros(self.output_shape)
         self.param_values = {self.own('weights'):weights,
                              self.own('bias'):bias, }
@@ -433,7 +436,7 @@ class Softmax(BaseLayer):
         """
         BaseLayer.__init__(self, layer_args)
         weight_shape = self.param_shapes.get("weights")
-        scale = np.sqrt(1. / np.sum(weight_shape))
+        scale = np.sqrt(6. / np.sum(weight_shape))
 
         weights = self.numpy_rng.normal(loc=0.0, scale=scale, size=weight_shape)
         bias = np.zeros(self.output_shape)
