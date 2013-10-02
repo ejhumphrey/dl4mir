@@ -1,10 +1,8 @@
 """
 """
 
-import numpy as np
 from collections import OrderedDict
-from marl.hewey.core import DataPoint
-import json
+import numpy as np
 
 NO_CHORD = "N"
 
@@ -173,12 +171,6 @@ def align_lab_file_to_array(array, lab_file, framerate):
                                                 boundaries,
                                                 labels)
     return timed_labels
-
-def load_label_map(filepath):
-    """JSON refuses to store integer zeros, so they are written as strings and
-    interpreted as integers on load.
-    """
-    return OrderedDict([(k, int(v)) for k, v in json.load(open(filepath)).iteritems()])
 
 # cid is 32 bit integer 1-4 bits for root, 5-8 bits for bass, 9-20 bits for
 # quality, 21-32 bits for extensions(tension)
