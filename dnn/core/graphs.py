@@ -111,7 +111,7 @@ class Network(object):
         """
         net = load_layers(definition_file)
         if param_file:
-            net.param_values = cPickle.load(param_file)
+            net.param_values = cPickle.load(open(param_file))
         return net
 
     @property
