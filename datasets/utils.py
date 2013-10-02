@@ -4,6 +4,9 @@
 import numpy as np
 import os
 import fnmatch
+import time
+from collections import OrderedDict
+import json
 
 def collect_nested_files(base_dir, extensions):
     """Collect a list of filepaths matching a given extension recursively.
@@ -98,7 +101,7 @@ def stratify_GA(X,
     best_W = None
 
     # Init population
-    for p in range(pop_size):
+    for _p in range(pop_size):
         W = np.zeros([5, 1, N])
         W[np.random.randint(0, 5, (N,)), 0, np.arange(N, dtype=int)] = 1.0
         pop_set += [W]
@@ -161,6 +164,11 @@ def split_folds(fold_map, train, valid, test):
     train : list of ints
     valid : list of ints
     test : list of ints
+
+    Returns
+    -------
+    splits : dict of lists
+        Has the keys 'train', 'valid', and 'test'
     """
     fold_indexes = {'train':train, 'valid':valid, 'test':test}
     splits = {'train':[], 'valid':[], 'test':[]}
@@ -170,7 +178,7 @@ def split_folds(fold_map, train, valid, test):
                 splits[name].append(key)
                 break
 
-    return splits.get("train"), splits.get("valid"), splits.get("test")
+    return splits
 
 
 def filebase(filepath):
@@ -199,4 +207,49 @@ def expand_filebase(filebase, output_dir, ext):
     """
     ext = ext.strip(".")
     return os.path.join(output_dir, "%s.%s" % (filebase, ext))
+
+
+def build_label_map(unique_labels):
+    """
+    genres : set or list
+        Items must be unique.
+    """
+    return dict([(label, enum) for enum, label in enumerate(unique_labels)])
+
+def stratify_labels(labels, num_folds):
+    """
+    """
+    label_map = build_label_map(set(labels))
+    num_labels = len(label_map)
+    label_enum = np.array([label_map.get(l) for l in labels], dtype=int)
+    num_points = len(label_enum)
+    fold_assignment = np.zeros(label_enum.shape, dtype=int)
+    all_idx = np.arange(num_points)
+    for enum in range(num_labels):
+        is_enum = label_enum == enum
+        num_label = np.sum(is_enum)
+        enum_idx = all_idx[is_enum] #The positions of this enum
+        fold_assignment[enum_idx] = np.arange(num_label) % num_folds
+
+    return fold_assignment
+
+def timestamp():
+    """Returns a string representation of the time, like 'YYYYMMDD'.
+    """
+    TIME_FMT = "%Y%m%d"
+    return time.strftime(TIME_FMT)
+
+def load_label_enum_map(filepath):
+    """JSON refuses to store integer zeros, so they are written as strings and
+    interpreted as integers on load.
+    """
+    return OrderedDict([(k, int(v)) for k, v in json.load(open(filepath)).iteritems()])
+
+def save_label_enum_map(label_map, filepath):
+    """JSON refuses to store integer zeros, so they are written as strings and
+    interpreted as integers on load.
+    """
+    json.dump(dict([(k, "%d" % v) for k, v in label_map.iteritems()]),
+              open(filepath, 'w'),
+              indent=2)
 
