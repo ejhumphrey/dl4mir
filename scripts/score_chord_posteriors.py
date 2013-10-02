@@ -17,6 +17,9 @@ import numpy as np
 import json
 from ejhumphrey.datasets import chordutils
 from sklearn import metrics
+from ejhumphrey.datasets.utils import load_label_enum_map
+from ejhumphrey.eval import classification as cls
+
 
 def load_prediction(posterior_file, lab_file, cqt_params, label_map):
     posterior = np.load(posterior_file)
@@ -27,51 +30,10 @@ def load_prediction(posterior_file, lab_file, cqt_params, label_map):
     y_true = [label_map.get(l) for l in labels]
     return y_true, y_pred
 
-def print_confusion_matrix(matrix, top_k_confusions=5):
-    """Print the top-k confusions per class.
-
-    Parameters
-    ----------
-    matrix : np.ndarray
-        Confusion matrix.
-    top_k_confusions : int
-        Number of confusions to print.
-
-    Returns
-    -------
-    results : str
-        Formatted string results.
-    """
-    header = "Confusions"
-    msg = "\n%s\n%s\n%s\n" % ("-" * len(header),
-                              header,
-                              "-" * len(header))
-    true_positives = 0
-    matrix = matrix.astype(float).copy()
-    total_count = matrix.sum()
-    for i, row in enumerate(matrix):
-        true_positives += row[i]
-        total = max([row.sum(), 1])
-        row *= 100.0 / float(total)
-        msg += "%3d: %0.2f\t[" % (i, row[i])
-        row[i] = -1
-        idx = row.argsort()[::-1]
-        msg += ", ".join(["%3d: %0.2f" % (j, row[j]) for j in idx[:top_k_confusions]])
-        msg += "]\n"
-
-    header = "Total Precision: %0.3f" % (100 * true_positives / total_count)
-    msg += "\n%s\n%s\n%s\n" % ("-" * len(header),
-                              header,
-                              "-" * len(header))
-    return msg
-
-def print_classification_report(name, y_true, y_pred):
-    hdr = "%s\n%s\n%s\n" % ("-" * len(name), name, "-" * len(name))
-    return hdr + "%s\n" % metrics.classification_report(y_true, y_pred)
 
 def main(args):
     cqt_params = json.load(open(args.cqt_params))
-    label_map = chordutils.load_label_map(args.label_map)
+    label_map = load_label_enum_map(args.label_map)
     num_classes = len(np.unique(label_map.values()))
     confusion_matrix = np.zeros([num_classes, num_classes], dtype=int)
 
@@ -82,9 +44,10 @@ def main(args):
             posterior_file, lab_file, cqt_params, label_map)
         confusion_matrix += metrics.confusion_matrix(
             y_true, y_pred, range(num_classes))
-        report.write(print_classification_report(posterior_file, y_true, y_pred))
+        report.write(
+            cls.print_classification_report(posterior_file, y_true, y_pred))
 
-    report.write(print_confusion_matrix(confusion_matrix, 5))
+    report.write(cls.print_confusion_matrix(confusion_matrix, 5))
     report.close()
 
 
