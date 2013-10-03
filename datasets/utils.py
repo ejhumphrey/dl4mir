@@ -182,7 +182,8 @@ def split_folds(fold_map, train, valid, test):
 
 
 def filebase(filepath):
-    """
+    """For a full filepath like '/path/to/some/filename.xyz', return 'filename'.
+
     Parameters
     ----------
     filepath : str
@@ -195,6 +196,7 @@ def filebase(filepath):
 
 def expand_filebase(filebase, output_dir, ext):
     """
+
     Parameters
     ----------
     filebase : str
