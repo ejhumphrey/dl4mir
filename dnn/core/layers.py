@@ -407,7 +407,6 @@ class Conv3D(BaseLayer):
         W = self._theta['weights']
         b = self._theta['bias']
         weight_shape = self.param_shapes.get("weights")
-#        W = W*selector.dimshuffle(0,'x','x','x')/scalar
         z_out = T.nnet.conv.conv2d(input=x_in,
                                    filters=W,
                                    filter_shape=weight_shape,
@@ -416,14 +415,11 @@ class Conv3D(BaseLayer):
         selector = self.theano_rng.binomial(size=self.output_shape[:1],
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
-#        scalar = selector.sum()
-        scalar = 1.0# self.dropout_scalar
 
-        z_out = (z_out + b.dimshuffle('x', 0, 'x', 'x')) * selector.dimshuffle('x', 0, 'x', 'x') * scalar
-        z_out = self.activation(z_out)
-        return downsample.max_pool_2d(z_out,
-                                      self.get("pool_shape"),
-                                      ignore_border=False)
+        z_out = self.activation(z_out + b.dimshuffle('x', 0, 'x', 'x'))
+        z_out *= selector.dimshuffle('x', 0, 'x', 'x') * (self.dropout + 0.5)
+        return downsample.max_pool_2d(
+            z_out, self.get("pool_shape"), ignore_border=False)
 
 
 class Softmax(BaseLayer):
