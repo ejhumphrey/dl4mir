@@ -3,11 +3,11 @@
 
 Sample Call:
 bash$ ipython ejhumphrey/dnn/trainers/chordrec.py \
-deleteme \
+first_lcn_test \
 /media/attic/chords/defs/base_model.definition \
 /media/attic/chords/default.config \
 /media/attic/chords/models \
-/home/ejhumphrey/chords/chordrec_20130930_train0.dsf \
+/home/ejhumphrey/chords/chordrec_lcn_train0_20131002.dsf \
 /home/ejhumphrey/chords/MIREX09_chord_map.txt
 """
 
@@ -21,10 +21,20 @@ from marl.hewey.core import Batch
 
 from ejhumphrey.datasets import chordutils
 from ejhumphrey.dnn.core.framework import Trainer
-from ejhumphrey.dnn import utils
+from ejhumphrey.dnn.utils import json_load
+from ejhumphrey.datasets.utils import load_label_enum_map
 
 
 def training_source(filepath, train_params):
+    """Open a DataSequenceFile for training.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to a DataSequenceFile.
+    train_params : dict
+        Must contain at least a 'left' and 'right' key.
+    """
     file_handle = file.DataSequenceFile(filepath)
     return sources.SequenceSampler(dataset=file_handle,
                                    left=train_params.get("left"),
@@ -58,8 +68,8 @@ def main(args):
     shutil.copy(args.definition, trainer.save_directory)
     shutil.copy(args.config, trainer.save_directory)
 
-    trainer.build_network(utils.json_load(args.definition))
-    config = utils.json_load(args.config)
+    trainer.build_network(json_load(args.definition))
+    config = json_load(args.config)
     train_params = config.get("train_params")
 
     trainer.configure_losses(config.get("loss_tuples"))
@@ -67,7 +77,7 @@ def main(args):
 
     dset = training_source(args.training_datafile, train_params)
     dset.set_value_shape(train_params.get("value_shape"))
-    label_map = chordutils.load_label_map(args.label_map)
+    label_map = load_label_enum_map(args.label_map)
     dset.set_label_map(label_map)
     if train_params.get("transpose"):
         print "Randomly transposing chords is enabled."
