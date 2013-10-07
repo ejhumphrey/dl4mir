@@ -5,7 +5,8 @@ Created on Mar 20, 2013
 '''
 import os
 import theano.tensor as T
-from . import FLOATX
+from ejhumphrey.dnn.core import FLOATX
+from ejhumphrey.dnn.core import functions
 import theano
 
 # TODO: just taking the mean over a batch is not insignificant... there are 
@@ -63,10 +64,6 @@ def maximum_likelihood_scorer(x_input, target_idx):
 def maximum_likelihood_error(x_input, target_idx):
     return 1.0 - maximum_likelihood_scorer(x_input, target_idx)
 
-def euclidean(a, b):
-    a, b = a.flatten(2), b.flatten(2)
-    return T.sqrt(T.sum(T.pow(a - b, 2.0), axis=1))
-
 def euclidean_loss(a, b):
     """
     Returns
@@ -76,12 +73,8 @@ def euclidean_loss(a, b):
     inputs : dict
         Dictionary of full param names and symbolic parameters.
     """
-    scalar_loss = T.mean(euclidean(a, b))
+    scalar_loss = T.mean(functions.euclidean(a, b))
     return scalar_loss, []
-
-def manhattan(a, b):
-    a, b = a.flatten(2), b.flatten(2)
-    return T.sum(T.abs_(a - b), axis=1)
 
 def manhattan_loss(a, b):
     """
@@ -92,7 +85,7 @@ def manhattan_loss(a, b):
     inputs : dict
         Dictionary of full param names and symbolic parameters.
     """
-    scalar_loss = T.mean(manhattan(a, b))
+    scalar_loss = T.mean(functions.manhattan(a, b))
     return scalar_loss, []
 
 LossFunctions = {"nll":negative_log_likelihood,

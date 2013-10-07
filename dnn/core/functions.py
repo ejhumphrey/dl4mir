@@ -37,3 +37,32 @@ Activations = {'linear':linear,
                'sigmoid':sigmoid,
                'soft_shrink':soft_shrink,
                'hard_shrink':hard_shrink}
+
+def l2norm(x):
+    scalar = T.pow(T.pow(x, 2.0).sum(axis=1), 0.5)
+    return x / scalar.dimshuffle(0, 'x')
+
+
+def euclidean(a, b):
+    """Row-wise euclidean distance between tensors.
+    """
+    a, b = a.flatten(2), b.flatten(2)
+    return T.sqrt(T.sum(T.pow(a - b, 2.0), axis=1))
+
+def manhattan(a, b):
+    """Row-wise manhattan distance between tensors.
+    """
+    a, b = a.flatten(2), b.flatten(2)
+    return T.sum(T.abs_(a - b), axis=1)
+
+def euclidean_proj(a, b):
+    """Projected Euclidean distance between tensors.
+    """
+    a, b = a.flatten(2).dimshuffle("x", 0, 1), b.flatten(2).dimshuffle(0, "x", 1)
+    return T.sqrt(T.sum(T.pow(a - b, 2.0), axis= -1))
+
+def manhattan_proj(a, b):
+    """Projected Manhattan distance between tensors.
+    """
+    a, b = a.flatten(2).dimshuffle("x", 0, 1), b.flatten(2).dimshuffle(0, "x", 1)
+    return T.sum(T.abs_(a - b), axis= -1)
