@@ -55,6 +55,7 @@ def create_datasequence_file(split_file, cqt_directory, filename, cqt_params):
     """
     file_handle = DataSequenceFile(filename)
     keygen = uniform_keygen(2)
+
     for i, line in enumerate(open(split_file)):
         lab_file = line.strip("\n")
         cqt_file = pair_cqt_to_lab_file(lab_file, cqt_directory)
@@ -66,6 +67,8 @@ def create_datasequence_file(split_file, cqt_directory, filename, cqt_params):
                     "filesource": cqt_file}
         dseq = DataSequence(value=cqt_array, label=labels, metadata=metadata)
         key = keygen.next()
+        while key in file_handle:
+            key = keygen.next()
         file_handle.write(key, dseq)
 
     file_handle.create_tables()
@@ -93,10 +96,6 @@ if __name__ == '__main__':
                         metavar="track_split", type=str,
                         help="Base path to search for CQT arrays. Must also "
                         "contain a cqt_params.txt file.")
-
-#    parser.add_argument("cqt_param_file",
-#                        metavar="cqt_param_file", type=str,
-#                        help="Parameters used to compute the CQT.")
 
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
