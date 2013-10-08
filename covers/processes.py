@@ -44,6 +44,14 @@ def shrinkage(x, theta):
     assert theta > 0, "Theta must be non-negative."
     return x + 0.5 * (np.abs(x - theta) - np.abs(x + theta))
 
+def l2_normalize(x):
+    """Constrain the tensor rows (axes > 0) to be unit normed in L2-space.
+    """
+    z = x.reshape(x.shape[0], np.prod(x.shape[1:]))
+    u = np.sqrt(np.power(z, 2.0).sum(axis= -1))
+    u[u == 0] = 1.0
+    u = np.reshape(u, newshape=[x.shape[0]] + [1] * (x.ndim - 1))
+    return z / u
 
 def create_process(args):
     """Convenience factory to create a process from a dictionary.
@@ -107,12 +115,8 @@ class L2Norm(Process):
         Process.__init__(self, **kwargs)
 
     def __call__(self, x):
-        input_shape = x.shape
-        z = x.reshape(input_shape[0], np.prod(input_shape[1:]))
-        u = np.sqrt(np.power(z, 2.0).sum(axis= -1))
-        u[u == 0] = 1.0
-        u = np.reshape(u, newshape=[input_shape[0]] + [1] * (x.ndim - 1))
-        return z / u
+        return l2_normalize(x)
+
 
 
 class Shrinkage(Process):
@@ -210,6 +214,18 @@ class Standardize(ParamProcess):
         assert x.shape[1] == mu.shape[1] == sig.shape[1]
         sig[sig == 0] = 1.0
         return (x - mu) / sig
+
+
+class PCA(ParamProcess):
+
+    name = "pca"
+    kwargs = ['param_file', 'whiten']
+    params = ['components', 'eigenvalues', 'mu']
+    def __init__(self, **kwargs):
+        ParamProcess.__init__(self, **kwargs)
+
+    def __call__(self, x):
+        raise NotImplementedError("Haven't gotten here yet.")
 
 
 
