@@ -95,6 +95,7 @@ class LogScale(Process):
         Process.__init__(self, **kwargs)
 
     def __call__(self, x):
+        assert (x > 0).all()
         return np.log1p(self.get("scalar") * x)
 
 
@@ -108,7 +109,7 @@ class L2Norm(Process):
     def __call__(self, x):
         input_shape = x.shape
         z = x.reshape(input_shape[0], np.prod(input_shape[1:]))
-        u = np.sqrt(np.power(z).sum(axis= -1))
+        u = np.sqrt(np.power(z, 2.0).sum(axis= -1))
         u[u == 0] = 1.0
         u = np.reshape(u, newshape=[input_shape[0]] + [1] * (x.ndim - 1))
         return z / u
