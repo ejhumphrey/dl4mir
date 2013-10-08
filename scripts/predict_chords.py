@@ -99,14 +99,14 @@ def main(args):
                                        "*.definition"))
     assert len(def_files) == 1, \
         "More than one definition file found? %s" % def_files
-    train_params = glob.glob(os.path.join(os.path.split(args.param_file)[0],
+    config_params = glob.glob(os.path.join(os.path.split(args.param_file)[0],
                                          "*.config"))
-    assert len(train_params) == 1, \
-        "More than one definition file found? %s" % train_params
+    assert len(config_params) == 1, \
+        "More than one definition file found? %s" % config_params
 
     dnet = Network.load(def_files[0], args.param_file)
     param_base = os.path.split(os.path.splitext(args.param_file)[0])[-1]
-    train_params = utils.json_load(train_params[0]).get("train_params")
+    train_params = utils.json_load(config_params[0]).get("train_params")
     output_dir = os.path.join(args.output_directory, param_base)
 
     if not os.path.exists(output_dir):
