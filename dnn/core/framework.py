@@ -59,7 +59,6 @@ class Trainer(object):
         for iname, ltype in loss_args:
             self.loss.register(self.network, iname, ltype)
         self.loss.compile()
-#        json_save(loss_args, "%s-loss_args.txt" % self.save_filebase)
 
     def configure_updates(self, update_args=None):
         """
@@ -75,7 +74,6 @@ class Trainer(object):
         params = dict([(k, self.network.params.get(k)) for k in update_args])
         self.update.compute_updates(self.loss, params)
         self.update.compile()
-#        json_save(update_args, "%s-update_args.txt" % self.save_filebase)
 
 
     def run(self, sources, train_params, hyperparams):
@@ -90,8 +88,7 @@ class Trainer(object):
 
         loss_inputs = self.loss.empty_inputs()
         select_update(loss_inputs, hyperparams)
-#        utils.json_save(hyperparams, "%s-hyperparams.txt" % self.save_filebase)
-#        utils.json_save(train_params, "%s-train_params.txt" % self.save_filebase)
+
         while not Done:
             try:
                 batch = sources['train'].next_batch(train_params.get("batch_size"))
