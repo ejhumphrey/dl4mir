@@ -5,27 +5,22 @@ Created on Oct 8, 2013
 '''
 
 import argparse
-import numpy as np
-
-
+import cPickle
 import glob
+import json
 import numpy as np
 import os
 import time
 
 from marl.hewey.core import context_slice
 
-from ejhumphrey.dnn.core.graphs import Network
-from ejhumphrey.dnn import utils
-
-
-import json
 from ejhumphrey.datasets import chordutils
-from sklearn import metrics
-from ejhumphrey.datasets.utils import load_label_enum_map, filebase, \
-    expand_filebase
-from ejhumphrey.eval import classification as cls
-import cPickle
+from ejhumphrey.datasets.utils import load_label_enum_map
+from ejhumphrey.datasets.utils import filebase
+from ejhumphrey.datasets.utils import expand_filebase
+from ejhumphrey.dnn import utils
+from ejhumphrey.dnn.core.graphs import Network
+
 
 def context_sample(X, indexes, left, right, newshape=None):
     batch = []
@@ -37,11 +32,13 @@ def context_sample(X, indexes, left, right, newshape=None):
         batch.append(x_i)
     return np.asarray(batch)
 
+
 def load_label_enums(cqt_array, lab_file, cqt_params, label_map):
     labels = chordutils.align_lab_file_to_array(
         cqt_array, lab_file, cqt_params.get("framerate"))
 
     return np.asarray([label_map.get(l, -1) for l in labels])
+
 
 def collect_model_files(model_directory):
     # Find the model definition.
@@ -59,6 +56,7 @@ def collect_model_files(model_directory):
     assert len(config_params) == 1, \
         "More than one configuration file found? %s" % config_params
     return def_files[0], param_files, config_params[0]
+
 
 def score(posterior, y_true):
     """
@@ -79,7 +77,7 @@ def main(args):
         open(os.path.join(args.cqt_directory, "cqt_params.txt")))
     label_map = load_label_enum_map(args.label_map)
 
-    index_map = {}
+    indexes = np.linspace(0, 1, args.num_samples + 2)[1:-1]
     inputs = dnet.empty_inputs()
     stats_file = os.path.join(args.model_directory, "validation-stats.txt")
     fh = open(stats_file, "w")
@@ -99,19 +97,17 @@ def main(args):
 
             cqt_array = np.load(cqt_file)
             y_true = load_label_enums(cqt_array, lab_file, cqt_params, label_map)
-            if not lab_file in index_map:
-                index_map[lab_file] = np.random.permutation(
-                    len(y_true))[:args.num_samples]
 
+            these_indexes = np.floor(indexes * len(cqt_array))
             inputs[dnet.input_name] = context_sample(
                 cqt_array,
-                index_map.get(lab_file),
+                these_indexes,
                 left=train_params.get("left"),
                 right=train_params.get("right"),
                 newshape=dnet.input_shape)
 
             y_true = context_sample(
-                y_true, index_map.get(lab_file), left=0, right=0).squeeze()
+                y_true, these_indexes, left=0, right=0).squeeze()
 
             y_pred = dnet(inputs).argmax(axis=1)
             true_positives += (y_true == y_pred).sum()
