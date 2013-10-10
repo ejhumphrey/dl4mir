@@ -8,6 +8,7 @@ from ejhumphrey.dnn.core.layers import Layer
 from ejhumphrey.dnn.core.graphs import Network
 from ejhumphrey.dnn.core.modules import Loss
 from ejhumphrey.dnn.core.updates import SGD
+from ejhumphrey.dnn.core.updates import Constraints
 
 
 def select_update(base, newdict):
@@ -75,6 +76,18 @@ class Trainer(object):
         self.update.compute_updates(self.loss, params)
         self.update.compile()
 
+    def configure_constraints(self, constraint_args):
+        """
+        Parameters
+        ----------
+        constraint_args : dict
+            Arguments for constraint functions keyed by parameter names.
+        """
+
+        assert self.network, "Network must be built first."
+        self.constraints = Constraints()
+        for param_name, args in constraint_args.iteritems():
+            self.constraints.register(self.network.params.get(param_name), args)
 
     def run(self, sources, train_params, hyperparams):
         assert self.network, "Network must be built first."
@@ -88,7 +101,7 @@ class Trainer(object):
 
         loss_inputs = self.loss.empty_inputs()
         select_update(loss_inputs, hyperparams)
-
+        self.constraints.apply()
         while not Done:
             try:
                 batch = sources['train'].next_batch(train_params.get("batch_size"))
@@ -96,6 +109,7 @@ class Trainer(object):
                 train_inputs[self.target_name] = batch.labels
 
                 train_loss = self.update(train_inputs)
+                self.constraints.apply()
 
                 if (self.update.iteration % train_params["checkpoint_freq"]) == 0:
                     self.checkpoint(train_loss)
