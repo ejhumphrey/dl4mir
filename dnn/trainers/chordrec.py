@@ -51,7 +51,7 @@ def generate_rotation_function(no_chord_index, bins_per_octave):
                 continue
             shp = x.shape
             x = x.squeeze()
-            shift = np.random.randint(low=-8, high=9)
+            shift = np.random.randint(low= -8, high=9)
             xs, ys = chordutils.circshift_chord(
                 x, y, shift, bins_per_octave, no_chord_index)
             new_batch.add_value(np.reshape(xs, newshape=shp))
@@ -76,6 +76,7 @@ def main(args):
 
     trainer.configure_losses(config.get("loss_tuples"))
     trainer.configure_updates(config.get("parameter_updates"))
+    trainer.configure_constraints(config.get("constraints"))
 
     dset = training_source(args.training_datafile, train_params)
     dset.set_value_shape(train_params.get("value_shape"))
