@@ -3,6 +3,7 @@
 
 from collections import OrderedDict
 import numpy as np
+import csv
 
 NO_CHORD = "N"
 
@@ -255,3 +256,30 @@ def bigram_histogram(lab_files, label_map):
             hist[chord_indexes[i], chord_indexes[i + 1], n] += 1.0
 
     return hist
+
+def load_guitar_chords(csv_file, qualities):
+    fret_map = {"x":0, "0":1, "1":2, "2":3, "3":4, "4":5, "5":6, "6":7, "7":8}
+    keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
+    chord_shapes = [line for line in csv.reader(open(csv_file))][1:-1]
+    num_chords = len(qualities) * 12 + 1
+    string_idx = np.arange(6)[::-1]
+    templates = np.zeros([num_chords, len(fret_map), 6])
+
+    # No-chord is always last
+    templates[-1, fret_map.get("x"), string_idx] = 1.0
+
+    for chord in chord_shapes:
+        # Index 0 is the root, 1 is the quality, 2:8 are frets
+        assert chord[0] in keys, "Pitch class '%s' unsupported?" % chord[0]
+        if not chord[1] in qualities:
+#            print "Skipping '%s:%s'." % (chord[0], chord[1])
+            continue
+        chord_idx = keys.index(chord[0]) + qualities.index(chord[1]) * 12
+        fret_idx = np.array([fret_map.get(f) for f in chord[2:8]])
+        templates[chord_idx, fret_idx, string_idx] = 1.0
+
+    return templates
+
+
+
