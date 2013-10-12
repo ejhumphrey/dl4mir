@@ -76,7 +76,7 @@ def main(args):
 
     trainer.configure_losses(config.get("loss_tuples"))
     trainer.configure_updates(config.get("parameter_updates"))
-    trainer.configure_constraints(config.get("constraints"))
+    trainer.configure_constraints(config.get("constraints", {}))
 
     dset = training_source(args.training_datafile, train_params)
     dset.set_value_shape(train_params.get("value_shape"))
