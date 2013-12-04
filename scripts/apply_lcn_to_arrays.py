@@ -120,7 +120,6 @@ def create_output_directory(output_directory):
     print "[%s] Output Directory: %s" % (time.asctime(), output_directory)
     return output_directory
 
-
 def main(args):
     """Main routine for staging parallelization."""
     create_kernel(args.dim0, args.dim1)
