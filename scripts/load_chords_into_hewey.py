@@ -40,14 +40,13 @@ def pair_cqt_to_lab_file(lab_file, cqt_directory):
     return cqt_file
 
 
-def create_datasequence_file(split_file, cqt_directory, filename, cqt_params):
+def add_to_datasequence_file(cqt_files, lab_files, filename, cqt_params):
     """
     Parameters
     ----------
     split_file : string
-        Text file containing a list of lab files.
-    cqt_directory : string
-        Path to search for CQT numpy files.
+        Text file containing a list of filebases
+
     filename : string
         Output name for the DataSequenceFile
     cqt_params : dict
@@ -56,10 +55,8 @@ def create_datasequence_file(split_file, cqt_directory, filename, cqt_params):
     file_handle = DataSequenceFile(filename)
     keygen = uniform_keygen(2)
 
-    for i, line in enumerate(open(split_file)):
-        lab_file = line.strip("\n")
-        cqt_file = pair_cqt_to_lab_file(lab_file, cqt_directory)
-        print "%03d: Importing %s" % (i, cqt_file)
+    for cqt_file, lab_file in zip(cqt_files, lab_files):
+        print "[%s] Importing %s" % (time.asctime(), cqt_file)
         cqt_array = np.load(cqt_file)
         labels = chordutils.align_lab_file_to_array(
             cqt_array, lab_file, cqt_params.get("framerate"))
@@ -79,8 +76,9 @@ def main(args):
     assert os.path.exists(cqt_params_file), \
         "CQT param file does not exist: %s" % cqt_params_file
     cqt_params = json.load(open(cqt_params_file))
-    create_datasequence_file(
-        args.split_file, args.cqt_directory, args.output_file, cqt_params)
+    cqt_files, lab_files = chordutils.pair_cqts_and_labs(
+        args.split_file, args.cqt_directory, args.lab_directory)
+    add_to_datasequence_file(cqt_files, lab_files, args.output_file, cqt_params)
 
 
 if __name__ == '__main__':
@@ -89,13 +87,17 @@ if __name__ == '__main__':
 
     parser.add_argument("split_file",
                         metavar="split_file", type=str,
-                        help="List of lab files to import; probably a training "
+                        help="List of filebases to import; probably a training "
                         "or validation split.")
 
     parser.add_argument("cqt_directory",
-                        metavar="track_split", type=str,
+                        metavar="cqt_directory", type=str,
                         help="Base path to search for CQT arrays. Must also "
                         "contain a cqt_params.txt file.")
+
+    parser.add_argument("lab_directory",
+                        metavar="lab_directory", type=str,
+                        help="Base path to search for lab files.")
 
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
