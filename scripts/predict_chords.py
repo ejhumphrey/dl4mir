@@ -7,11 +7,10 @@ as the provided parameters:
     2. A "*-train_params.txt" file.
 
 Sample Call:
-MODELDIR=/media/attic/chords/models/majmin_chord_classifier_000-circ
-ipython ejhumphrey/scripts/predict_chords.py \
-/media/attic/chords/cqt_list.txt \
-$MODELDIR/majmin_chord_classifier_000-circ_0050000-20131001_063439m662.params \
-/media/attic/chords/posteriors \
+python src/ejhumphrey/scripts/predict_chords.py \
+cqt_list.txt \
+/scratch/ejh333/models/V157-G0-F0/V157-G0-F0_0030000 \
+/scratch/ejh333/posteriors/
 """
 
 import argparse
@@ -26,7 +25,7 @@ from ejhumphrey.dnn.core.graphs import Network
 from ejhumphrey.dnn import utils
 
 
-def context_slicer(X, left, right, batch_size=100, newshape=None):
+def context_slicer(X, left, right, batch_size, newshape=None):
     """Generator to step through a CQT array as batches of datapoints.
 
     Parameters
@@ -61,7 +60,7 @@ def context_slicer(X, left, right, batch_size=100, newshape=None):
     if len(batch):
         yield np.array(batch)
 
-def predict_cqt(cqt_array, dnet, train_params, batch_size=100):
+def predict_cqt(cqt_array, dnet, train_params, batch_size=500):
     """
     Parameters
     ----------
@@ -88,7 +87,7 @@ def predict_cqt(cqt_array, dnet, train_params, batch_size=100):
         inputs[dnet.input_name] = batch
         batch_posterior = dnet(inputs)
         if posterior is None:
-            posterior = np.zeros([len(cqt_array), batch_posterior.shape[1]])
+            posterior = np.zeros([len(cqt_array)] + list(batch_posterior.shape[1:]))
         idx0, idx1 = i * batch_size, i * batch_size + len(batch_posterior)
         posterior[idx0:idx1] = batch_posterior
     return posterior
@@ -111,6 +110,11 @@ def main(args):
     def_file, train_params = collect_model_files(args.param_file)
 
     dnet = Network.load(def_file, args.param_file)
+    output_name = None
+    if args.output_name:
+        output_name = args.output_name
+        print "Using '%s' as the output of the network." % output_name
+    dnet.compile(output_name)
     param_base = os.path.split(os.path.splitext(args.param_file)[0])[-1]
 
     output_dir = os.path.join(args.output_directory, param_base)
@@ -152,5 +156,10 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False, dest='overwrite',
                         help="Overwrite if output file exists.")
+
+    parser.add_argument("--output_name",
+                        action='store',
+                        default="", dest='output_name',
+                        help="Output layer of the model")
 
     main(parser.parse_args())

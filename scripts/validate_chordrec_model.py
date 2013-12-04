@@ -51,7 +51,7 @@ def collect_model_files(model_directory):
     assert len(param_files) > 0, "No parameter files matched?"
     param_files.sort()
 
-    # Find the configuration file. 
+    # Find the configuration file.
     config_params = glob.glob(os.path.join(model_directory, "*.config"))
     assert len(config_params) == 1, \
         "More than one configuration file found? %s" % config_params
@@ -82,7 +82,7 @@ def main(args):
     stats_file = os.path.join(args.model_directory, "validation-stats.txt")
     fh = open(stats_file, "w")
     fh.close()
-    for param_file in param_files:
+    for param_file in param_files[args.start_index:]:
         dnet.param_values = cPickle.load(open(param_file))
         true_positives, total = 0.0, 0.0
         print "[%s] Evaluating %s" % (time.asctime(), filebase(param_file))
@@ -153,5 +153,9 @@ if __name__ == '__main__':
     parser.add_argument("num_samples",
                         metavar="num_samples", type=int,
                         help="Number of samples per file to evaluate.")
+
+    parser.add_argument("start_index",
+                        metavar="start_index", type=int,
+                        help="Param file index to start at.")
 
     main(parser.parse_args())
