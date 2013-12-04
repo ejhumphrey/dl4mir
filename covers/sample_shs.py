@@ -16,8 +16,8 @@ import time
 import cPickle
 
 def main(args):
-    max_samples = 50000 * args.samples_per_datapoint
-    sample = np.zeros([max_samples, 451])
+    total_samples = 50000 * args.samples_per_datapoint
+    sample = np.zeros([total_samples, 451], dtype='float32')
     pk_files = glob.glob(os.path.join(args.base_dir, "*.pk"))
     sample_count = 0
     for f in pk_files:

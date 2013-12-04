@@ -72,7 +72,7 @@ class SphereicalKMeans(object):
             print "[%s] Finished update, %0.3f%% changed." % \
                 (time.asctime(), self.percent_change)
 
-    def fit(self, data, stopping_diff=0.01, max_epochs=1000, verbose=False):
+    def fit(self, data, stopping_diff=0.00, max_epochs=1000, verbose=False):
         if self.standardize:
             self.mu = data.mean(axis=0)[np.newaxis, :]
             self.sigma = data.std(axis=0)[np.newaxis, :]
@@ -89,7 +89,7 @@ class SphereicalKMeans(object):
         self.previous_assignment = np.zeros(self.num_samples) - 1
 
         epoch = 0
-        while epoch < max_epochs and self.percent_change > stopping_diff:
+        while epoch < max_epochs and self.percent_change >= stopping_diff:
             self.update_centroids(data, verbose=verbose)
 
 
@@ -97,17 +97,21 @@ class SphereicalKMeans(object):
 def main(args):
     """Main routine for staging parallelization."""
 
-    kmeans = SphereicalKMeans(args.k_centroids)
+    kmeans = SphereicalKMeans(args.k_centroids, standardize=args.standardize)
     data = np.load(args.input_file).astype('float32')
+    print args
     try:
-        kmeans.fit(data, max_epochs=args.max_epochs, verbose=True)
+        kmeans.fit(data,
+                   stopping_diff=args.stopping_diff,
+                   max_epochs=args.max_epochs,
+                   verbose=True)
     except KeyboardInterrupt:
         print "Stopping early."
 
     fh = open(args.output_file, 'w')
     cPickle.dump({'mu':kmeans.mu,
                   'sig':kmeans.sigma,
-                  'centroids':kmeans.centroids}, fh)
+                  'weights':kmeans.centroids}, fh)
     fh.close()
 
 
@@ -121,10 +125,17 @@ if __name__ == "__main__":
     parser.add_argument("k_centroids",
                         metavar="k_centroids", type=int,
                         help="Number of centroids to compute.")
-    parser.add_argument("max_epochs",
-                        metavar="max_epochs", type=int,
-                        help="Maximum number of epochs before stopping.")
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="File to save the result.")
+    parser.add_argument("--max_epochs", action="store", dest="max_epochs",
+                        type=int, default=10000,
+                        help="Maximum number of epochs before stopping.")
+    parser.add_argument("--stopping_diff", action="store", dest="stopping_diff",
+                        type=float, default=0.01,
+                        help="Maximum number of epochs before stopping.")
+    parser.add_argument("--standardize", action="store", dest="standardize",
+                default=True, help="Standardize data.")
+#    parser.add_argument("--whiten", action="store", dest="whiten",
+#                default=False, help="Perform ZCA whitening.")
     main(parser.parse_args())
