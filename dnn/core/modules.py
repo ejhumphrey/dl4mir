@@ -9,10 +9,10 @@ from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import functions
 import theano
 
-# TODO: just taking the mean over a batch is not insignificant... there are 
-# definitely other ways to do this, geometric mean (ignore outliers, 
-# arithmetic-AND), max (cater to big error, arithmetic-OR). This is 
-# particularly interesting, because simple averages aren't always 
+# TODO: just taking the mean over a batch is not insignificant... there are
+# definitely other ways to do this, geometric mean (ignore outliers,
+# arithmetic-AND), max (cater to big error, arithmetic-OR). This is
+# particularly interesting, because simple averages aren't always
 # what you want...
 
 def negative_log_likelihood(x_input):
@@ -29,6 +29,22 @@ def negative_log_likelihood(x_input):
                                                   dtype='int32'),
                                          y_target])
     return scalar_loss, [y_target]
+
+
+def mean_error(x_input):
+    """
+    Returns
+    -------
+    scalar_loss : symbolic scalar
+        Cost of this penalty
+    inputs : dict
+        Dictionary of full param names and symbolic parameters.
+    """
+    y_target = T.ivector('y_target')
+    scalar_loss = T.mean(x_input[T.arange(y_target.shape[0], dtype='int32'),
+                                y_target])
+    return scalar_loss, [y_target]
+
 
 def l2_penalty(x_input):
     """
@@ -89,6 +105,7 @@ def manhattan_loss(a, b):
     return scalar_loss, []
 
 LossFunctions = {"nll":negative_log_likelihood,
+                 "mean_error":mean_error,
                  "l2_penalty":l2_penalty,
                  "l1_penalty":l1_penalty}
 

@@ -19,7 +19,7 @@ def Layer(layer_args):
     return eval("%s(layer_args)" % layer_args.get("type"))
 
 
-# --- Layer Argument Classes --- 
+# --- Layer Argument Classes ---
 class BaseLayerArgs(dict):
     """
     Base class for all layer arguments
@@ -197,20 +197,22 @@ class SoftmaxArgs(AffineArgs):
     """
     def __init__(self, name,
                  input_dim,
-                 output_dim):
+                 output_dim,
+                 activation='linear'):
         """
         """
         AffineArgs.__init__(self, name,
                             input_shape=(input_dim,),
                             output_shape=(output_dim,),
-                            activation="linear")
+                            activation=activation)
 
 class MultiSoftmaxArgs(AffineArgs):
     """
     """
     def __init__(self, name,
                  input_shape,
-                 output_shape):
+                 output_shape,
+                 activation='linear'):
         """
         Parameters
         ----------
@@ -228,7 +230,7 @@ class MultiSoftmaxArgs(AffineArgs):
                                input_shape=(n_in,),
                                param_shapes=dict(weights=weight_shape,
                                                  bias=output_shape),
-                               activation='linear')
+                               activation=activation)
         self.update(input_shape=self.input_shape,
                     output_shape=self.output_shape)
 
@@ -239,6 +241,24 @@ class MultiSoftmaxArgs(AffineArgs):
     @property
     def weight_shape(self):
         return self.param_shapes.get("weights")
+
+class RBFArgs(AffineArgs):
+    """
+    """
+    def __init__(self, name,
+                 input_dim,
+                 output_dim,
+                 lp_norm='l1',
+                 activation='linear'):
+        """
+        """
+        AffineArgs.__init__(self, name,
+                            input_shape=(input_dim,),
+                            output_shape=(output_dim,),
+                            activation=activation)
+        del self['param_shapes']['bias']
+        self.update(lp_norm=lp_norm)
+
 
 # --- Layer Class Implementations ------
 class BaseLayer(dict):
@@ -315,14 +335,14 @@ class BaseLayer(dict):
         """
         for full_name, value in param_values.items():
             layer_name, param_name = os.path.split(full_name)
-            # Bypass all values that do not correspond to this layer. 
+            # Bypass all values that do not correspond to this layer.
             if self.name != layer_name:
                 continue
             if not param_name in self._theta:
                 # Catch undeclared parameters.
                 raise ValueError("Undeclared parameter: %s" % param_name)
             elif self._theta[param_name] is None:
-                # Declared but uninitialized; safe to do so now. 
+                # Declared but uninitialized; safe to do so now.
                 self._theta[param_name] = theano.shared(
                     value=value.astype(FLOATX), name=full_name)
             else:
@@ -408,6 +428,50 @@ class Affine(BaseLayer):
                                             dtype=FLOATX)
         return z_out * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
 
+class RBF(BaseLayer):
+    """
+    Radial Basis Function Layer
+      (i.e. distance layer)
+
+    """
+    param_names = ["weights"]
+
+    def __init__(self, layer_args):
+        """
+        layer_args : RBFArgs
+
+        """
+        BaseLayer.__init__(self, layer_args)
+        weight_shape = self.param_shapes.get("weights")
+        weights = self.numpy_rng.normal(loc=0.0,
+                                        scale=np.sqrt(1. / np.sum(weight_shape)),
+                                        size=weight_shape)
+        self.param_values = {self.own('weights'):weights, }
+
+    def transform(self, x_in):
+        """
+        will fix input tensors to be matrices as the following:
+        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
+
+        """
+        W = self._theta["weights"].T
+
+        # TODO(ejhumphrey): This isn't very stable, is it.
+        x_in = T.flatten(x_in, outdim=2)
+        if self.get("lp_norm") == "l1":
+            z_out = T.abs_(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1))
+        elif self.get("lp_norm") == "l2":
+            z_out = T.pow(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1), 2.0)
+        else:
+            raise NotImplementedError(
+                "Lp_norm type '%s' unsupported." % self.get("lp_norm"))
+
+
+        selector = self.theano_rng.binomial(size=self.output_shape,
+                                            p=1.0 - self.dropout,
+                                            dtype=FLOATX)
+        return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
+
 
 class Conv3D(BaseLayer):
     """ . """
@@ -488,6 +552,42 @@ class Softmax(BaseLayer):
         return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
 
 
+class SoftMask(BaseLayer):
+    """
+    """
+    param_names = ["weights", "bias", "templates"]
+
+    def __init__(self, layer_args):
+        """
+        """
+        BaseLayer.__init__(self, layer_args)
+        weight_shape = self.param_shapes.get("weights")
+#        scale = np.sqrt(6. / np.sum(weight_shape))
+
+#        weights = self.numpy_rng.normal(loc=1.0,
+#                                        scale=0.05,
+#                                        size=weight_shape)
+        weights = self.numpy_rng.uniform(low=0, high=1.0, size=weight_shape)
+        templates = np.ones(weights.shape)
+        bias = np.zeros(self.output_shape)
+
+        self.param_values = {self.own('weights'):weights,
+                             self.own('bias'):bias,
+                             self.own('templates'):templates, }
+        self._scalars.clear()
+
+    def transform(self, x_in):
+        """
+        will fix input tensors to be matrices as the following:
+        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
+        """
+        # TODO(ejhumphrey): This isn't very stable, is it.
+        x_in = x_in.flatten(2)
+        W = self._theta["weights"] * self._theta["templates"]
+        b = self._theta["bias"].dimshuffle('x', 0)
+        return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
+
+
 class MultiSoftmax(BaseLayer):
     """
     Multi-softmax Layer
@@ -524,6 +624,25 @@ class MultiSoftmax(BaseLayer):
         output = []
         for i in range(self.output_shape[0]):
             z_i = self.activation(T.dot(x_in, W[i]) + b[i].dimshuffle('x', 0))
-            output.append(T.nnet.softmax(z_i).dimshuffle(0, 'x', 1))
+            output.append(T.nnet.softmax(z_i).dimshuffle(0, 1, 'x'))
 
-        return T.concatenate(output, axis=1)
+        return T.concatenate(output, axis=2)
+
+class EnergyPDF(BaseLayer):
+    """
+    """
+    param_names = []
+
+    def __init__(self, layer_args):
+        """
+        """
+        BaseLayer.__init__(self, layer_args)
+        self.param_values = {}
+        self._scalars.clear()
+
+    def transform(self, x_in):
+        """
+        will fix input tensors to be matrices as the following:
+        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
+        """
+        return T.nnet.softmax(-1.0 * x_in)

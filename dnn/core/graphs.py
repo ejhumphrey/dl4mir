@@ -260,20 +260,29 @@ class Network(object):
         [all_scalars.extend(layer.scalars) for layer in self.layers]
         return all_scalars
 
-
-    def compile(self, input_name=None, output_name=None):
-        if input_name is None:
-            input_name = self.input_name
+    def compile(self, output_name=None):
         if output_name is None:
             output_name = self.output_name
 
-        self.output_name = output_name
-        self._outputs[output_name] = self.transform(
-            self.symbolic_input(input_name))
+        self._outputs[self.output_name] = self.transform(
+            self.symbolic_input(self.input_name))
         self._fx = theano.function(inputs=self.inputs,
                                    outputs=self.outputs.get(output_name),
                                    allow_input_downcast=True,
                                    on_unused_input='warn')
+#    def compile(self, input_name=None, output_name=None):
+#        if input_name is None:
+#            input_name = self.input_name
+#        if output_name is None:
+#            output_name = self.output_name
+#
+#        self.output_name = output_name
+#        self._outputs[output_name] = self.transform(
+#            self.symbolic_input(input_name))
+#        self._fx = theano.function(inputs=self.inputs,
+#                                   outputs=self.outputs.get(output_name),
+#                                   allow_input_downcast=True,
+#                                   on_unused_input='warn')
 
     def __call__(self, inputs):
         if self._fx is None:

@@ -9,6 +9,7 @@ from ejhumphrey.dnn.core.graphs import Network
 from ejhumphrey.dnn.core.modules import Loss
 from ejhumphrey.dnn.core.updates import SGD
 from ejhumphrey.dnn.core.updates import Constraints
+import cPickle
 
 
 def select_update(base, newdict):
@@ -25,6 +26,7 @@ class Trainer(object):
         self.loss = None
         self.update = None
         self.monitor = None
+        self.constraints = None
         self.input_name, self.output_name = "input", "output"
         self.target_name = "y_target"
         self.name = name
@@ -36,7 +38,7 @@ class Trainer(object):
         stats_handle = open(self.stats_file, 'w')
         stats_handle.close()
 
-    def build_network(self, layer_args):
+    def build_network(self, layer_args, init_params=""):
         """
         Parameters
         ----------
@@ -44,8 +46,10 @@ class Trainer(object):
             Can be created with an argument factory or loaded from a json-file.
         """
         self.network = Network([Layer(args) for args in layer_args])
-        self.network.compile(self.input_name, self.output_name)
-#        self.network.save_definition(self.save_filebase, False)
+        self.network.compile()  # self.input_name, self.output_name)
+        if init_params:
+            print "Loading parameters from '%s'." % init_params
+            self.network.param_values = cPickle.load(open(init_params))
 
     def configure_losses(self, loss_args):
         """
@@ -93,6 +97,8 @@ class Trainer(object):
         assert self.network, "Network must be built first."
         assert self.loss, "Loss must be configured first."
         assert self.update, "Update must be configured first."
+        if self.constraints is None:
+            self.configure_constraints({})
         print "[%s]\t Running ..." % time.asctime()
 
         Done = False
