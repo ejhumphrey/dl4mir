@@ -47,8 +47,8 @@ def print_confusion_matrix(matrix, top_k_confusions=5, labels=None):
     header = "Total Precision: %0.3f  |  Average Accuracy: %0.3f" % \
         ((100 * true_positives / total_count), (average / float(i + 1)))
     msg += "\n%s\n%s\n%s\n" % ("-" * len(header),
-                              header,
-                              "-" * len(header))
+                               header,
+                               "-" * len(header))
     return msg
 
 def classification_report(y_true, y_pred, labels=None, target_names=None):
