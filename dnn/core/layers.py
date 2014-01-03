@@ -136,12 +136,12 @@ class AffineArgs(BaseLayerArgs):
 class Conv3DArgs(BaseLayerArgs):
 
     def __init__(self, name,
-        input_shape,
-        weight_shape,
-        pool_shape=(1, 1),
-        downsample_shape=(1, 1),
-        activation="tanh",
-        border_mode='valid'):
+                 input_shape,
+                 weight_shape,
+                 pool_shape=(1, 1),
+                 downsample_shape=(1, 1),
+                 activation="tanh",
+                 border_mode='valid'):
         """
         input_shape : tuple
             (in_maps, in_dim0, in_dim1), the last three dims of a 4d tensor
@@ -408,8 +408,8 @@ class Affine(BaseLayer):
                                         scale=np.sqrt(1. / np.sum(weight_shape)),
                                         size=weight_shape)
         bias = np.zeros(self.output_shape)
-        self.param_values = {self.own('weights'):weights,
-                             self.own('bias'):bias, }
+        self.param_values = {self.own('weights'): weights,
+                             self.own('bias'): bias, }
 
     def transform(self, x_in):
         """
