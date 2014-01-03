@@ -15,6 +15,7 @@ import glob
 import time
 import cPickle
 
+
 def main(args):
     total_samples = 50000 * args.samples_per_datapoint
     sample = np.zeros([total_samples, 451], dtype='float32')

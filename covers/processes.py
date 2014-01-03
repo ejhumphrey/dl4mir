@@ -4,6 +4,7 @@
 import numpy as np
 import cPickle
 
+
 def hwr(x):
     """Pointwise half-wave rectification.
 
