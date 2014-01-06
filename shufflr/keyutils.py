@@ -14,17 +14,18 @@ Therefore, there are conceptually two ways to refer to data in an HDF5 file:
     number of leaves at a node, and the depth defines the number of levels in
     the tree. Note that defining a fixed width, the number of end-nodes in the
     tree increases exponentially with depth. Empirically, width should seldom,
-    if ever, exceed 2**8 = 256. Here, a depth of 3 provides a massive key space.
+    if ever, exceed 2**8 = 256. Here, a depth of 3 provides a large key space.
     Such a key might look like "02/a5/f1"; note that every terminal node can be
     accessed directly in this manner.
-  indexes : An index is a scalar (as opposed to vector "indices") form of a key.
-    Note that because a key is merely a string representation of a number, they
-    can be converted interchangeably with minimal side information.
+  indexes : An index is a scalar representation of a key. Note that because a
+    key is merely a string representation of a number, they can be converted
+    interchangeably with minimal side information.
 
 TODO(ejhumphrey): These could use some tests.
 """
 
 from random import shuffle
+
 
 def is_hex(val):
     """Test a string for hexadecimal-ness."""
@@ -36,9 +37,11 @@ def is_hex(val):
             return False
     return True
 
+
 def cleanse(key):
     """Parse a key into a common, clean format."""
     return str(key).strip('/').lower()
+
 
 def is_keylike(key):
     """Test for key-ness, defined by three criteria:
@@ -53,6 +56,7 @@ def is_keylike(key):
     equal_spacing = [len(p) == len(parts[0]) for p in parts]
     hex_parts = [is_hex(p) for p in parts]
     return all(equal_spacing) and all(hex_parts)
+
 
 def expand_hex(hexval, width):
     """Zero-pad a hexadecimal representation out to a given number of places.
@@ -74,12 +78,13 @@ def expand_hex(hexval, width):
     Note: An error is raised if width is less than the number of hexadecimal
     digits required to represent the number.
     """
-    digits = hexval[2:]
-    assert width >= len(digits), \
-        "Received: %s. Width (%d) must be >= %d." % (hexval, width, len(digits))
+    chars = hexval[2:]
+    assert width >= len(chars), \
+        "Received: %s. Width (%d) must be >= %d." % (hexval, width, len(chars))
     y = list('0x' + '0' * width)
-    y[-len(digits):] = list(digits)
+    y[-len(chars):] = list(chars)
     return "".join(y)
+
 
 def index_to_key(index, depth):
     """Convert an integer to a hex-key representation.
@@ -103,6 +108,7 @@ def index_to_key(index, depth):
         [''.join(d) for d in zip(hx[::2], hx[1::2], '/' * (len(hx) / 2))])
     return tmp[3:-1]
 
+
 def key_to_index(key):
     """Convert a hex-key representation to an integer.
 
@@ -124,7 +130,7 @@ def key_to_index(key):
 
 
 def uniform_keygen(depth, width=256):
-    """Generator to produce uniformly distributed keys.
+    """Generator to produce uniformly distributed keys at a given depth.
 
     Deterministic and consistent, equivalent to a strided xrange() that yields
     strings like '04/1b/22' for depth=3, width=256.
@@ -150,6 +156,9 @@ def uniform_keygen(depth, width=256):
         hexval = "0x" + "".join([a + b for a, b in zip(v[-2:1:-2], v[:1:-2])])
         yield index_to_key(int(hexval, 16), depth)
     raise ValueError("Unique keys exhausted.")
+
+'''
+TODO(ejhumphrey): Move to selector or delete entirely.
 
 class KeySelector(list):
     """Random item selector, infinite generator.
@@ -188,4 +197,4 @@ class KeySelector(list):
         if self.__index__ >= len(self):
             self.__reset__()
         return next_key
-
+'''
