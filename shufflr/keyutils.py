@@ -96,7 +96,7 @@ def index_to_key(index, depth):
     index : int
         Integer index representation.
     depth : int
-        Number of levels in the key (number of slashes minus one).
+        Number of levels in the key (number of slashes plus one).
 
     Returns
     -------

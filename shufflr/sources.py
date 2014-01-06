@@ -224,18 +224,63 @@ class Cache(dict):
             refresh_prob = 0
 
         self.load(num_items=cache_size)
+        self._clear_tables()
 
-    def _clear_local_tables(self):
+    def _clear_tables(self):
         """Clear local table data."""
         # Collection of keys in this file.
         self._keys = list()
         # Look-up table of labels corresponding integers.
         self._label_enum = dict()
         # Index-label_enum pairs.
-        self._index_table = None
+        self._index_table = list()
 
     def create_tables(self):
-        raise NotImplementedError("No table methods yet")
+        """Iterate over all items, find keyed paths (conforming to is_keylike),
+        write the indexing tables to file, and cache them locally.
+
+        Parameters
+        ----------
+        write : bool
+            Write the indexing tables to file.
+        """
+        self._clear_tables()
+        index_list = []
+
+        for key, obj in self.iteritems():
+            """Callback function for h5py's 'visititems' method."""
+            if keyutils.is_keylike(key):
+                # Enumerate labels on the fly as they're visited.
+                if obj.type == 'Sample':
+                    for label in core.Dataset(obj).labels.values():
+                        if not label in self._label_enum:
+                            self._label_enum[label] = len(self._label_enum)
+                        # Populate index-enum tuples.
+                        index_list.append((keyutils.key_to_index(key),
+                                           self._label_enum[label]))
+                elif obj.type == 'Sequence':
+                    for label_seq in obj.labels.values():
+                        for subindex, label in enumerate(label_seq):
+                            if not label in self._label_enum:
+                                self._label_enum[label] = len(self._label_enum)
+                            # Populate index-subindex-enum tuples.
+                            index_list.append((keyutils.key_to_index(key),
+                                               subindex,
+                                               self._label_enum[label]))
+                else:
+                    raise ValueError(
+                        "Dataset contains unknown type: %s" % obj.type)
+        self._index_table = np.asarray(index_list)
+
+    def label_enum(self):
+        if not self._label_enum:
+            self.create_tables()
+        return self._label_enum.copy()
+
+    def index_table(self):
+        if not len(self._index_table):
+            self.create_tables()
+        return self._index_table
 
     def refresh_rand(self, p=None):
         """Randomly select a key to drop with probability 'p'."""
@@ -262,7 +307,7 @@ class Cache(dict):
     def remove(self, key):
         del self[key]
         # Clean up indexes; or, at least delete tables.
-        self._clear_local_tables()
+        self._clear_tables()
 
 
 class Batch(OrderedDict):
