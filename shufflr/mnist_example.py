@@ -58,13 +58,25 @@ def populate_file(values, labels, sfile):
 
 
 def demo(sfile, n_iter, cache_size=1000, batch_size=10):
+    """Demonstrate how to establish the shufflr pipeline to yield data batches.
 
+    Parameters
+    ----------
+    sfile : Instantied Sample/SequenceFile
+        Data source to poll.
+    n_iter : int
+        Number of batches to pull from the data source.
+    cache_size : int
+        Number of datapoints to keep in memory.
+    batch_size : int
+        Number of datapoints to draw at a time.
+    """
     # Create a permutation selector to build the cache.
-    cache_selector = selectors.Permutation(sfile)
-    cache = sources.Cache(cache_selector, cache_size, 0.05)
+    file_selector = selectors.Permutation(sfile)
+    cache = sources.Cache(file_selector, cache_size, 0.05)
 
-    batch_selector = selectors.Random(cache)
-    batch = sources.Batch(batch_selector, batch_size)
+    cache_selector = selectors.Random(cache)
+    batch = sources.Batch(cache_selector, batch_size)
 
     for n in range(n_iter):
         batch.next()
@@ -72,6 +84,8 @@ def demo(sfile, n_iter, cache_size=1000, batch_size=10):
 
 
 def draw_batch(batch):
+    """Plot the first several datapoints of a batch.
+    """
     fig = figure()
     num_imgs = min([10, len(batch)])
     for n in range(num_imgs):
@@ -90,10 +104,9 @@ def main(args):
     """
     """
     dset = load_mnist(args.data_file)
-    sfile = sources.SampleFile(args.output_file)
-    populate_file(dset['train']['values'], dset['train']['labels'], sfile)
-
-    demo(sfile)
+    fobj = sources.File(args.output_file)
+    populate_file(dset['train']['values'], dset['train']['labels'], fobj)
+    demo(fobj)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

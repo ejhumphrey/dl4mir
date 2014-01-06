@@ -65,3 +65,4 @@ class ReservedKeys(object):
     DATA = 'data'
     PARTITION_EXT = ".part-"
     PARTITION_FMT = "%%s%s%%d" % PARTITION_EXT
+    TYPE = "datatype"

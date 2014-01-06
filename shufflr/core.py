@@ -21,6 +21,7 @@ class Dataset(object):
         self._value = None
         self._labels = dict()
         self._targets = dict()
+        self._type = self.__class__.__name__
         self.__parse_attrs__(dataset.attrs)
 
     def __str__(self):
@@ -45,6 +46,8 @@ class Dataset(object):
                        if k.startswith(ReservedKeys.TARGET_PREFIX)]
         self._targets = dict([(k.strip(ReservedKeys.TARGET_PREFIX),
                                self.metadata.pop(k)) for k in target_keys])
+
+        self._type = self.metadata.pop(ReservedKeys.TYPE, self.type)
 
     @property
     def name(self):
@@ -71,6 +74,25 @@ class Dataset(object):
     @property
     def metadata(self):
         return self._metadata
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def Type(self):
+        return eval(self.type)
+
+
+def Factory(dataset):
+    """Infer the class type from the dataset.
+    """
+    data = Dataset(dataset)
+    return data.Type(name=data.name,
+                     value=data.value,
+                     labels=data.labels,
+                     targets=data.targets,
+                     metadata=data.metadata)
 
 
 class Sample(Dataset):
@@ -118,21 +140,7 @@ class Sample(Dataset):
             metadata = dict()
         self._metadata = metadata.copy()
         self._name = name
-
-    @classmethod
-    def from_file(self, dataset, dtype=np.float32):
-        """Create a Sample from an h5py dataset.
-
-        This implementation serves as an alternate constructor, since typed
-        overloading doesn't totally jive with Python.
-        """
-        dset = Dataset(dataset)
-        return Sample(name=dset.name,
-                      value=dset.value,
-                      labels=dset.labels,
-                      targets=dset.targets,
-                      metadata=dset.metadata,
-                      dtype=dtype)
+        self._type = self.__class__.__name__
 
     @property
     def attrs(self):
@@ -152,6 +160,7 @@ class Sample(Dataset):
                 "Warning: Label value must be smaller than 64kB."
             attrs[ReservedKeys.LABEL_PREFIX + k] = v
 
+        attrs[ReservedKeys.TYPE] = self.type
         return attrs
 
     @property
@@ -190,20 +199,6 @@ class Sequence(Sample):
         # Need to de-serialize labels / targets here.
         Sample.__init__(self, value, name, labels, targets, metadata, dtype)
 
-    @classmethod
-    def from_file(self, dataset, dtype=None):
-        """Create a DataPoint from an h5py Dataset.
-
-        This implementation serves as an alternate constructor, since typed
-        overloading doesn't totally jive with Python.
-        """
-        data = Dataset(dataset)
-        return Sequence(name=data.name,
-                        value=data.value,
-                        labels=data.labels,
-                        targets=data.targets,
-                        metadata=data.metadata)
-
     def __len__(self):
         return len(self.value)
 
@@ -221,6 +216,7 @@ class Sequence(Sample):
         for k, v in self.labels.iteritems():
             attrs[ReservedKeys.LABEL_PREFIX + k] = v
 
+        attrs[ReservedKeys.TYPE] = self.type
         return attrs
 
 '''

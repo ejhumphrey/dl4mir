@@ -14,7 +14,7 @@ from . import keyutils
 from . import utils
 
 
-class SampleFile(h5py.File):
+class File(h5py.File):
     """Object for efficiently reading and writing data on-disk.
 
     This object should cache the following:
@@ -59,7 +59,7 @@ class SampleFile(h5py.File):
     def get(self, key):
         """Retrieve the datapoint for the given key; fails if not found."""
         assert key in self, "Does not contain an item at '%s'." % key
-        return core.Sample.from_file(h5py.File.get(self, name=key))
+        return core.Factory(h5py.File.get(self, name=key))
 
     def add(self, key, data, overwrite=False):
         """Add data sample under the given key.
@@ -155,12 +155,13 @@ class SampleFile(h5py.File):
         """Iterate over all items, find keyed paths (conforming to is_keylike),
         write the indexing tables to file, and cache them locally.
 
+        Parameters
+        ----------
         write : bool
             Write the indexing tables to file.
         """
         self._clear_persistent_tables()
         index_list = []
-        # self._key_list = []
 
         def cache_data(key, obj):
             """Callback function for h5py's 'visititems' method."""
@@ -168,58 +169,26 @@ class SampleFile(h5py.File):
                 # Add new keys to the manifest.
                 self._keys.append(keyutils.cleanse(key))
                 # Enumerate labels on the fly as they're visited.
-                for label in core.Dataset(obj).labels.values():
-                    if not label in self._label_enum:
-                        self._label_enum[label] = len(self._label_enum)
-                    # Populate index-enum tuples.
-                    index_list.append((keyutils.key_to_index(key),
-                                       self._label_enum[label]))
-
-        self.visititems(cache_data)
-        self.create_dataset(name=ReservedKeys.INDEX_TABLE,
-                            data=np.asarray(index_list, dtype=int))
-        self.create_dataset(name=ReservedKeys.KEY_MANIFEST,
-                            data=self._keys)
-        label_enum = [(k, v) for k, v in self._label_enum.iteritems()]
-        self.create_dataset(name=ReservedKeys.LABEL_ENUM, data=label_enum)
-
-
-class SequenceFile(SampleFile):
-    """Write me.
-
-    Sequences and whatnot ... time-aligned, blah blah.
-    """
-
-    def get(self, key):
-        """Retrieve the datapoint for the given key; fails if not found."""
-        assert key in self, "Does not contain an item at '%s'." % key
-        return core.Sequence.from_file(h5py.File.get(self, name=key))
-
-    def create_tables(self, write=True):
-        """Iterate over all items, find keyed paths (conforming to is_keylike),
-        write the indexing tables to file, and cache them locally.
-
-        write : bool
-            Write the indexing tables to file.
-        """
-        self._clear_persistent_tables()
-        index_list = []
-        # self._key_list = []
-
-        def cache_data(key, obj):
-            """Callback function for h5py's 'visititems' method."""
-            if isinstance(obj, h5py.Dataset) and keyutils.is_keylike(key):
-                # Add new keys to the manifest.
-                self._keys.append(keyutils.cleanse(key))
-                # Enumerate labels on the fly as they're visited.
-                for label_seq in core.Dataset(obj).labels.values():
-                    for subindex, label in enumerate(label_seq):
+                dset = core.Dataset(obj)
+                if dset.type == 'Sample':
+                    for label in core.Dataset(obj).labels.values():
                         if not label in self._label_enum:
                             self._label_enum[label] = len(self._label_enum)
-                        # Populate index-subindex-enum tuples.
+                        # Populate index-enum tuples.
                         index_list.append((keyutils.key_to_index(key),
-                                           subindex,
                                            self._label_enum[label]))
+                elif dset.type == 'Sequence':
+                    for label_seq in dset.labels.values():
+                        for subindex, label in enumerate(label_seq):
+                            if not label in self._label_enum:
+                                self._label_enum[label] = len(self._label_enum)
+                            # Populate index-subindex-enum tuples.
+                            index_list.append((keyutils.key_to_index(key),
+                                               subindex,
+                                               self._label_enum[label]))
+                else:
+                    raise ValueError(
+                        "Dataset contains unknown type: %s" % dset.type)
 
         self.visititems(cache_data)
         self.create_dataset(name=ReservedKeys.INDEX_TABLE,
