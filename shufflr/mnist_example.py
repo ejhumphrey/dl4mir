@@ -1,5 +1,4 @@
-"""Demonstration of the Shufflr library with the MNIST dataset.
-"""
+"""Demonstration of the Shufflr library with the MNIST dataset."""
 
 import argparse
 import cPickle

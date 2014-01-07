@@ -317,11 +317,11 @@ class Batch(OrderedDict):
         OrderedDict.__init__(self)
         self.source = source
         self.batch_size = batch_size
-        self.next()
 
     def next(self):
         self.clear()
         self.load(num_items=self.batch_size)
+        return [self[k] for k in self]
 
     def load(self, num_items=1):
         """Load the next 'num_items'."""
@@ -329,9 +329,3 @@ class Batch(OrderedDict):
             k, v = self.source.next()
             self[k] = v
             num_items -= 1
-
-    def values(self):
-        return [self[k].value for k in self]
-
-    def labels(self, name):
-        return [self[k].labels[name] for k in self]

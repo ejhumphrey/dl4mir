@@ -54,14 +54,19 @@ class UniformLabel(BaseSelector):
         self.depth = self._keys[0].count('/') + 1
         label_enum = source.label_enum()
         index_table = source.index_table()
-        self.num_items = len(index_table)
         if equivalence_map:
-            # translate the equiv map into enumeration values.
-            enum_equiv = dict([(label_enum(l, -1), i)
+            # Create mutable enumeration data structure
+            new_enum = np.zeros(len(index_table), dtype=index_table.dtype) - 1
+            # Translate the equiv map into enumeration values.
+            enum_equiv = dict([(label_enum.get(l, -1), i)
                               for l, i in equivalence_map.iteritems()])
             for i, j in enum_equiv.iteritems():
-                index_table[index_table[:, -1] == i, -1] = j
+                new_enum[index_table[:, -1] == i] = j
+            # Replace old enumeration with new equivalence-based one.
+            index_table[:, -1] = new_enum
+
         self._index_table = split_index_table(index_table)
+        self._index_table.pop(-1, None)
         self._label_keys = self._index_table.keys()
         self.reset()
 

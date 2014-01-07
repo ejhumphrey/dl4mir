@@ -323,28 +323,3 @@ filter. Consume a sequence and parameters, return another (smaller) Sequence.
             full_target, index, left, right, fill_value=fill_value)
 '''
 
-'''
-Not sure this goes here either.
-
-class Batch(object):
-    def __init__(self):
-        self.clear()
-
-    def clear(self):
-        self._values = list()
-        self._labels = list()
-
-    def add_value(self, x):
-        self._values.append(x)
-
-    def add_label(self, y):
-        self._labels.append(y)
-
-    @property
-    def values(self):
-        return np.asarray(self._values)
-
-    @property
-    def labels(self):
-        return np.asarray(self._labels)
-'''

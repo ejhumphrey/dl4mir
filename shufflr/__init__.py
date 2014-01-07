@@ -28,8 +28,8 @@ class Config(object):
 
 class ReservedKeys(object):
     """Data structure for reserved keys in the HDF5 filesystem."""
-    # Like in SQL-esque databases, we build an index table that keeps track of
-    # what data lives where in the source for efficient access. Currently, this
+    # Like in SQL-esque databases, index tables are constructed to keep track
+    # of what data lives where for efficient access. Currently, this
     # table has two integer columns:
     #
     #   [ index, label_enum ]
