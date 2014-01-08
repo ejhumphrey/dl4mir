@@ -7,36 +7,44 @@ a string. If it were a class, it could / would have a name property.
 
 import theano.tensor as T
 
+
 def linear(x):
     """ Write my LaTeX form."""
     return x
+
 
 def relu(x):
     """ Write my LaTeX form."""
     return 0.5 * (x + T.abs_(x))
 
+
 def tanh(x):
     """ Write my LaTeX form."""
     return T.tanh(x)
+
 
 def sigmoid(x):
     """ Write my LaTeX form."""
     return T.nnet.sigmoid(x)
 
+
 def soft_shrink(x, threshold, Q):
     """ Write my LaTeX form."""
     raise NotImplementedError("SoftShrink is not implemented yet.")
+
 
 def hard_shrink(x, threshold):
     """ Write my LaTeX form."""
     raise NotImplementedError("SoftShrink is not implemented yet.")
 
-Activations = {'linear':linear,
-               'relu':relu,
-               'tanh':tanh,
-               'sigmoid':sigmoid,
-               'soft_shrink':soft_shrink,
-               'hard_shrink':hard_shrink}
+
+Activations = {'linear': linear,
+               'relu': relu,
+               'tanh': tanh,
+               'sigmoid': sigmoid,
+               'soft_shrink': soft_shrink,
+               'hard_shrink': hard_shrink}
+
 
 def l2norm(x):
     scalar = T.pow(T.pow(x, 2.0).sum(axis=1), 0.5)
@@ -49,20 +57,25 @@ def euclidean(a, b):
     a, b = a.flatten(2), b.flatten(2)
     return T.sqrt(T.sum(T.pow(a - b, 2.0), axis=1))
 
+
 def manhattan(a, b):
     """Row-wise manhattan distance between tensors.
     """
     a, b = a.flatten(2), b.flatten(2)
     return T.sum(T.abs_(a - b), axis=1)
 
+
 def euclidean_proj(a, b):
     """Projected Euclidean distance between tensors.
     """
-    a, b = a.flatten(2).dimshuffle("x", 0, 1), b.flatten(2).dimshuffle(0, "x", 1)
-    return T.sqrt(T.sum(T.pow(a - b, 2.0), axis= -1))
+    a = a.flatten(2).dimshuffle("x", 0, 1)
+    b = b.flatten(2).dimshuffle(0, "x", 1)
+    return T.sqrt(T.sum(T.pow(a - b, 2.0), axis=-1))
+
 
 def manhattan_proj(a, b):
     """Projected Manhattan distance between tensors.
     """
-    a, b = a.flatten(2).dimshuffle("x", 0, 1), b.flatten(2).dimshuffle(0, "x", 1)
-    return T.sum(T.abs_(a - b), axis= -1)
+    a = a.flatten(2).dimshuffle("x", 0, 1)
+    b = b.flatten(2).dimshuffle(0, "x", 1)
+    return T.sum(T.abs_(a - b), axis=-1)
