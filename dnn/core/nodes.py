@@ -15,15 +15,15 @@ from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import functions
 
 
-def Layer(layer_args):
-    """Layer factory; uses 'type' in the layer_args dictionary."""
-    return eval("%s(layer_args)" % layer_args.get("type"))
+def NodeFactory(node_args):
+    """Node factory; uses 'type' in the node_args dictionary."""
+    return eval("%s(node_args)" % node_args.get("type"))
 
 
 # --- Layer Argument Classes ---
 class NodeArgs(dict):
     """
-    Base class for all layer arguments
+    Base class for a node's arguments
     """
 
     INPUT_SHAPES = 'input_shapes'
@@ -42,9 +42,9 @@ class NodeArgs(dict):
         Parameters
         ----------
         name : str
-            Unique name for the layer.
+            Unique name for the node.
         input_shapes : dict of tuples
-            Dimensions of the layer's primary inputs.
+            Dimensions of the node's primary inputs.
         activation : string
             Name of the activation function.
         """
@@ -309,7 +309,6 @@ class Node(dict):
     Nodes in the graph perform parameter management and micro-math operations.
     """
 
-    # REQUIRED_INPUTS = []
     def __init__(self, layer_args):
         """
         layer_args: dict
@@ -317,11 +316,8 @@ class Node(dict):
         """
         self.update(layer_args)
 
-        # TODO(ejhumphrey): Input validation is desperately needed.
         self.numpy_rng = np.random.RandomState()
         self.theano_rng = RandomStreams(self.numpy_rng.randint(2 ** 30))
-
-        # Theta is the local set of all symbolic parameters in this layer.
 
         self._params = dict([(k, None) for k in self._param_shapes.keys()])
 
@@ -342,14 +338,14 @@ class Node(dict):
     def own(self, name):
         return os.path.join(self.name, name)
 
+    # Deprecated / unnecessary?
     @property
     def type(self):
-        # Deprecated / unnecessary?
         return self.__class__.__name__
 
+    # Is it really necessary to expose this?
     @property
     def activation(self):
-        # Is it really necessary to expose this?
         return functions.Activations.get(self.get(NodeArgs.ACTIVATION))
 
     @property
@@ -534,76 +530,13 @@ class Affine(Node):
         x_in = T.flatten(x_in, outdim=2)
         z_out = self.activation(T.dot(x_in, weights) + bias)
 
-        output_shape = self._output_shapes[AffineArgs.OUTPUT]
+        output_shape = self._output[AffineArgs.OUTPUT]
         selector = self.theano_rng.binomial(size=output_shape,
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
         z_out *= selector.dimshuffle('x', 0) * (self.dropout + 0.5)
         z_out.name = self.outputs[0]
         return {z_out.name: z_out}
-
-    def consume(self, inputs):
-        """
-        will fix input tensors to be matrices as the following:
-        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
-
-        """
-        outputs = dict()
-        input_names = [self.own(AffineArgs.INPUT)]
-
-        if None in [inputs.get(name, None) for name in input_names]:
-            return outputs
-        else:
-            x_in = inputs.pop(input_names[0])
-            z_out = self.transform(x_in)
-            outputs.update({z_out.name: z_out})
-        return outputs
-        # self._outputs[AffineArgs.OUTPUT] = z_out
-        # return self.outputs
-
-
-class RBF(Node):
-    """
-    Radial Basis Function Layer
-      (i.e. distance layer)
-
-    """
-    param_names = ["weights"]
-
-    def __init__(self, layer_args):
-        """
-        layer_args : RBFArgs
-
-        """
-        Node.__init__(self, layer_args)
-        w_shape = self.param_shapes.get("weights")
-        weights = self.numpy_rng.normal(loc=0.0,
-                                        scale=np.sqrt(1. / np.sum(w_shape)),
-                                        size=w_shape)
-        self.param_values = {self.own('weights'): weights, }
-
-    def transform(self, x_in):
-        """
-        will fix input tensors to be matrices as the following:
-        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
-
-        """
-        W = self._theta["weights"].T
-
-        # TODO(ejhumphrey): This isn't very stable, is it.
-        x_in = T.flatten(x_in, outdim=2)
-        if self.get("lp_norm") == "l1":
-            z_out = T.abs_(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1))
-        elif self.get("lp_norm") == "l2":
-            z_out = T.pow(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1), 2.0)
-        else:
-            raise NotImplementedError(
-                "Lp_norm type '%s' unsupported." % self.get("lp_norm"))
-
-        selector = self.theano_rng.binomial(size=self.output_shape,
-                                            p=1.0 - self.dropout,
-                                            dtype=FLOATX)
-        return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
 
 
 class Conv3D(Node):
@@ -615,10 +548,8 @@ class Conv3D(Node):
 
         """
         Node.__init__(self, layer_args)
-
         # Create all the weight values at once
-        param_shapes = layer_args.get(Conv3DArgs.PARAM_SHAPES)
-        weight_shape = param_shapes.get(Conv3DArgs.WEIGHTS)
+        weight_shape = self._param_shapes.get(Conv3DArgs.WEIGHTS)
         fan_in = np.prod(weight_shape[1:])
         weight_values = self.numpy_rng.normal(
             loc=0.0, scale=np.sqrt(3. / fan_in), size=weight_shape)
@@ -630,32 +561,57 @@ class Conv3D(Node):
         self.param_values = {self.own(Conv3DArgs.WEIGHTS): weight_values,
                              self.own(Conv3DArgs.BIAS): bias_values, }
 
+    @property
+    def _border_mode(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return self.get(Conv3DArgs.BORDER_MODE)
+
+    @property
+    def _pool_shape(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return self.get(Conv3DArgs.POOL)
+
+    @property
+    def _downsample_shape(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return self.get(Conv3DArgs.DOWNSAMPLE)
+
     def transform(self, inputs):
         """
 
         """
-        x_in = inputs.get(self.own(Conv3DArgs.INPUT))
-        self._inputs[Conv3DArgs.INPUT] = x_in
-
+        self.validate_inputs(inputs)
+        x_in = inputs.get(self.inputs[0])
         weights = self._params[Conv3DArgs.WEIGHTS]
         bias = self._params[Conv3DArgs.BIAS].dimshuffle('x', 0, 'x', 'x')
 
-        param_shapes = self.get(Conv3DArgs.PARAM_SHAPES)
         z_out = T.nnet.conv.conv2d(
             input=x_in,
             filters=weights,
-            filter_shape=param_shapes.get(Conv3DArgs.WEIGHTS),
-            border_mode=self.get(Conv3DArgs.BORDER_MODE))
+            filter_shape=self._param_shapes[Conv3DArgs.WEIGHTS],
+            border_mode=self._border_mode)
 
-        output_shape = self.get(Conv3DArgs.OUTPUT_SHAPES)[Conv3DArgs.OUTPUT]
-        selector = self.theano_rng.binomial(size=output_shape[:1],
-                                            p=1.0 - self.dropout,
-                                            dtype=FLOATX)
+        selector = self.theano_rng.binomial(
+            size=self._output_shapes[Conv3DArgs.OUTPUT][:1],
+            p=1.0 - self.dropout,
+            dtype=FLOATX)
 
         z_out = self.activation(z_out + bias)
         z_out *= selector.dimshuffle('x', 0, 'x', 'x') * (self.dropout + 0.5)
         z_out = downsample.max_pool_2d(
-            z_out, self.get(Conv3DArgs.POOL), ignore_border=False)
+            z_out, self._pool_shape, ignore_border=False)
         z_out.name = self.own(Conv3DArgs.OUTPUT)
         self._outputs[Conv3DArgs.OUTPUT] = z_out
         return z_out
@@ -736,6 +692,50 @@ class Softmax(Node):
         W = self._theta["weights"]
         b = self._theta["bias"].dimshuffle('x', 0)
         return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
+
+
+class RBF(Node):
+    """
+    Radial Basis Function Layer
+      (i.e. distance layer)
+
+    """
+    param_names = ["weights"]
+
+    def __init__(self, layer_args):
+        """
+        layer_args : RBFArgs
+
+        """
+        Node.__init__(self, layer_args)
+        w_shape = self.param_shapes.get("weights")
+        weights = self.numpy_rng.normal(loc=0.0,
+                                        scale=np.sqrt(1. / np.sum(w_shape)),
+                                        size=w_shape)
+        self.param_values = {self.own('weights'): weights, }
+
+    def transform(self, x_in):
+        """
+        will fix input tensors to be matrices as the following:
+        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
+
+        """
+        W = self._theta["weights"].T
+
+        # TODO(ejhumphrey): This isn't very stable, is it.
+        x_in = T.flatten(x_in, outdim=2)
+        if self.get("lp_norm") == "l1":
+            z_out = T.abs_(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1))
+        elif self.get("lp_norm") == "l2":
+            z_out = T.pow(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1), 2.0)
+        else:
+            raise NotImplementedError(
+                "Lp_norm type '%s' unsupported." % self.get("lp_norm"))
+
+        selector = self.theano_rng.binomial(size=self.output_shape,
+                                            p=1.0 - self.dropout,
+                                            dtype=FLOATX)
+        return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
 
 
 class SoftMask(Node):
