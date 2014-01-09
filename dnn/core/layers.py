@@ -21,7 +21,7 @@ def Layer(layer_args):
 
 
 # --- Layer Argument Classes ---
-class BaseLayerArgs(dict):
+class NodeArgs(dict):
     """
     Base class for all layer arguments
     """
@@ -58,12 +58,12 @@ class BaseLayerArgs(dict):
         if output_shapes is None:
             output_shapes = dict()
 
-        args = {BaseLayerArgs.TYPE: self.type,
-                BaseLayerArgs.NAME: name,
-                BaseLayerArgs.PARAM_SHAPES: param_shapes,
-                BaseLayerArgs.INPUT_SHAPES: input_shapes,
-                BaseLayerArgs.OUTPUT_SHAPES: output_shapes,
-                BaseLayerArgs.ACTIVATION: activation, }
+        args = {NodeArgs.TYPE: self.type,
+                NodeArgs.NAME: name,
+                NodeArgs.PARAM_SHAPES: param_shapes,
+                NodeArgs.INPUT_SHAPES: input_shapes,
+                NodeArgs.OUTPUT_SHAPES: output_shapes,
+                NodeArgs.ACTIVATION: activation, }
 
         self.update(args)
 
@@ -74,7 +74,7 @@ class BaseLayerArgs(dict):
     def type(self):
         return self.__class__.__name__.split("Args")[0]
 
-    def Layer(self):
+    def Node(self):
         return eval(self.type)(self)
 
     @property
@@ -94,9 +94,8 @@ class BaseLayerArgs(dict):
         """
         return self.get(self.INPUT_SHAPES)
 
-    # Necessary?
     @property
-    def input_names(self):
+    def inputs(self):
         return self.input_shapes.keys()
 
     @property
@@ -108,9 +107,8 @@ class BaseLayerArgs(dict):
         """
         return self.get(self.OUTPUT_SHAPES)
 
-    # Necessary?
     @property
-    def output_names(self):
+    def outputs(self):
         return self.output_shapes.keys()
 
     @property
@@ -131,7 +129,7 @@ class BaseLayerArgs(dict):
         return self.param_shapes.keys()
 
 
-class AffineArgs(BaseLayerArgs):
+class AffineArgs(NodeArgs):
     """
     """
     INPUT = 'x_input'
@@ -150,7 +148,7 @@ class AffineArgs(BaseLayerArgs):
         activation: str
             asdf
         """
-        BaseLayerArgs.__init__(
+        NodeArgs.__init__(
             self,
             name=name,
             input_shapes={AffineArgs.INPUT: weight_shape[:1]},
@@ -174,7 +172,7 @@ class SoftmaxArgs(AffineArgs):
                             activation=activation)
 
 
-class Conv3DArgs(BaseLayerArgs):
+class Conv3DArgs(NodeArgs):
 
     INPUT = 'x_input'
     OUTPUT = 'z_output'
@@ -224,11 +222,12 @@ class Conv3DArgs(BaseLayerArgs):
         d1_out = int(d1_in - weight_shape[-1] + 1) / pool_shape[1]
         output_shape = (weight_shape[0], d0_out, d1_out)
 
-        BaseLayerArgs.__init__(self, name,
-                               input_shapes={Conv3DArgs.INPUT: input_shape},
-                               output_shapes={Conv3DArgs.OUTPUT: output_shape},
-                               param_shapes=param_shapes,
-                               activation=activation)
+        NodeArgs.__init__(self,
+                          name,
+                          input_shapes={Conv3DArgs.INPUT: input_shape},
+                          output_shapes={Conv3DArgs.OUTPUT: output_shape},
+                          param_shapes=param_shapes,
+                          activation=activation)
         self.update({Conv3DArgs.POOL: pool_shape,
                      Conv3DArgs.DOWNSAMPLE: downsample_shape,
                      Conv3DArgs.BORDER_MODE: border_mode})
@@ -269,11 +268,11 @@ class MultiSoftmaxArgs(AffineArgs):
         n_in = np.prod(input_shape, dtype=int)
         assert len(output_shape) == 2
         weight_shape = (output_shape[0], n_in, output_shape[1])
-        BaseLayerArgs.__init__(self, name=name,
-                               input_shape=(n_in,),
-                               param_shapes=dict(weights=weight_shape,
-                                                 bias=output_shape),
-                               activation=activation)
+        NodeArgs.__init__(self, name=name,
+                          input_shape=(n_in,),
+                          param_shapes=dict(weights=weight_shape,
+                                            bias=output_shape),
+                          activation=activation)
         self.update(input_shape=self.input_shape,
                     output_shape=self.output_shape)
 
@@ -304,10 +303,10 @@ class RBFArgs(AffineArgs):
         self.update(lp_norm=lp_norm)
 
 
-# --- Layer Class Implementations ------
-class BaseLayer(dict):
+# --- Transform Node Implementations ------
+class Node(dict):
     """
-    Layers are in charge of parameter management and micro-math operations.
+    Nodes in the graph perform parameter management and micro-math operations.
     """
 
     # REQUIRED_INPUTS = []
@@ -324,24 +323,21 @@ class BaseLayer(dict):
 
         # Theta is the local set of all symbolic parameters in this layer.
 
-        self._params = dict([(k, None)
-                             for k in self.get('param_shapes').keys()])
+        self._params = dict([(k, None) for k in self._param_shapes.keys()])
 
         # TODO(ejhumphrey): Make the dropout variable more agnostic, if this
         #     is the way things are going to proceed.
         self._scalars = dict(dropout=T.scalar(name=self.own("dropout"),
                                               dtype=FLOATX))
-        self._inputs = dict([(k, None)
-                             for k in self.get('input_shapes').keys()])
-        self._outputs = dict([(k, None)
-                              for k in self.get('output_shapes').keys()])
+        self._inputs = dict([(k, None) for k in self._input_shapes.keys()])
+        self._outputs = dict([(k, None) for k in self._output_shapes.keys()])
 
     def __str__(self):
         return json.dumps(self, indent=2)
 
     @property
     def name(self):
-        return self.get("name")
+        return self.get(NodeArgs.NAME)
 
     def own(self, name):
         return os.path.join(self.name, name)
@@ -354,7 +350,7 @@ class BaseLayer(dict):
     @property
     def activation(self):
         # Is it really necessary to expose this?
-        return functions.Activations.get(self.get("activation"))
+        return functions.Activations.get(self.get(NodeArgs.ACTIVATION))
 
     @property
     def params(self):
@@ -407,19 +403,26 @@ class BaseLayer(dict):
                 self._params[param_name].set_value(value.astype(FLOATX))
 
     @property
+    def _param_shapes(self):
+        return self.get(NodeArgs.PARAM_SHAPES)
+
+    @property
+    def param_shapes(self):
+        return dict([(self.own(k), v) for k, v in self._param_shapes.items()])
+
+    @property
     def scalars(self):
         return dict([(self.own(k), v)
                      for k, v in self._scalars.iteritems()])
 
     @property
-    def inputs(self):
-        return dict([(self.own(k), v)
-                     for k, v in self._inputs.iteritems()])
-
-    @property
-    def outputs(self):
-        return dict([(self.own(k), v)
-                     for k, v in self._outputs.iteritems()])
+    def _input_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return self.get(NodeArgs.INPUT_SHAPES)
 
     @property
     def input_shapes(self):
@@ -428,8 +431,21 @@ class BaseLayer(dict):
         -------
         shapes : dict
         """
-        return dict([(self.own(k), v)
-                     for k, v in self.get("input_shapes").iteritems()])
+        return dict([(self.own(k), v) for k, v in self._input_shapes.items()])
+
+    @property
+    def inputs(self):
+        """Return the full names of all inputs to this node."""
+        return self.input_shapes.keys()
+
+    @property
+    def _output_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return self.get(NodeArgs.OUTPUT_SHAPES)
 
     @property
     def output_shapes(self):
@@ -438,21 +454,12 @@ class BaseLayer(dict):
         -------
         shapes : dict
         """
-        return dict([(self.own(k), v)
-                     for k, v in self.get("output_shapes").iteritems()])
+        return dict([(self.own(k), v) for k, v in self._output_shapes.items()])
 
     @property
-    def param_shapes(self):
-        return dict([(self.own(k), v)
-                     for k, v in self.get("param_shapes").iteritems()])
-
-    def transform(self, inputs):
-        """
-        inputs : dict of named Theano variables
-
-        Must cache inputs, set / configure outputs.
-        """
-        raise NotImplementedError("Subclass me!")
+    def outputs(self):
+        """Return the full names of all outputs of this node."""
+        return self.output_shapes.keys()
 
     # TODO(ejhumphrey): Is this deprecated / the best way to do this?
     @property
@@ -462,8 +469,22 @@ class BaseLayer(dict):
         """
         return self._scalars.get("dropout")
 
+    def transform(self):
+        """
+        """
+        raise NotImplementedError("Subclass me!")
 
-class Affine(BaseLayer):
+    def validate_inputs(self, inputs):
+        """Determine if the inputs dictionary contains the necessary keys."""
+        return not False in [name in inputs for name in self.inputs]
+
+    def filter_inputs(self, inputs):
+        """Extract the relevant input items, iff all are present."""
+        assert self.validate_inputs(inputs)
+        return dict([(k, inputs.pop(k)) for k in self.inputs])
+
+
+class Affine(Node):
     """
     Affine Transform Layer
       (i.e., a fully-connected non-linear projection)
@@ -475,13 +496,13 @@ class Affine(BaseLayer):
         layer_args : AffineArgs
 
         """
-        BaseLayer.__init__(self, layer_args)
-        weight_shape = self.get("param_shapes")[AffineArgs.WEIGHTS]
+        Node.__init__(self, layer_args)
+        weight_shape = self._param_shapes[AffineArgs.WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
             scale=np.sqrt(1.0 / np.sum(weight_shape)),
             size=weight_shape)
-        bias_values = np.zeros(self.get("param_shapes")[AffineArgs.BIAS])
+        bias_values = np.zeros(self._param_shapes[AffineArgs.BIAS])
         self.param_values = {self.own(AffineArgs.WEIGHTS): weight_values,
                              self.own(AffineArgs.BIAS): bias_values, }
 
@@ -490,31 +511,58 @@ class Affine(BaseLayer):
         will fix input tensors to be matrices as the following:
         (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
 
+        Parameters
+        ----------
+        inputs: dict
+            Must contain all known data inputs to this node, keyed by full
+            names. Will fail loudly otherwise.
+
+        Returns
+        -------
+        outputs: dict
+            Will contain all outputs generated by this node, keyed by full
+            name. Note that the symbolic outputs will take this full name
+            internal to each object.
         """
-        outputs = dict()
-        x_in = inputs.get(self.own(AffineArgs.INPUT), None)
-        if x_in is None:
-            return outputs
-        # self._inputs[AffineArgs.INPUT] = x_in
-        W = self._params[AffineArgs.WEIGHTS]
-        b = self._params[AffineArgs.BIAS].dimshuffle('x', 0)
+        assert self.validate_inputs(inputs)
+        # Since there's only the one, just take the single item.
+        x_in = inputs.get(self.inputs[0])
+        weights = self._params[AffineArgs.WEIGHTS]
+        bias = self._params[AffineArgs.BIAS].dimshuffle('x', 0)
+
         # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
-        z_out = self.activation(T.dot(x_in, W) + b)
+        z_out = self.activation(T.dot(x_in, weights) + bias)
 
-        output_shape = self.get(AffineArgs.OUTPUT_SHAPES)[AffineArgs.OUTPUT]
+        output_shape = self._output_shapes[AffineArgs.OUTPUT]
         selector = self.theano_rng.binomial(size=output_shape,
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
-        z_out = z_out * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
-        z_out.name = self.own(AffineArgs.OUTPUT)
-        outputs[z_out.name] = z_out
+        z_out *= selector.dimshuffle('x', 0) * (self.dropout + 0.5)
+        z_out.name = self.outputs[0]
+        return {z_out.name: z_out}
+
+    def consume(self, inputs):
+        """
+        will fix input tensors to be matrices as the following:
+        (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
+
+        """
+        outputs = dict()
+        input_names = [self.own(AffineArgs.INPUT)]
+
+        if None in [inputs.get(name, None) for name in input_names]:
+            return outputs
+        else:
+            x_in = inputs.pop(input_names[0])
+            z_out = self.transform(x_in)
+            outputs.update({z_out.name: z_out})
         return outputs
         # self._outputs[AffineArgs.OUTPUT] = z_out
         # return self.outputs
 
 
-class RBF(BaseLayer):
+class RBF(Node):
     """
     Radial Basis Function Layer
       (i.e. distance layer)
@@ -527,7 +575,7 @@ class RBF(BaseLayer):
         layer_args : RBFArgs
 
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
         w_shape = self.param_shapes.get("weights")
         weights = self.numpy_rng.normal(loc=0.0,
                                         scale=np.sqrt(1. / np.sum(w_shape)),
@@ -558,7 +606,7 @@ class RBF(BaseLayer):
         return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
 
 
-class Conv3D(BaseLayer):
+class Conv3D(Node):
     """ (>^.^<) """
 
     def __init__(self, layer_args):
@@ -566,7 +614,7 @@ class Conv3D(BaseLayer):
         layer_args : dict
 
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
 
         # Create all the weight values at once
         param_shapes = layer_args.get(Conv3DArgs.PARAM_SHAPES)
@@ -613,7 +661,7 @@ class Conv3D(BaseLayer):
         return z_out
 
 
-class Conv2D(BaseLayer):
+class Conv2D(Node):
     """ . """
 
     def __init__(self, layer_args):
@@ -621,7 +669,7 @@ class Conv2D(BaseLayer):
         layer_args : ConvArgs
 
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
 
         # Create all the weight values at once
         weight_shape = self.param_shapes.get("weights")
@@ -659,7 +707,7 @@ class Conv2D(BaseLayer):
             z_out, self.get("pool_shape"), ignore_border=False)
 
 
-class Softmax(BaseLayer):
+class Softmax(Node):
     """
     """
     param_names = ["weights", "bias"]
@@ -667,7 +715,7 @@ class Softmax(BaseLayer):
     def __init__(self, layer_args):
         """
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
         w_shape = self.param_shapes.get("weights")
         scale = np.sqrt(6. / np.sum(w_shape))
 
@@ -690,7 +738,7 @@ class Softmax(BaseLayer):
         return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
 
 
-class SoftMask(BaseLayer):
+class SoftMask(Node):
     """
     """
     param_names = ["weights", "bias", "templates"]
@@ -698,7 +746,7 @@ class SoftMask(BaseLayer):
     def __init__(self, layer_args):
         """
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
         weight_shape = self.param_shapes.get("weights")
 #        scale = np.sqrt(6. / np.sum(weight_shape))
 
@@ -726,7 +774,7 @@ class SoftMask(BaseLayer):
         return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
 
 
-class MultiSoftmax(BaseLayer):
+class MultiSoftmax(Node):
     """
     Multi-softmax Layer
 
@@ -739,7 +787,7 @@ class MultiSoftmax(BaseLayer):
         layer_args : AffineArgs
 
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
         w_shape = self.param_shapes.get("weights")
         weights = self.numpy_rng.normal(loc=0.0,
                                         scale=np.sqrt(1. / np.sum(w_shape)),
@@ -767,7 +815,7 @@ class MultiSoftmax(BaseLayer):
         return T.concatenate(output, axis=2)
 
 
-class EnergyPDF(BaseLayer):
+class EnergyPDF(Node):
     """
     """
     param_names = []
@@ -775,7 +823,7 @@ class EnergyPDF(BaseLayer):
     def __init__(self, layer_args):
         """
         """
-        BaseLayer.__init__(self, layer_args)
+        Node.__init__(self, layer_args)
         self.param_values = {}
         self._scalars.clear()
 
