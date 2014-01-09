@@ -232,16 +232,6 @@ class Conv3DArgs(NodeArgs):
                      Conv3DArgs.DOWNSAMPLE: downsample_shape,
                      Conv3DArgs.BORDER_MODE: border_mode})
 
-    # # Necessary?
-    # @property
-    # def pool_shape(self):
-    #     return self.get(Conv3DArgs.POOL)
-
-    # # Necessary?
-    # @property
-    # def downsample_shape(self):
-    #     return self.get(Conv3DArgs.DOWNSAMPLE)
-
     # Necessary?
     @property
     def weight_shape(self):
@@ -612,9 +602,8 @@ class Conv3D(Node):
         z_out *= selector.dimshuffle('x', 0, 'x', 'x') * (self.dropout + 0.5)
         z_out = downsample.max_pool_2d(
             z_out, self._pool_shape, ignore_border=False)
-        z_out.name = self.own(Conv3DArgs.OUTPUT)
-        self._outputs[Conv3DArgs.OUTPUT] = z_out
-        return z_out
+        z_out.name = self.outputs[0]
+        return {z_out.name: z_out}
 
 
 class Conv2D(Node):
