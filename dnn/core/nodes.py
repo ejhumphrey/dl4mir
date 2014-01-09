@@ -20,7 +20,7 @@ def NodeFactory(node_args):
     return eval("%s(node_args)" % node_args.get("type"))
 
 
-# --- Layer Argument Classes ---
+# --- Argument Classes ---
 class NodeArgs(dict):
     """
     Base class for a node's arguments
@@ -293,11 +293,17 @@ class RBFArgs(AffineArgs):
         self.update(lp_norm=lp_norm)
 
 
-# --- Transform Node Implementations ------
+# --- Node Implementations ------
 class Node(dict):
     """
-    Nodes in the graph perform parameter management and micro-math operations.
+    Nodes in the graph perform parameter management and micro-mat0h operations.
     """
+    INPUT_SHAPES = NodeArgs.INPUT_SHAPES
+    OUTPUT_SHAPES = NodeArgs.OUTPUT_SHAPES
+    PARAM_SHAPES = NodeArgs.PARAM_SHAPES
+    NAME = NodeArgs.NAME
+    ACTIVATION = NodeArgs.ACTIVATION
+    TYPE = NodeArgs.TYPE
 
     def __init__(self, layer_args):
         """
@@ -323,7 +329,7 @@ class Node(dict):
 
     @property
     def name(self):
-        return self.get(NodeArgs.NAME)
+        return self.get(self.NAME)
 
     def own(self, name):
         return os.path.join(self.name, name)
@@ -336,7 +342,7 @@ class Node(dict):
     # Is it really necessary to expose this?
     @property
     def activation(self):
-        return functions.Activations.get(self.get(NodeArgs.ACTIVATION))
+        return functions.Activations.get(self.get(self.ACTIVATION))
 
     @property
     def params(self):
@@ -390,7 +396,7 @@ class Node(dict):
 
     @property
     def _param_shapes(self):
-        return self.get(NodeArgs.PARAM_SHAPES)
+        return self.get(self.PARAM_SHAPES)
 
     @property
     def param_shapes(self):
@@ -408,7 +414,7 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return self.get(NodeArgs.INPUT_SHAPES)
+        return self.get(self.INPUT_SHAPES)
 
     @property
     def input_shapes(self):
@@ -431,7 +437,7 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return self.get(NodeArgs.OUTPUT_SHAPES)
+        return self.get(self.OUTPUT_SHAPES)
 
     @property
     def output_shapes(self):
@@ -476,6 +482,10 @@ class Affine(Node):
       (i.e., a fully-connected non-linear projection)
 
     """
+    INPUT = AffineArgs.INPUT
+    OUTPUT = AffineArgs.OUTPUT
+    WEIGHTS = AffineArgs.WEIGHTS
+    BIAS = AffineArgs.BIAS
 
     def __init__(self, layer_args):
         """
@@ -483,14 +493,14 @@ class Affine(Node):
 
         """
         Node.__init__(self, layer_args)
-        weight_shape = self._param_shapes[AffineArgs.WEIGHTS]
+        weight_shape = self._param_shapes[self.WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
             scale=np.sqrt(1.0 / np.sum(weight_shape)),
             size=weight_shape)
-        bias_values = np.zeros(self._param_shapes[AffineArgs.BIAS])
-        self.param_values = {self.own(AffineArgs.WEIGHTS): weight_values,
-                             self.own(AffineArgs.BIAS): bias_values, }
+        bias_values = np.zeros(self._param_shapes[self.BIAS])
+        self.param_values = {self.own(self.WEIGHTS): weight_values,
+                             self.own(self.BIAS): bias_values, }
 
     def transform(self, inputs):
         """
@@ -513,14 +523,14 @@ class Affine(Node):
         assert self.validate_inputs(inputs)
         # Since there's only the one, just take the single item.
         x_in = inputs.get(self.inputs[0])
-        weights = self._params[AffineArgs.WEIGHTS]
-        bias = self._params[AffineArgs.BIAS].dimshuffle('x', 0)
+        weights = self._params[self.WEIGHTS]
+        bias = self._params[self.BIAS].dimshuffle('x', 0)
 
         # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
         z_out = self.activation(T.dot(x_in, weights) + bias)
 
-        output_shape = self._output[AffineArgs.OUTPUT]
+        output_shape = self._output_shapes[self.OUTPUT]
         selector = self.theano_rng.binomial(size=output_shape,
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
@@ -531,6 +541,13 @@ class Affine(Node):
 
 class Conv3D(Node):
     """ (>^.^<) """
+    INPUT = Conv3DArgs.INPUT
+    OUTPUT = Conv3DArgs.OUTPUT
+    WEIGHTS = Conv3DArgs.WEIGHTS
+    BIAS = Conv3DArgs.BIAS
+    POOL = Conv3DArgs.POOL
+    DOWNSAMPLE = Conv3DArgs.DOWNSAMPLE
+    BORDER_MODE = Conv3DArgs.BORDER_MODE
 
     def __init__(self, layer_args):
         """
@@ -539,17 +556,17 @@ class Conv3D(Node):
         """
         Node.__init__(self, layer_args)
         # Create all the weight values at once
-        weight_shape = self._param_shapes.get(Conv3DArgs.WEIGHTS)
+        weight_shape = self._param_shapes.get(self.WEIGHTS)
         fan_in = np.prod(weight_shape[1:])
         weight_values = self.numpy_rng.normal(
             loc=0.0, scale=np.sqrt(3. / fan_in), size=weight_shape)
 
-        if self.get(Conv3DArgs.ACTIVATION) == 'sigmoid':
+        if self.get(self.ACTIVATION) == 'sigmoid':
             weight_values *= 4
 
         bias_values = np.zeros(weight_shape[0])
-        self.param_values = {self.own(Conv3DArgs.WEIGHTS): weight_values,
-                             self.own(Conv3DArgs.BIAS): bias_values, }
+        self.param_values = {self.own(self.WEIGHTS): weight_values,
+                             self.own(self.BIAS): bias_values, }
 
     @property
     def _border_mode(self):
@@ -558,7 +575,7 @@ class Conv3D(Node):
         -------
         shapes : dict
         """
-        return self.get(Conv3DArgs.BORDER_MODE)
+        return self.get(self.BORDER_MODE)
 
     @property
     def _pool_shape(self):
@@ -567,7 +584,7 @@ class Conv3D(Node):
         -------
         shapes : dict
         """
-        return self.get(Conv3DArgs.POOL)
+        return self.get(self.POOL)
 
     @property
     def _downsample_shape(self):
@@ -576,7 +593,7 @@ class Conv3D(Node):
         -------
         shapes : dict
         """
-        return self.get(Conv3DArgs.DOWNSAMPLE)
+        return self.get(self.DOWNSAMPLE)
 
     def transform(self, inputs):
         """
@@ -584,17 +601,17 @@ class Conv3D(Node):
         """
         self.validate_inputs(inputs)
         x_in = inputs.get(self.inputs[0])
-        weights = self._params[Conv3DArgs.WEIGHTS]
-        bias = self._params[Conv3DArgs.BIAS].dimshuffle('x', 0, 'x', 'x')
+        weights = self._params[self.WEIGHTS]
+        bias = self._params[self.BIAS].dimshuffle('x', 0, 'x', 'x')
 
         z_out = T.nnet.conv.conv2d(
             input=x_in,
             filters=weights,
-            filter_shape=self._param_shapes[Conv3DArgs.WEIGHTS],
+            filter_shape=self._param_shapes[self.WEIGHTS],
             border_mode=self._border_mode)
 
         selector = self.theano_rng.binomial(
-            size=self._output_shapes[Conv3DArgs.OUTPUT][:1],
+            size=self._output_shapes[self.OUTPUT][:1],
             p=1.0 - self.dropout,
             dtype=FLOATX)
 
@@ -652,35 +669,32 @@ class Conv2D(Node):
             z_out, self.get("pool_shape"), ignore_border=False)
 
 
-class Softmax(Node):
+class Softmax(Affine):
     """
     """
-    param_names = ["weights", "bias"]
 
     def __init__(self, layer_args):
         """
         """
-        Node.__init__(self, layer_args)
-        w_shape = self.param_shapes.get("weights")
-        scale = np.sqrt(6. / np.sum(w_shape))
-
-        weights = self.numpy_rng.normal(loc=0.0, scale=scale, size=w_shape)
-        bias = np.zeros(self.output_shape)
-
-        self.param_values = {self.own('weights'): weights,
-                             self.own('bias'): bias, }
+        Affine.__init__(self, layer_args)
         self._scalars.clear()
 
-    def transform(self, x_in):
+    def transform(self, inputs):
         """
         will fix input tensors to be matrices as the following:
         (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
         """
+        assert self.validate_inputs(inputs)
+        # Since there's only the one, just take the single item.
+        x_in = inputs.get(self.inputs[0])
+        weights = self._params[self.WEIGHTS]
+        bias = self._params[self.BIAS].dimshuffle('x', 0)
+
         # TODO(ejhumphrey): This isn't very stable, is it.
-        x_in = x_in.flatten(2)
-        W = self._theta["weights"]
-        b = self._theta["bias"].dimshuffle('x', 0)
-        return T.nnet.softmax(self.activation(T.dot(x_in, W) + b))
+        x_in = T.flatten(x_in, outdim=2)
+        z_out = T.nnet.softmax(self.activation(T.dot(x_in, weights) + bias))
+        z_out.name = self.outputs[0]
+        return {z_out.name: z_out}
 
 
 class RBF(Node):
