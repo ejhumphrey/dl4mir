@@ -135,17 +135,17 @@ class Network(dict):
         self[self.EDGES] = value
 
     def _init_inputs(self):
-        self.inputs = {}
+        self._inputs = {}
         for full_name in self.input_names:
             node_name, var_name = os.path.split(full_name)
             ndim = len(self.nodes[node_name].input_shapes[full_name])
-            self.inputs[full_name] = TENSOR_TYPES[ndim](
+            self._inputs[full_name] = TENSOR_TYPES[ndim](
                 name=full_name, dtype=FLOATX)
 
     def _compute_outputs(self):
         """Graph traversal logic to connect arbitrary, acyclic networks.
         """
-        inputs = self.inputs.copy()
+        inputs = self._inputs.copy()
         connections = utils.edges_to_connections(self.edges)
         self.outputs = {}
         while connections or inputs:
@@ -243,17 +243,23 @@ class Network(dict):
         param_values : dict
             Flat dictionary of values, keyed by full parameter names.
         """
-        for node in self.nodes:
+        for node in self.nodes.values():
             node.param_values = param_values
 
     @property
     def scalars(self):
-        all_scalars = list()
-        [all_scalars.extend(layer.scalars) for layer in self.layers]
+        all_scalars = dict()
+        [all_scalars.update(node.scalars) for node in self.nodes.values()]
         return all_scalars
 
+    @property
+    def inputs(self):
+        all_inputs = self._inputs.copy()
+        all_inputs.update(self.scalars)
+        return all_inputs
+
     def compile(self, output_name=None):
-        self._fx = theano.function(inputs=self.inputs,
+        self._fx = theano.function(inputs=self.inputs.values(),
                                    outputs=self.outputs.get(output_name),
                                    allow_input_downcast=True,
                                    on_unused_input='warn')
