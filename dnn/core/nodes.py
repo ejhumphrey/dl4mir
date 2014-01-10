@@ -63,7 +63,7 @@ class NodeArgs(dict):
                 NodeArgs.PARAM_SHAPES: param_shapes,
                 NodeArgs.INPUT_SHAPES: input_shapes,
                 NodeArgs.OUTPUT_SHAPES: output_shapes,
-                NodeArgs.ACTIVATION: activation, }
+                NodeArgs.ACTIVATION: activation}
 
         self.update(args)
 
@@ -187,7 +187,7 @@ class Conv3DArgs(NodeArgs):
                  weight_shape,
                  pool_shape=(1, 1),
                  downsample_shape=(1, 1),
-                 activation="tanh",
+                 activation='tanh',
                  border_mode='valid'):
         """
         Parameters
