@@ -1,8 +1,5 @@
-'''
-Created on Nov 6, 2012
-
-@author: ejhumphrey
-'''
+"""
+"""
 
 import cPickle
 import json
@@ -12,12 +9,16 @@ import theano
 import theano.tensor as T
 
 from ejhumphrey.dnn.core import FLOATX
-from ejhumphrey.dnn.core.layers import Layer
+from ejhumphrey.dnn.core import nodes
 from ejhumphrey.dnn import utils
 
 
 DEF_EXT = "definition"
 PARAMS_EXT = "params"
+TENSOR_TYPES = {1: T.matrix,
+                2: T.tensor3,
+                3: T.tensor4}
+
 
 def save_params(net, filebase, add_time=True):
     """Serialize a network to disk.
@@ -42,6 +43,7 @@ def save_params(net, filebase, add_time=True):
     cPickle.dump(net.param_values, model_params)
     model_params.close()
 
+
 def save_definition(net, filebase, add_time=True):
     """Serialize a network to disk.
 
@@ -65,38 +67,125 @@ def save_definition(net, filebase, add_time=True):
     json.dump(net.layers, model_def, indent=2)
     model_def.close()
 
-def load_layers(definition_file):
+
+def load_network_def(definition_file):
     """Load a network from disk.
 
     Parameters
     ----------
     definition_file : string
         Path to a file that matches a JSON-ed model definition.
-    param_file : string
-        Path to a pickled dictionary of parameters.
     """
 
-    layer_args = utils.convert(json.load(open(definition_file)))
-    return Network([Layer(args) for args in layer_args])
+    network_def = utils.convert(json.load(open(definition_file)))
+    assert "edges" in network_def
+    assert "nodes" in network_def
+    assert "input_dims" in network_def
+    # return Network([Layer(args) for args in layer_args])
 
 
-class Network(object):
+class Network(dict):
     """
-    Feed-forward graph.
+    An acyclic graph.
     """
-    def __init__(self, layers, name=""):
+    NODES = "nodes"
+    EDGES = "edges"
+    INPUTS = "inputs"
+
+    def __init__(self, input_names, nodes, edges):
         """
-        layers : list
-            List of layers.
-
+        Parameters
+        ----------
+        input_names : list
+            asdf
+        nodes : dict
+            asdf
+        edges : list
+            asdf
         """
-        self.name = name
-        self.layers = layers
-        self.input_name = "input"
-        self.output_name = "output"
-        self._inputs = []
-        self._outputs = {}
-        self._fx = None
+        self.nodes = nodes
+        self.edges = edges
+        self.input_names = input_names
+
+        self._init_inputs()
+        self._compute_outputs()
+
+    @property
+    def nodes(self):
+        return self.get(self.NODES)
+
+    @nodes.setter
+    def nodes(self, value):
+        self[self.NODES] = value
+
+    @property
+    def input_names(self):
+        return self.get(self.INPUTS)
+
+    @input_names.setter
+    def input_names(self, value):
+        self[self.INPUTS] = value
+
+    @property
+    def edges(self):
+        return self.get(self.EDGES)
+
+    @edges.setter
+    def edges(self, value):
+        self[self.EDGES] = value
+
+    def _init_inputs(self):
+        self.inputs = {}
+        for full_name in self.input_names:
+            node_name, var_name = os.path.split(full_name)
+            ndim = len(self.nodes[node_name].input_shapes[full_name])
+            self.inputs[full_name] = TENSOR_TYPES[ndim](
+                name=full_name, dtype=FLOATX)
+
+    def _compute_outputs(self):
+        """Graph traversal logic to connect arbitrary, acyclic networks.
+        """
+        inputs = self.inputs.copy()
+        connections = utils.edges_to_connections(self.edges)
+        self.outputs = {}
+        while connections or inputs:
+            no_match = True
+            for node in self.nodes.values():
+                if not node.validate_inputs(inputs):
+                    # Insufficient inputs; continue to the next.
+                    continue
+                no_match = False
+                node_outputs = node.transform(node.filter_inputs(inputs))
+                self.outputs.update(node_outputs)
+                for new_output in node_outputs:
+                    if not new_output in connections:
+                        # Terminal output; move along.
+                        continue
+                    # List of new input names that are equivalent to the symb
+                    # var produced as an output.
+                    equiv_inputs = connections.pop(new_output)
+                    # Associate the symb output with its input names.
+                    new_inputs = dict([(equiv_input, node_outputs[new_output])
+                                      for equiv_input in equiv_inputs])
+                    inputs.update(new_inputs)
+                break
+
+            if no_match:
+                raise ValueError("Caught infinite connection loop.")
+
+    # TODO(ejhumphrey): These come from node-inspection
+    # -------------------------------------------------
+    # @property
+    # def input_shapes(self):
+    #     return self.layers[0].input_shape
+
+    # @property
+    # def output_shape(self):
+    #     return self.layers[-1].output_shape
+    # -------------------------------------------------
+
+    def __str__(self):
+        return json.dumps(self, indent=2)
 
     @classmethod
     def load(self, definition_file, param_file=None):
@@ -109,73 +198,10 @@ class Network(object):
         param_file : string
             Path to a pickled dictionary of parameters.
         """
-        net = load_layers(definition_file)
+        net = load_network_def(definition_file)
         if param_file:
             net.param_values = cPickle.load(open(param_file))
         return net
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        self._name = name
-
-    @property
-    def input_shape(self):
-        return self.layers[0].input_shape
-
-    @property
-    def output_shape(self):
-        return self.layers[-1].output_shape
-
-    def __str__(self):
-        return json.dumps(self.layers, indent=2)
-
-    def symbolic_input(self, name):
-        """
-        Return a symbolic theano variable fitting this network.
-
-        Parameters
-        ----------
-        name : str
-            string for the variable. must be unique to calling entity,
-            because it will be live for subsequent function calls.
-        """
-        n_dim = len(self.input_shape)
-        if n_dim == 1:
-            x_in = T.matrix(name=name, dtype=FLOATX)
-        elif n_dim == 2:
-            x_in = T.tensor3(name=name, dtype=FLOATX)
-        elif n_dim == 3:
-            x_in = T.tensor4(name=name, dtype=FLOATX)
-        else:
-            raise ValueError("Unsupported input dimensionality: %d" % n_dim)
-
-        return x_in
-
-    def symbolic_output(self, name):
-        """
-        Return a symbolic theano variable fitting this network
-
-        Parameters
-        ----------
-        name : str
-            string for the variable. must be unique to calling entity,
-            because it will be live for subsequent function calls.
-        """
-        n_dim = len(self.output_shape)
-        if n_dim == 1:
-            x_in = T.matrix(name=name, dtype=FLOATX)
-        elif n_dim == 2:
-            x_in = T.tensor3(name=name, dtype=FLOATX)
-        elif n_dim == 3:
-            x_in = T.tensor4(name=name, dtype=FLOATX)
-        else:
-            raise ValueError("Unsupported input dimensionality: %d" % n_dim)
-
-        return x_in
 
     @property
     def params(self):
@@ -186,10 +212,10 @@ class Network(object):
         -------
         params : dict
             Symbolic variables keyed by full parameter names,
-            i.e. 'layer_name/param_name'
+            i.e. 'node_name/param_name'
         """
         all_params = dict()
-        [all_params.update(layer.params) for layer in self.layers]
+        [all_params.update(node.params) for node in self.nodes.values()]
         return all_params
 
     @property
@@ -201,7 +227,7 @@ class Network(object):
         -------
         param_values : dict
             Numpy arrays keyed by full parameter names,
-            i.e. 'layer_name/param_name'
+            i.e. 'node_name/param_name'
         """
 
         param_values = {}
@@ -217,42 +243,8 @@ class Network(object):
         param_values : dict
             Flat dictionary of values, keyed by full parameter names.
         """
-        for layer in self.layers:
-            layer.param_values = param_values
-
-    def transform(self, x_in):
-        """
-        Forward transform an input through the network
-
-        Parameters
-        ----------
-        x_in : theano symbolic type
-            we're not doing any checking, so it'll die if it's not correct
-
-        Returns
-        -------
-        z_out : theano symbolic type
-
-        """
-        self._inputs = list()
-        self._outputs.clear()
-        self.input_name = x_in.name
-        self._inputs.append(x_in)
-        layer_input = x_in
-        for layer in self.layers:
-            layer_input = layer.transform(layer_input)
-            layer_key = os.path.join(layer.name, "output")
-            self._outputs[layer_key] = layer_input
-        self._inputs.extend(self.scalars)
-        return self._outputs[layer_key]
-
-    @property
-    def inputs(self):
-        return list(self._inputs)
-
-    @property
-    def outputs(self):
-        return dict(self._outputs)
+        for node in self.nodes:
+            node.param_values = param_values
 
     @property
     def scalars(self):
@@ -261,28 +253,10 @@ class Network(object):
         return all_scalars
 
     def compile(self, output_name=None):
-        if output_name is None:
-            output_name = self.output_name
-
-        self._outputs[self.output_name] = self.transform(
-            self.symbolic_input(self.input_name))
         self._fx = theano.function(inputs=self.inputs,
                                    outputs=self.outputs.get(output_name),
                                    allow_input_downcast=True,
                                    on_unused_input='warn')
-#    def compile(self, input_name=None, output_name=None):
-#        if input_name is None:
-#            input_name = self.input_name
-#        if output_name is None:
-#            output_name = self.output_name
-#
-#        self.output_name = output_name
-#        self._outputs[output_name] = self.transform(
-#            self.symbolic_input(input_name))
-#        self._fx = theano.function(inputs=self.inputs,
-#                                   outputs=self.outputs.get(output_name),
-#                                   allow_input_downcast=True,
-#                                   on_unused_input='warn')
 
     def __call__(self, inputs):
         if self._fx is None:
@@ -306,5 +280,3 @@ class Network(object):
 
     def save_definition(self, filebase, add_time):
         save_definition(self, filebase, add_time)
-
-

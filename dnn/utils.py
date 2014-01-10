@@ -7,6 +7,7 @@ import time
 
 TIME_FMT = "%Y%m%d_%H%M%S"
 
+
 def convert(obj):
     """Convert unicode to strings.
 
@@ -20,6 +21,7 @@ def convert(obj):
         return obj.encode('utf-8')
     else:
         return obj
+
 
 def timestamp():
     """Returns a string representation of the time, like:
@@ -47,6 +49,7 @@ def json_save(obj, filename):
     json.dump(obj, file_handle, indent=2)
     file_handle.close()
 
+
 def json_load(filename):
     """Serialize data to disk.
 
@@ -58,3 +61,30 @@ def json_load(filename):
         Path to write data.
     """
     return convert(json.load(open(filename)))
+
+
+def edges_to_connections(edges):
+    """
+    Parameters
+    ----------
+    edges: list of tuples (source, sink)
+    """
+    connections = dict()
+    for source, sink in edges:
+        if not source in connections:
+            connections[source] = []
+        connections[source].append(sink)
+    return connections
+
+
+def connections_to_edges(connections):
+    """
+    Parameters
+    ----------
+    connections: dict of lists
+        Dictionary listing the sinks for each source.
+    """
+    edges = []
+    for source, sinks in connections.items():
+        edges.extend([(source, sink) for sink in sinks])
+    return edges
