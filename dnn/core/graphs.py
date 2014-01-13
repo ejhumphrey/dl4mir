@@ -11,6 +11,7 @@ import theano.tensor as T
 from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import nodes
 from ejhumphrey.dnn import utils
+from ejhumphrey.dnn import urls
 
 
 DEF_EXT = "definition"
@@ -88,11 +89,12 @@ class Network(dict):
     """
     An acyclic graph.
     """
+    NAME = "name"
     NODES = "nodes"
     EDGES = "edges"
     INPUTS = "inputs"
 
-    def __init__(self, input_names, nodes, edges):
+    def __init__(self, name, input_names, nodes, edges):
         """
         Parameters
         ----------
@@ -103,60 +105,81 @@ class Network(dict):
         edges : list
             asdf
         """
-        self.nodes = nodes
+        self.name = name
+        self._nodes = nodes
         self.edges = edges
-        self.input_names = input_names
+        self._input_names = input_names
 
         self._init_inputs()
+        self._own_params()
         self._compute_outputs()
 
+    def own(self, path):
+        return urls.append_node(self.name, path)
+
     @property
-    def nodes(self):
+    def name(self):
+        return self.get(self.NAME)
+
+    @name.setter
+    def name(self, value):
+        self[self.NAME] = value
+
+    @property
+    def _nodes(self):
         return self.get(self.NODES)
 
-    @nodes.setter
-    def nodes(self, value):
+    @_nodes.setter
+    def _nodes(self, value):
         self[self.NODES] = value
 
     @property
-    def input_names(self):
+    def nodes(self):
+        return dict([(self.own(k), v) for k, v in self._nodes.items()])
+
+    @property
+    def _edges(self):
+        return self.get(self.EDGES)
+
+    @_edges.setter
+    def _edges(self, value):
+        self[self.EDGES] = value
+
+    @property
+    def _input_names(self):
         return self.get(self.INPUTS)
 
-    @input_names.setter
-    def input_names(self, value):
+    @_input_names.setter
+    def _input_names(self, value):
         self[self.INPUTS] = value
 
     @property
-    def edges(self):
-        return self.get(self.EDGES)
-
-    @edges.setter
-    def edges(self, value):
-        self[self.EDGES] = value
+    def input_names(self):
+        return [self.own(k) for k in self._input_names]
 
     def _init_inputs(self):
         self._inputs = {}
-        for full_name in self.input_names:
-            node_name, var_name = os.path.split(full_name)
-            ndim = len(self.nodes[node_name].input_shapes[full_name])
-            self._inputs[full_name] = TENSOR_TYPES[ndim](
-                name=full_name, dtype=FLOATX)
+        for node_path in self._input_names:
+            node, param = urls.split_param(node_path)
+            ndim = len(self._nodes[node].input_shapes[node_path])
+            self._inputs[node_path] = TENSOR_TYPES[ndim](name=node_path,
+                                                         dtype=FLOATX)
 
     def _compute_outputs(self):
         """Graph traversal logic to connect arbitrary, acyclic networks.
         """
         inputs = self._inputs.copy()
         connections = utils.edges_to_connections(self.edges)
-        self.outputs = {}
+        self._outputs = {}
         while connections or inputs:
             no_match = True
-            for node in self.nodes.values():
+            for node in self._nodes.values():
                 if not node.validate_inputs(inputs):
                     # Insufficient inputs; continue to the next.
                     continue
                 no_match = False
                 node_outputs = node.transform(node.filter_inputs(inputs))
-                self.outputs.update(node_outputs)
+                self._outputs.update(node_outputs)
                 for new_output in node_outputs:
                     if not new_output in connections:
                         # Terminal output; move along.
@@ -173,6 +196,10 @@ class Network(dict):
             if no_match:
                 raise ValueError("Caught infinite connection loop.")
 
+    def _own_params(self):
+        for param in self.params.values():
+            param.name = self.own(param.name)
+
     # TODO(ejhumphrey): These come from node-inspection
     # -------------------------------------------------
     # @property
@@ -185,7 +212,7 @@ class Network(dict):
     # -------------------------------------------------
 
     def __str__(self):
-        return json.dumps(self, indent=2)
+        return json.dumps({self.name: self}, indent=2)
 
     @classmethod
     def load(self, definition_file, param_file=None):
@@ -215,7 +242,9 @@ class Network(dict):
             i.e. 'node_name/param_name'
         """
         all_params = dict()
-        [all_params.update(node.params) for node in self.nodes.values()]
+        for node in self.nodes.values():
+            all_params.update(dict([(self.own(k), v)
+                                    for k, v in node.params.items()]))
         return all_params
 
     @property
@@ -229,11 +258,7 @@ class Network(dict):
             Numpy arrays keyed by full parameter names,
             i.e. 'node_name/param_name'
         """
-
-        param_values = {}
-        for k, v in self.params.iteritems():
-            param_values[k] = v.get_value()
-        return param_values
+        return dict([(k, v.get_value()) for k, v in self.params.items()])
 
     @param_values.setter
     def param_values(self, param_values):
@@ -243,6 +268,7 @@ class Network(dict):
         param_values : dict
             Flat dictionary of values, keyed by full parameter names.
         """
+        # Filter and validate.
         for node in self.nodes.values():
             node.param_values = param_values
 
