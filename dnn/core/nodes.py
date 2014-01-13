@@ -13,7 +13,7 @@ from theano.tensor.signal import downsample
 
 from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import functions
-
+from ejhumphrey.dnn import urls
 
 def NodeFactory(node_args):
     """Node factory; uses 'type' in the node_args dictionary."""
@@ -45,6 +45,10 @@ class NodeArgs(dict):
             Unique name for the node.
         input_shapes : dict of tuples
             Dimensions of the node's primary inputs.
+        output_shapes : dict
+            Dimensions of the node's outputs.
+        param_shape : dict
+            Dimensions of the node's parameters.
         activation : string
             Name of the activation function.
         """
@@ -238,6 +242,8 @@ class Conv3DArgs(NodeArgs):
         return self.param_shapes.get("weights")
 
 
+# Come back to this eventually.
+'''
 class MultiSoftmaxArgs(AffineArgs):
     """
     """
@@ -291,6 +297,7 @@ class RBFArgs(AffineArgs):
                             activation=activation)
         del self['param_shapes']['bias']
         self.update(lp_norm=lp_norm)
+'''
 
 
 # --- Node Implementations ------
@@ -305,24 +312,26 @@ class Node(dict):
     ACTIVATION = NodeArgs.ACTIVATION
     TYPE = NodeArgs.TYPE
 
-    def __init__(self, layer_args):
+    def __init__(self, node_args):
         """
-        layer_args: dict
+        node_args: dict
             Needs input validation.
         """
-        self.update(layer_args)
+
+        self.update(node_args)
 
         self.numpy_rng = np.random.RandomState()
         self.theano_rng = RandomStreams(self.numpy_rng.randint(2 ** 30))
 
+        # Keys are relative ('x_input', 'weights', etc)
+        self._inputs = dict([(k, None) for k in self._input_shapes.keys()])
+        self._outputs = dict([(k, None) for k in self._output_shapes.keys()])
         self._params = dict([(k, None) for k in self._param_shapes.keys()])
 
         # TODO(ejhumphrey): Make the dropout variable more agnostic, if this
         #     is the way things are going to proceed.
-        self._scalars = dict(dropout=T.scalar(name=self.own("dropout"),
-                                              dtype=FLOATX))
-        self._inputs = dict([(k, None) for k in self._input_shapes.keys()])
-        self._outputs = dict([(k, None) for k in self._output_shapes.keys()])
+        dropout = T.scalar(name=self.own("dropout"), dtype=FLOATX)
+        self._scalars = dict(dropout=dropout)
 
     def __str__(self):
         return json.dumps(self, indent=2)
@@ -331,81 +340,16 @@ class Node(dict):
     def name(self):
         return self.get(self.NAME)
 
-    def own(self, name):
-        return os.path.join(self.name, name)
-
     # Deprecated / unnecessary?
     @property
     def type(self):
         return self.__class__.__name__
 
-    # Is it really necessary to expose this?
-    @property
-    def activation(self):
-        return functions.Activations.get(self.get(self.ACTIVATION))
-
-    @property
-    def params(self):
-        """
-        The symbolic parameters of the layer.
-
-        Returns
-        -------
-        params : dict
-            Symbolic parameters of the layer, keyed by full name.
-        """
-        return dict([(self.own(k), v) for k, v in self._params.iteritems()])
-
-    @property
-    def param_values(self):
-        """
-        The numeric parameters of the layer.
-
-        Returns
-        -------
-        values : dict
-            np.ndarray values of the layer, keyed by full-name.
-
-        """
-        return dict([(k, v.get_value()) for k, v in self.params.iteritems()])
-
-    @param_values.setter
-    def param_values(self, param_values):
-        """
-        Parameters
-        ----------
-        param_values : dict
-            key/value pairs of parameter name and np.ndarray
-
-        """
-        for full_name, value in param_values.items():
-            layer_name, param_name = os.path.split(full_name)
-            # Bypass all values that do not correspond to this layer.
-            if self.name != layer_name:
-                continue
-            if not param_name in self._params:
-                # Catch undeclared parameters.
-                raise ValueError("Undeclared parameter: %s" % param_name)
-            elif self._params[param_name] is None:
-                # Declared but uninitialized; safe to do so now.
-                self._params[param_name] = theano.shared(
-                    value=value.astype(FLOATX), name=full_name)
-            else:
-                # Initialized, but changing value.
-                self._params[param_name].set_value(value.astype(FLOATX))
-
-    @property
-    def _param_shapes(self):
-        return self.get(self.PARAM_SHAPES)
-
-    @property
-    def param_shapes(self):
-        return dict([(self.own(k), v) for k, v in self._param_shapes.items()])
-
-    @property
-    def scalars(self):
-        return dict([(self.own(k), v)
-                     for k, v in self._scalars.iteritems()])
+    def own(self, key):
+        url = key
+        if not self.name in url:
+            url = urls.append_param(self.name, key)
+        return url
 
     @property
     def _input_shapes(self):
@@ -446,12 +390,72 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return dict([(self.own(k), v) for k, v in self._output_shapes.items()])
+        return dict([(self.own(k), v)
+                     for k, v in self._output_shapes.items()])
 
     @property
     def outputs(self):
         """Return the full names of all outputs of this node."""
         return self.output_shapes.keys()
+
+    @property
+    def _param_shapes(self):
+        return self.get(self.PARAM_SHAPES)
+
+    @property
+    def param_shapes(self):
+        return dict([(self.own(k), v) for k, v in self._param_shapes.items()])
+
+    @property
+    def params(self):
+        return dict([(self.own(k), v) for k, v in self._params.items()])
+
+    @property
+    def param_values(self):
+        """
+        The numeric parameters of the layer.
+
+        Returns
+        -------
+        values : dict
+            np.ndarray values of the parameters, keyed by full-name.
+
+        """
+        return dict([(k, v.get_value()) for k, v in self.params.iteritems()])
+
+    @param_values.setter
+    def param_values(self, param_values):
+        """
+        Parameters
+        ----------
+        param_values : dict
+            key/value pairs of parameter url and np.ndarray
+
+        """
+        for url, value in param_values.items():
+            network, node, param = urls.parse(url)
+            # Bypass all values that do not correspond to this layer.
+            if self.name != node:
+                continue
+            if not param in self._params:
+                # Catch undeclared parameters.
+                raise ValueError("Undeclared parameter: %s" % param)
+            elif self._params[param] is None:
+                # Declared but uninitialized; safe to do so now.
+                self._params[param] = theano.shared(
+                    value=value.astype(FLOATX), name=url)
+            else:
+                # Initialized, but changing value.
+                self._params[param].set_value(value.astype(FLOATX))
+
+    @property
+    def scalars(self):
+        return dict([(self.own(k), v) for k, v in self._scalars.items()])
+
+    # Is it really necessary to expose this?
+    @property
+    def activation(self):
+        return functions.Activations.get(self.get(self.ACTIVATION))
 
     # TODO(ejhumphrey): Is this deprecated / the best way to do this?
     @property
@@ -468,7 +472,11 @@ class Node(dict):
 
     def validate_inputs(self, inputs):
         """Determine if the inputs dictionary contains the necessary keys."""
-        return not False in [name in inputs for name in self.inputs]
+        valid_inputs = []
+        for url in inputs:
+            network, node, param = urls.parse(url)
+            valid_inputs.append(urls.append_param(node, param) in self.inputs)
+        return not False in valid_inputs
 
     def filter_inputs(self, inputs):
         """Extract the relevant input items, iff all are present."""
@@ -487,12 +495,12 @@ class Affine(Node):
     WEIGHTS = AffineArgs.WEIGHTS
     BIAS = AffineArgs.BIAS
 
-    def __init__(self, layer_args):
+    def __init__(self, node_args):
         """
-        layer_args : AffineArgs
+        node_args : AffineArgs
 
         """
-        Node.__init__(self, layer_args)
+        Node.__init__(self, node_args)
         weight_shape = self._param_shapes[self.WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
