@@ -79,9 +79,7 @@ def load_network_def(definition_file):
     """
 
     network_def = utils.convert(json.load(open(definition_file)))
-    assert "edges" in network_def
-    assert "nodes" in network_def
-    assert "input_dims" in network_def
+
     # return Network([Layer(args) for args in layer_args])
 
 
@@ -107,15 +105,29 @@ class Network(dict):
         """
         self.name = name
         self._nodes = nodes
-        self.edges = edges
+        self._edges = edges
         self._input_names = input_names
 
         self._init_inputs()
-        self._own_params()
-        self._compute_outputs()
+        self._own_symbolics()
+        self.compute_outputs()
+
+    @classmethod
+    def from_def(cls, args):
+        assert cls.NAME in args
+        assert cls.NODES in args
+        assert cls.EDGES in args
+        assert cls.INPUTS in args
+        return cls(name=args[cls.NAME],
+                   input_names=args[cls.INPUTS],
+                   nodes=args[cls.NODES],
+                   edges=args[cls.EDGES])
 
     def own(self, path):
-        return urls.append_node(self.name, path)
+        url = path
+        if not self.name in url:
+            url = urls.append_node(self.name, path)
+        return url
 
     @property
     def name(self):
@@ -155,7 +167,7 @@ class Network(dict):
 
     @property
     def input_names(self):
-        return [self.own(k) for k in self._input_names]
+        return self.inputs.keys()
 
     def _init_inputs(self):
         self._inputs = {}
@@ -165,11 +177,11 @@ class Network(dict):
             self._inputs[node_path] = TENSOR_TYPES[ndim](name=node_path,
                                                          dtype=FLOATX)
 
-    def _compute_outputs(self):
+    def compute_outputs(self):
         """Graph traversal logic to connect arbitrary, acyclic networks.
         """
         inputs = self._inputs.copy()
-        connections = utils.edges_to_connections(self.edges)
+        connections = utils.edges_to_connections(self._edges)
         self._outputs = {}
         while connections or inputs:
             no_match = True
@@ -196,9 +208,12 @@ class Network(dict):
             if no_match:
                 raise ValueError("Caught infinite connection loop.")
 
-    def _own_params(self):
+    def _own_symbolics(self):
         for param in self.params.values():
             param.name = self.own(param.name)
+
+        for var in self.inputs.values():
+            var.name = self.own(var.name)
 
     # TODO(ejhumphrey): These come from node-inspection
     # -------------------------------------------------
@@ -274,19 +289,25 @@ class Network(dict):
 
     @property
     def scalars(self):
-        all_scalars = dict()
-        [all_scalars.update(node.scalars) for node in self.nodes.values()]
-        return all_scalars
+        scalars = dict()
+        for node in self.nodes.values():
+            scalars.update(dict([(self.own(k), v)
+                                 for k, v in node.scalars.items()]))
+        return scalars
 
     @property
     def inputs(self):
-        all_inputs = self._inputs.copy()
-        all_inputs.update(self.scalars)
-        return all_inputs
+        inputs = dict([(self.own(k), v) for k, v in self._inputs.items()])
+        inputs.update(self.scalars)
+        return inputs
+
+    @property
+    def outputs(self):
+        return dict([(self.own(k), v) for k, v in self._outputs.items()])
 
     def compile(self, output_name=None):
         self._fx = theano.function(inputs=self.inputs.values(),
-                                   outputs=self.outputs.get(output_name),
+                                   outputs=self._outputs.get(output_name),
                                    allow_input_downcast=True,
                                    on_unused_input='warn')
 
@@ -294,9 +315,6 @@ class Network(dict):
         if self._fx is None:
             self.compile()
         return self._fx(**inputs)
-
-    def empty_inputs(self, fill_value=0.0):
-        return dict([(x.name, fill_value) for x in self.inputs])
 
     @property
     def vars(self):

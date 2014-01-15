@@ -136,8 +136,8 @@ class NodeArgs(dict):
 class AffineArgs(NodeArgs):
     """
     """
-    INPUT = 'x_input'
-    OUTPUT = 'z_output'
+    INPUT = 'input'
+    OUTPUT = 'output'
     WEIGHTS = 'weights'
     BIAS = 'bias'
 
@@ -178,8 +178,8 @@ class SoftmaxArgs(AffineArgs):
 
 class Conv3DArgs(NodeArgs):
 
-    INPUT = 'x_input'
-    OUTPUT = 'z_output'
+    INPUT = 'input'
+    OUTPUT = 'output'
     WEIGHTS = 'weights'
     BIAS = 'bias'
     POOL = 'pool'
