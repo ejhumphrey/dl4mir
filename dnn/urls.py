@@ -37,7 +37,7 @@ def update(url, network="", node="", param=""):
 
 
 def append_param(base, param):
-    assert not PARAM_MARKER in base
+    assert not PARAM_MARKER in param
     return "%s%s%s" % (base, PARAM_MARKER, param)
 
 
@@ -48,5 +48,5 @@ def split_param(url):
 
 
 def append_node(base, node):
-    assert not NODE_MARKER in base
+    assert not NODE_MARKER in node
     return "%s%s%s" % (base, NODE_MARKER, node)
