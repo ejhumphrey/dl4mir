@@ -58,8 +58,31 @@ Class-wise Notes
 
 Overall, stop serializing 'type', in favor of 'class'. This will indicate that
 the string is safe to interpret as code, having only been written using
-private class variables. These will be safe so long as classes are not
-refactored.
+private class variables. These will be safe so long as class names are not
+changed.
+
+Two options:
+- Complete parameter serialization
+    Advantages: having specified everything totally, architectures could be
+      pulled into arbitrary frameworks.
+    Disadvantages: Non-trivial and non-intuitive to go from a serialization to
+      a reconstituted DNN structure. Would require additional code to
+      translate complete defs to class / function arguments, or fragile
+      string-based abstraction.
+- Argument serialization
+    Advantages: Trivial to go from declared network to serialization and back.
+    Disadvantages: Fragile with respect to function definitions. If a
+      function definition changes, it will break a serialized model.
+
+Conventions
+- Keep private strings consistent with argument names. Is there a way to do
+    this automatically?
+- All attributes are properties.
+- Properties only have setters if it can / should be set publically. Otherwise
+    this is not exposed.
+- Serialize recursively. Any object should first ask its subordinates to
+    serialize their arguments, and pass back up the chain.
+- An object must know how to reinstantiate its subordinates.
 
 
 Nodes
@@ -74,7 +97,7 @@ Nodes
     ...
 + transform(inputs)
 
-TODO: Drop the NodeArg classes. Serialize only the data used to create a node,
+  TODO: Drop NodeArg classes. Serialize only the data used to create a node,
     and expose this data through properties (stored internally as a dict).
     Values that are not stored are computed dynamically on each init
     (e.g., output_shape of a Conv3D) and stored as private members, and
@@ -85,12 +108,23 @@ Graphs
 + init(name, nodes, inputs, edges)
     name: name of the graph
     nodes: dict of nodes in the graph
-    inputs: dict of inputs to the graph {name: input_url, ...}
+    inputs: list of inputs to the graph, like
+        [
+            {name: url,
+             ndim: 4},
+             {...}
+        ]
+        These are symbolic variables that will be provided later.
     edges: list of tuples
 
-TODO: Transition all graphs to have 'inputs' as a dictionary, rather than the
-    current 'input_names' as a list. An input variable takes the key, while
-    the value is the url of a node's input.
+  TODO: Transition all graphs to have 'inputs' as a dictionary, rather than
+    the current 'input_names' as a list. An input variable takes the key,
+    while the value is the url of a node's input. Note that the graph must
+    also own the new input given as 'name'.
+
+- When are outputs computed / the symbolic input pushed through the graph? Is
+this adequate for weight tying, or should this be delayed as long as possible?
+-
 
 
 Loss

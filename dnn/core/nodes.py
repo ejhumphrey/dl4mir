@@ -4,7 +4,6 @@
 
 import json
 import numpy as np
-import os
 
 import theano
 import theano.tensor as T
@@ -19,231 +18,11 @@ from ejhumphrey.dnn import urls
 def NodeFactory(args):
     """Node factory; uses 'type' in the node_args dictionary."""
     local_args = dict(args)
-    node_type = local_args.pop(NodeArgs.TYPE)
+    node_type = local_args.pop(Node.TYPE)
     return eval("%s(**local_args)" % node_type)
 
 
-# --- Argument Classes ---
-class NodeArgs(dict):
-    """
-    Base class for a node's arguments
-    """
-
-    INPUT_SHAPES = 'input_shapes'
-    OUTPUT_SHAPES = 'output_shapes'
-    PARAM_SHAPES = 'param_shapes'
-    NAME = 'name'
-    ACTIVATION = 'activation'
-    TYPE = 'type'
-
-    def __init__(self, name,
-                 input_shapes=None,
-                 output_shapes=None,
-                 param_shapes=None,
-                 activation="linear"):
-        """
-        Parameters
-        ----------
-        name : str
-            Unique name for the node.
-        input_shapes : dict of tuples
-            Dimensions of the node's primary inputs.
-        output_shapes : dict
-            Dimensions of the node's outputs.
-        param_shape : dict
-            Dimensions of the node's parameters.
-        activation : string
-            Name of the activation function.
-        """
-        assert activation in functions.Activations, \
-            "Given activation '%s' is undefined."
-
-        if param_shapes is None:
-            param_shapes = dict()
-        if input_shapes is None:
-            input_shapes = dict()
-        if output_shapes is None:
-            output_shapes = dict()
-
-        args = {NodeArgs.TYPE: self.type,
-                NodeArgs.NAME: name,
-                NodeArgs.PARAM_SHAPES: param_shapes,
-                NodeArgs.INPUT_SHAPES: input_shapes,
-                NodeArgs.OUTPUT_SHAPES: output_shapes,
-                NodeArgs.ACTIVATION: activation}
-
-        self.update(args)
-
-    def __str__(self):
-        return json.dumps(self)
-
-    @property
-    def type(self):
-        return self.__class__.__name__.split("Args")[0]
-
-    def Node(self):
-        return NodeFactory(self)
-
-    @property
-    def name(self):
-        return self.get(self.NAME)
-
-    @property
-    def activation(self):
-        return self.get(self.ACTIVATION)
-
-    @property
-    def input_shapes(self):
-        """
-        Returns
-        -------
-        shp : tuple
-        """
-        return self.get(self.INPUT_SHAPES)
-
-    @property
-    def inputs(self):
-        return self.input_shapes.keys()
-
-    @property
-    def output_shapes(self):
-        """
-        Returns
-        -------
-        shp : tuple
-        """
-        return self.get(self.OUTPUT_SHAPES)
-
-    @property
-    def outputs(self):
-        return self.output_shapes.keys()
-
-    @property
-    def param_shapes(self):
-        return self.get(self.PARAM_SHAPES)
-
-    @param_shapes.setter
-    def param_shapes(self, shapes):
-        """
-        Parameters
-        ----------
-        shapes : dict
-        """
-        self[self.PARAM_SHAPES].update(shapes)
-
-    @property
-    def param_names(self):
-        return self.param_shapes.keys()
-
-
-class AffineArgs(NodeArgs):
-    """
-    """
-    INPUT = 'input'
-    OUTPUT = 'output'
-    WEIGHTS = 'weights'
-    BIAS = 'bias'
-
-    def __init__(self, name, weight_shape, activation="tanh"):
-        """
-        Parameters
-        ----------
-        name: str
-            asdf
-        weight_shape: tuple
-            Shape of the affine transform, (n_in, n_out)
-        activation: str
-            asdf
-        """
-        NodeArgs.__init__(
-            self,
-            name=name,
-            input_shapes={AffineArgs.INPUT: weight_shape[:1]},
-            output_shapes={AffineArgs.OUTPUT: weight_shape[1:]},
-            param_shapes={AffineArgs.WEIGHTS: weight_shape,
-                          AffineArgs.BIAS: weight_shape[1:]},
-            activation=activation)
-
-
-class SoftmaxArgs(AffineArgs):
-    """
-    """
-    def __init__(self, name,
-                 input_dim,
-                 output_dim,
-                 activation='linear'):
-        """
-        """
-        AffineArgs.__init__(self, name,
-                            weight_shape=(input_dim, output_dim),
-                            activation=activation)
-
-
-class Conv3DArgs(NodeArgs):
-
-    INPUT = 'input'
-    OUTPUT = 'output'
-    WEIGHTS = 'weights'
-    BIAS = 'bias'
-    POOL_SHAPE = 'pool_shape'
-    DOWNSAMPLE_SHAPE = 'downsample_shape'
-    BORDER_MODE = 'border_mode'
-
-    def __init__(self, name,
-                 input_shape,
-                 weight_shape,
-                 pool_shape=(1, 1),
-                 downsample_shape=(1, 1),
-                 activation='tanh',
-                 border_mode='valid'):
-        """
-        Parameters
-        ----------
-        input_shape : tuple
-            Shape of the input data, as (in_maps, in_dim0, in_dim1).
-        weight_shape : tuple
-            Shape for all kernels, as (num_kernels, w_dim0, w_dim1).
-        pool_shape : tuple
-            2D tuple to pool over each feature map, as (p_dim0, p_dim1).
-        downsample_shape : tuple
-            2D tuple for downsampling each feature map, as (p_dim0, p_dim1).
-        activation : str
-            Name of the activation function to use.
-        border_mode : str
-            Convolution method for dealing with the edge of a feature map.
-        """
-        if input_shape:
-            w = list(weight_shape)
-            if len(w) == 3:
-                w.insert(1, input_shape[0])
-            elif len(w) == 4:
-                w[1] = input_shape[0]
-            weight_shape = tuple(w)
-
-        param_shapes = {Conv3DArgs.WEIGHTS: weight_shape,
-                        Conv3DArgs.BIAS: weight_shape[:1], }
-        d0_in, d1_in = input_shape[1:]
-        d0_out = int(d0_in - weight_shape[-2] + 1) / pool_shape[0]
-        d1_out = int(d1_in - weight_shape[-1] + 1) / pool_shape[1]
-        output_shape = (weight_shape[0], d0_out, d1_out)
-
-        NodeArgs.__init__(self,
-                          name,
-                          input_shapes={Conv3DArgs.INPUT: input_shape},
-                          output_shapes={Conv3DArgs.OUTPUT: output_shape},
-                          param_shapes=param_shapes,
-                          activation=activation)
-        self.update({Conv3DArgs.POOL_SHAPE: pool_shape,
-                     Conv3DArgs.DOWNSAMPLE_SHAPE: downsample_shape,
-                     Conv3DArgs.BORDER_MODE: border_mode})
-
-    # Necessary?
-    @property
-    def weight_shape(self):
-        return self.param_shapes.get("weights")
-
-
-# Come back to this eventually.
+# Argument Classes no longer exist because that was dumb.
 '''
 class MultiSoftmaxArgs(AffineArgs):
     """
@@ -306,33 +85,30 @@ class Node(dict):
     """
     Nodes in the graph perform parameter management and micro-math operations.
 
+    Note that a "Node" is merely a base class, and cannot be instantiated.
+    Or, empty dictionaries? Which makes more sense...? Loud failure of a class
+    that shouldn't be used will certainly prevent misuse...
+
+    MUST implement three property getters:
+        self._input_shapes
+        self._output_shapes
+        self._param_shapes
+
     Param name defines should come from here, not the args class.
     Move arg classes to separate module, they exist for conveience of creating
     properly formatted dictionaries.
     """
-    INPUT_SHAPES = NodeArgs.INPUT_SHAPES
-    OUTPUT_SHAPES = NodeArgs.OUTPUT_SHAPES
-    PARAM_SHAPES = NodeArgs.PARAM_SHAPES
-    NAME = NodeArgs.NAME
-    ACTIVATION = NodeArgs.ACTIVATION
-    TYPE = NodeArgs.TYPE
+    _NAME = 'name'
+    _ACTIVATION = 'activation'
+    _TYPE = 'type'
 
-    def __init__(self, name,
-                 input_shapes,
-                 output_shapes,
-                 param_shapes,
-                 activation):
+    def __init__(self, name, activation):
         """
         node_args: dict
             Needs input validation.
         """
-
-        self.name = name
-        self._input_shapes = input_shapes
-        self._output_shapes = output_shapes
-        self._param_shapes = param_shapes
-        self.activation = activation
-        self.type = self.type
+        # Serialize inputs via update.
+        self.update(name=name, activation=activation, type=self.type)
 
         self.numpy_rng = np.random.RandomState()
         self.theano_rng = RandomStreams(self.numpy_rng.randint(2 ** 30))
@@ -344,34 +120,13 @@ class Node(dict):
 
         # TODO(ejhumphrey): Make the dropout variable more agnostic, if this
         #     is the way things are going to proceed.
-        dropout = T.scalar(name=self.own("dropout"), dtype=FLOATX)
+        dropout = T.scalar(name=self._own("dropout"), dtype=FLOATX)
         self._scalars = dict(dropout=dropout)
 
     def __str__(self):
         return json.dumps(self, indent=4)
 
-    def own(self, key):
-        url = key
-        if not self.name in url:
-            url = urls.append_param(self.name, key)
-        return url
-
-    @property
-    def name(self):
-        return self.get(self.NAME)
-
-    @name.setter
-    def name(self, value):
-        self[self.NAME] = value
-
-    @property
-    def type(self):
-        return self.__class__.__name__
-
-    @type.setter
-    def type(self, value):
-        self[self.TYPE] = value
-
+    # --- Private Properties ---
     @property
     def _input_shapes(self):
         """
@@ -379,25 +134,7 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return self.get(self.INPUT_SHAPES)
-
-    @_input_shapes.setter
-    def _input_shapes(self, value):
-        self[self.INPUT_SHAPES] = value
-
-    @property
-    def input_shapes(self):
-        """
-        Returns
-        -------
-        shapes : dict
-        """
-        return dict([(self.own(k), v) for k, v in self._input_shapes.items()])
-
-    @property
-    def inputs(self):
-        """Return the full names of all inputs to this node."""
-        return self.input_shapes.keys()
+        raise NotImplementedError("Write me!")
 
     @property
     def _output_shapes(self):
@@ -406,11 +143,43 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return self.get(self.OUTPUT_SHAPES)
+        raise NotImplementedError("Write me!")
 
-    @_output_shapes.setter
-    def _output_shapes(self, value):
-        self[self.OUTPUT_SHAPES] = value
+    @property
+    def _param_shapes(self):
+        raise NotImplementedError("Write me!")
+
+    @property
+    def _activation(self):
+        return self.get(self._ACTIVATION)
+
+    # --- Public Properties ---
+    @property
+    def type(self):
+        return self.__class__.__name__
+
+    @property
+    def name(self):
+        return self.get(self._NAME)
+
+    # @name.setter
+    # def name(self, value):
+    #     rename all the things
+
+    @property
+    def input_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return dict([(self._own(k), v)
+                     for k, v in self._input_shapes.items()])
+
+    @property
+    def inputs(self):
+        """Return the URLs of all inputs to this node."""
+        return self.input_shapes.keys()
 
     @property
     def output_shapes(self):
@@ -419,29 +188,22 @@ class Node(dict):
         -------
         shapes : dict
         """
-        return dict([(self.own(k), v)
+        return dict([(self._own(k), v)
                      for k, v in self._output_shapes.items()])
 
     @property
     def outputs(self):
-        """Return the full names of all outputs of this node."""
+        """Return the URLs of all outputs of this node."""
         return self.output_shapes.keys()
 
     @property
-    def _param_shapes(self):
-        return self.get(self.PARAM_SHAPES)
-
-    @_param_shapes.setter
-    def _param_shapes(self, value):
-        self[self.PARAM_SHAPES] = value
-
-    @property
     def param_shapes(self):
-        return dict([(self.own(k), v) for k, v in self._param_shapes.items()])
+        return dict([(self._own(k), v)
+                     for k, v in self._param_shapes.items()])
 
     @property
     def params(self):
-        return dict([(self.own(k), v) for k, v in self._params.items()])
+        return dict([(self._own(k), v) for k, v in self._params.items()])
 
     @property
     def param_values(self):
@@ -483,15 +245,11 @@ class Node(dict):
 
     @property
     def scalars(self):
-        return dict([(self.own(k), v) for k, v in self._scalars.items()])
+        return dict([(self._own(k), v) for k, v in self._scalars.items()])
 
     @property
     def activation(self):
-        return functions.Activations.get(self.get(self.ACTIVATION))
-
-    @activation.setter
-    def activation(self, value):
-        self[self.ACTIVATION] = value
+        return functions.Activations.get(self.get(self._ACTIVATION))
 
     # TODO(ejhumphrey): Is this deprecated / the best way to do this?
     @property
@@ -500,6 +258,12 @@ class Node(dict):
         Used as a probability.
         """
         return self._scalars.get("dropout")
+
+    def _own(self, key):
+        url = key
+        if not self.name in url:
+            url = urls.append_param(self.name, key)
+        return url
 
     def validate_inputs(self, inputs):
         """Determine if the inputs dictionary contains the necessary keys."""
@@ -528,30 +292,52 @@ class Affine(Node):
       (i.e., a fully-connected non-linear projection)
 
     """
-    INPUT = AffineArgs.INPUT
-    OUTPUT = AffineArgs.OUTPUT
-    WEIGHTS = AffineArgs.WEIGHTS
-    BIAS = AffineArgs.BIAS
+    _N_IN = 'n_in'
+    _N_OUT = 'n_out'
+    _INPUT = 'input'
+    _OUTPUT = 'output'
+    _WEIGHTS = 'weights'
+    _BIAS = 'bias'
 
-    def __init__(self, name,
-                 input_shapes,
-                 output_shapes,
-                 param_shapes,
-                 activation):
+    def __init__(self, name, n_in, n_out, activation):
         """
-        node_args : AffineArgs
 
         """
-        Node.__init__(self, name, input_shapes, output_shapes,
-                      param_shapes, activation)
-        weight_shape = self._param_shapes[self.WEIGHTS]
+        # Preamble before calling super-init
+        self.update(dict(n_in=n_in, n_out=n_out))
+        Node.__init__(self, name, activation)
+        weight_shape = self._param_shapes[self._WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
             scale=np.sqrt(1.0 / np.sum(weight_shape)),
             size=weight_shape)
-        bias_values = np.zeros(self._param_shapes[self.BIAS])
-        self.param_values = {self.own(self.WEIGHTS): weight_values,
-                             self.own(self.BIAS): bias_values, }
+        bias_values = np.zeros(n_out)
+        self.param_values = {self._own(self._WEIGHTS): weight_values,
+                             self._own(self._BIAS): bias_values, }
+
+    # --- Over-ridden private properties ---
+    @property
+    def _input_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return {self._INPUT: (self.get(self._N_IN), )}
+
+    @property
+    def _output_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return {self._OUTPUT: (self.get(self._N_OUT), )}
+
+    @property
+    def _param_shapes(self):
+        return {self._WEIGHTS: (self.get(self._N_IN), self.get(self._N_OUT)),
+                self._BIAS: (self.get(self._N_OUT), )}
 
     def transform(self, inputs):
         """
@@ -562,7 +348,7 @@ class Affine(Node):
         ----------
         inputs: dict
             Must contain all known data inputs to this node, keyed by full
-            names. Will fail loudly otherwise.
+            URLs. Will fail loudly otherwise.
 
         Returns
         -------
@@ -574,14 +360,14 @@ class Affine(Node):
         assert self.validate_inputs(inputs)
         # Since there's only the one, just take the single item.
         x_in = inputs.get(self.inputs[0])
-        weights = self._params[self.WEIGHTS]
-        bias = self._params[self.BIAS].dimshuffle('x', 0)
+        weights = self._params[self._WEIGHTS]
+        bias = self._params[self._BIAS].dimshuffle('x', 0)
 
         # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
         z_out = self.activation(T.dot(x_in, weights) + bias)
 
-        output_shape = self._output_shapes[self.OUTPUT]
+        output_shape = self._output_shapes[self._OUTPUT]
         selector = self.theano_rng.binomial(size=output_shape,
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
@@ -592,60 +378,121 @@ class Affine(Node):
 
 class Conv3D(Node):
     """ (>^.^<) """
-    INPUT = Conv3DArgs.INPUT
-    OUTPUT = Conv3DArgs.OUTPUT
-    WEIGHTS = Conv3DArgs.WEIGHTS
-    BIAS = Conv3DArgs.BIAS
-    POOL_SHAPE = Conv3DArgs.POOL_SHAPE
-    DOWNSAMPLE_SHAPE = Conv3DArgs.DOWNSAMPLE_SHAPE
-    BORDER_MODE = Conv3DArgs.BORDER_MODE
+    # Reserved Keys
+    _INPUT = 'input'
+    _OUTPUT = 'output'
+    _WEIGHTS = 'weights'
+    _BIAS = 'bias'
+
+    # Arguments
+    _INPUT_SHAPE = 'input_shape'
+    _WEIGHT_SHAPE = 'weight_shape'
+    _POOL_SHAPE = 'pool_shape'
+    _DOWNSAMPLE_SHAPE = 'downsample_shape'
+    _BORDER_MODE = 'border_mode'
 
     def __init__(self, name,
-                 input_shapes,
-                 output_shapes,
-                 param_shapes,
-                 activation,
-                 border_mode,
-                 pool_shape,
-                 downsample_shape):
+                 input_shape,
+                 weight_shape,
+                 pool_shape=(1, 1),
+                 downsample_shape=(1, 1),
+                 activation='relu',
+                 border_mode='valid'):
         """
-        node_args : AffineArgs
+        Parameters
+        ----------
+        input_shape : tuple
+            Shape of the input data, as (in_maps, in_dim0, in_dim1).
+        weight_shape : tuple
+            Shape for all kernels, as (num_kernels, w_dim0, w_dim1).
+        pool_shape : tuple
+            2D tuple to pool over each feature map, as (p_dim0, p_dim1).
+        downsample_shape : tuple
+            2D tuple for downsampling each feature map, as (p_dim0, p_dim1).
+        activation : str
+            Name of the activation function to use.
+        border_mode : str
+            Convolution method for dealing with the edge of a feature map.
 
         """
-        Node.__init__(self, name, input_shapes, output_shapes,
-                      param_shapes, activation)
-        self._border_mode = border_mode
-        self._pool_shape = pool_shape
-        self._downsample_shape = downsample_shape
+        # Make sure the weight_shape argument is formatted properly.
+        w = list(weight_shape)
+        if len(w) == 3:
+            w.insert(1, input_shape[0])
+        elif len(w) == 4:
+            assert w[1] == input_shape[0], \
+                "weight_shape[1] must align with input_shape[0]: " \
+                "%d!=%d." % (w[1], input_shape[0])
+        else:
+            raise ValueError("'weight_shape' must be length 3 or 4.")
+        weight_shape = tuple(w)
+
+        self.update(
+            input_shape=input_shape,
+            weight_shape=weight_shape,
+            pool_shape=pool_shape,
+            downsample_shape=downsample_shape,
+            border_mode=border_mode)
+
+        Node.__init__(self, name=name, activation=activation)
 
         # Create all the weight values at once
-        weight_shape = self._param_shapes.get(self.WEIGHTS)
         fan_in = np.prod(weight_shape[1:])
         weight_values = self.numpy_rng.normal(
             loc=0.0, scale=np.sqrt(3. / fan_in), size=weight_shape)
 
-        if self.get(self.ACTIVATION) == 'sigmoid':
+        if self._activation == 'sigmoid':
             weight_values *= 4
 
-        bias_values = np.zeros(weight_shape[0])
-        self.param_values = {self.own(self.WEIGHTS): weight_values,
-                             self.own(self.BIAS): bias_values, }
+        bias_values = np.zeros(weight_shape[:1])
+        self.param_values = {self._own(self._WEIGHTS): weight_values,
+                             self._own(self._BIAS): bias_values, }
+
+    @property
+    def _input_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return {self._INPUT: self.get(self._INPUT_SHAPE)}
+
+    @property
+    def _output_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        d0_in, d1_in = self._input_shapes.values()[0][-2:]
+        if self._border_mode == 'valid':
+            d0_out = int(d0_in - self._weight_shape[-2] + 1)
+            d0_out /= self._pool_shape[0]
+            d1_out = int(d1_in - self._weight_shape[-1] + 1)
+            d1_out /= self._pool_shape[1]
+        elif self._border_mode == 'same':
+            d0_out, d1_out = d0_in, d1_in
+        elif self._border_mode == 'full':
+            raise NotImplementedError("Being lazy, haven't done this yet.")
+        output_shape = (self._weight_shape[0], d0_out, d1_out)
+        return {self._OUTPUT: output_shape}
+
+    @property
+    def _param_shapes(self):
+        return {self._WEIGHTS: self._weight_shape,
+                self._BIAS: self._weight_shape[:1]}
+
+    @property
+    def _weight_shape(self):
+        return self.get(self._WEIGHT_SHAPE)
 
     @property
     def _border_mode(self):
-        return self.get(self.BORDER_MODE)
-
-    @_border_mode.setter
-    def _border_mode(self, value):
-        self[self.BORDER_MODE] = value
+        return self.get(self._BORDER_MODE)
 
     @property
     def _pool_shape(self):
-        return self.get(self.POOL_SHAPE)
-
-    @_pool_shape.setter
-    def _pool_shape(self, value):
-        self[self.POOL_SHAPE] = value
+        return self.get(self._POOL_SHAPE)
 
     @property
     def _downsample_shape(self):
@@ -654,11 +501,7 @@ class Conv3D(Node):
         -------
         shapes : dict
         """
-        return self.get(self.DOWNSAMPLE_SHAPE)
-
-    @_downsample_shape.setter
-    def _downsample_shape(self, value):
-        self[self.DOWNSAMPLE_SHAPE] = value
+        return self.get(self._DOWNSAMPLE_SHAPE)
 
     def transform(self, inputs):
         """
@@ -666,17 +509,17 @@ class Conv3D(Node):
         """
         self.validate_inputs(inputs)
         x_in = inputs.get(self.inputs[0])
-        weights = self._params[self.WEIGHTS]
-        bias = self._params[self.BIAS].dimshuffle('x', 0, 'x', 'x')
+        weights = self._params[self._WEIGHTS]
+        bias = self._params[self._BIAS].dimshuffle('x', 0, 'x', 'x')
 
         z_out = T.nnet.conv.conv2d(
             input=x_in,
             filters=weights,
-            filter_shape=self._param_shapes[self.WEIGHTS],
+            filter_shape=self._weight_shape,
             border_mode=self._border_mode)
 
         selector = self.theano_rng.binomial(
-            size=self._output_shapes[self.OUTPUT][:1],
+            size=self._output_shapes[self._OUTPUT][:1],
             p=1.0 - self.dropout,
             dtype=FLOATX)
 
@@ -738,18 +581,11 @@ class Softmax(Affine):
     """
     """
 
-    def __init__(self, name,
-                 input_shapes,
-                 output_shapes,
-                 param_shapes,
-                 activation):
+    def __init__(self, name, n_in, n_out, activation):
         """
         """
-        Affine.__init__(self, name,
-                        input_shapes,
-                        output_shapes,
-                        param_shapes,
-                        activation)
+        Affine.__init__(self, name, n_in, n_out, activation)
+        # Softmax layers don't typically have dropout.
         self._scalars.clear()
 
     def transform(self, inputs):
@@ -760,8 +596,8 @@ class Softmax(Affine):
         assert self.validate_inputs(inputs)
         # Since there's only the one, just take the single item.
         x_in = inputs.get(self.inputs[0])
-        weights = self._params[self.WEIGHTS]
-        bias = self._params[self.BIAS].dimshuffle('x', 0)
+        weights = self._params[self._WEIGHTS]
+        bias = self._params[self._BIAS].dimshuffle('x', 0)
 
         # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
