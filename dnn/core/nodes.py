@@ -15,9 +15,12 @@ from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import functions
 from ejhumphrey.dnn import urls
 
-def NodeFactory(node_args):
+
+def NodeFactory(args):
     """Node factory; uses 'type' in the node_args dictionary."""
-    return eval("%s(node_args)" % node_args.get("type"))
+    local_args = dict(args)
+    node_type = local_args.pop(NodeArgs.TYPE)
+    return eval("%s(**local_args)" % node_type)
 
 
 # --- Argument Classes ---
@@ -79,7 +82,7 @@ class NodeArgs(dict):
         return self.__class__.__name__.split("Args")[0]
 
     def Node(self):
-        return eval(self.type)(self)
+        return NodeFactory(self)
 
     @property
     def name(self):
@@ -182,8 +185,8 @@ class Conv3DArgs(NodeArgs):
     OUTPUT = 'output'
     WEIGHTS = 'weights'
     BIAS = 'bias'
-    POOL = 'pool'
-    DOWNSAMPLE = 'downsample'
+    POOL_SHAPE = 'pool_shape'
+    DOWNSAMPLE_SHAPE = 'downsample_shape'
     BORDER_MODE = 'border_mode'
 
     def __init__(self, name,
@@ -209,8 +212,6 @@ class Conv3DArgs(NodeArgs):
         border_mode : str
             Convolution method for dealing with the edge of a feature map.
         """
-        # If input_shape is provided, must make sure the weight_shape is
-        # consistent.
         if input_shape:
             w = list(weight_shape)
             if len(w) == 3:
@@ -232,8 +233,8 @@ class Conv3DArgs(NodeArgs):
                           output_shapes={Conv3DArgs.OUTPUT: output_shape},
                           param_shapes=param_shapes,
                           activation=activation)
-        self.update({Conv3DArgs.POOL: pool_shape,
-                     Conv3DArgs.DOWNSAMPLE: downsample_shape,
+        self.update({Conv3DArgs.POOL_SHAPE: pool_shape,
+                     Conv3DArgs.DOWNSAMPLE_SHAPE: downsample_shape,
                      Conv3DArgs.BORDER_MODE: border_mode})
 
     # Necessary?
@@ -303,7 +304,11 @@ class RBFArgs(AffineArgs):
 # --- Node Implementations ------
 class Node(dict):
     """
-    Nodes in the graph perform parameter management and micro-mat0h operations.
+    Nodes in the graph perform parameter management and micro-math operations.
+
+    Param name defines should come from here, not the args class.
+    Move arg classes to separate module, they exist for conveience of creating
+    properly formatted dictionaries.
     """
     INPUT_SHAPES = NodeArgs.INPUT_SHAPES
     OUTPUT_SHAPES = NodeArgs.OUTPUT_SHAPES
@@ -312,13 +317,22 @@ class Node(dict):
     ACTIVATION = NodeArgs.ACTIVATION
     TYPE = NodeArgs.TYPE
 
-    def __init__(self, node_args):
+    def __init__(self, name,
+                 input_shapes,
+                 output_shapes,
+                 param_shapes,
+                 activation):
         """
         node_args: dict
             Needs input validation.
         """
 
-        self.update(node_args)
+        self.name = name
+        self._input_shapes = input_shapes
+        self._output_shapes = output_shapes
+        self._param_shapes = param_shapes
+        self.activation = activation
+        self.type = self.type
 
         self.numpy_rng = np.random.RandomState()
         self.theano_rng = RandomStreams(self.numpy_rng.randint(2 ** 30))
@@ -334,22 +348,29 @@ class Node(dict):
         self._scalars = dict(dropout=dropout)
 
     def __str__(self):
-        return json.dumps(self, indent=2)
-
-    @property
-    def name(self):
-        return self.get(self.NAME)
-
-    # Deprecated / unnecessary?
-    @property
-    def type(self):
-        return self.__class__.__name__
+        return json.dumps(self, indent=4)
 
     def own(self, key):
         url = key
         if not self.name in url:
             url = urls.append_param(self.name, key)
         return url
+
+    @property
+    def name(self):
+        return self.get(self.NAME)
+
+    @name.setter
+    def name(self, value):
+        self[self.NAME] = value
+
+    @property
+    def type(self):
+        return self.__class__.__name__
+
+    @type.setter
+    def type(self, value):
+        self[self.TYPE] = value
 
     @property
     def _input_shapes(self):
@@ -359,6 +380,10 @@ class Node(dict):
         shapes : dict
         """
         return self.get(self.INPUT_SHAPES)
+
+    @_input_shapes.setter
+    def _input_shapes(self, value):
+        self[self.INPUT_SHAPES] = value
 
     @property
     def input_shapes(self):
@@ -383,6 +408,10 @@ class Node(dict):
         """
         return self.get(self.OUTPUT_SHAPES)
 
+    @_output_shapes.setter
+    def _output_shapes(self, value):
+        self[self.OUTPUT_SHAPES] = value
+
     @property
     def output_shapes(self):
         """
@@ -401,6 +430,10 @@ class Node(dict):
     @property
     def _param_shapes(self):
         return self.get(self.PARAM_SHAPES)
+
+    @_param_shapes.setter
+    def _param_shapes(self, value):
+        self[self.PARAM_SHAPES] = value
 
     @property
     def param_shapes(self):
@@ -452,10 +485,13 @@ class Node(dict):
     def scalars(self):
         return dict([(self.own(k), v) for k, v in self._scalars.items()])
 
-    # Is it really necessary to expose this?
     @property
     def activation(self):
         return functions.Activations.get(self.get(self.ACTIVATION))
+
+    @activation.setter
+    def activation(self, value):
+        self[self.ACTIVATION] = value
 
     # TODO(ejhumphrey): Is this deprecated / the best way to do this?
     @property
@@ -465,13 +501,10 @@ class Node(dict):
         """
         return self._scalars.get("dropout")
 
-    def transform(self):
-        """
-        """
-        raise NotImplementedError("Subclass me!")
-
     def validate_inputs(self, inputs):
         """Determine if the inputs dictionary contains the necessary keys."""
+        # TODO(ejhumphrey): Look into this method. It just failed rather
+        # opaquely, and I'm not sure why.
         valid_inputs = []
         for url in inputs:
             network, node, param = urls.parse(url)
@@ -482,6 +515,11 @@ class Node(dict):
         """Extract the relevant input items, iff all are present."""
         assert self.validate_inputs(inputs)
         return dict([(k, inputs.pop(k)) for k in self.inputs])
+
+    def transform(self):
+        """
+        """
+        raise NotImplementedError("Subclass me!")
 
 
 class Affine(Node):
@@ -495,12 +533,17 @@ class Affine(Node):
     WEIGHTS = AffineArgs.WEIGHTS
     BIAS = AffineArgs.BIAS
 
-    def __init__(self, node_args):
+    def __init__(self, name,
+                 input_shapes,
+                 output_shapes,
+                 param_shapes,
+                 activation):
         """
         node_args : AffineArgs
 
         """
-        Node.__init__(self, node_args)
+        Node.__init__(self, name, input_shapes, output_shapes,
+                      param_shapes, activation)
         weight_shape = self._param_shapes[self.WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
@@ -553,16 +596,28 @@ class Conv3D(Node):
     OUTPUT = Conv3DArgs.OUTPUT
     WEIGHTS = Conv3DArgs.WEIGHTS
     BIAS = Conv3DArgs.BIAS
-    POOL = Conv3DArgs.POOL
-    DOWNSAMPLE = Conv3DArgs.DOWNSAMPLE
+    POOL_SHAPE = Conv3DArgs.POOL_SHAPE
+    DOWNSAMPLE_SHAPE = Conv3DArgs.DOWNSAMPLE_SHAPE
     BORDER_MODE = Conv3DArgs.BORDER_MODE
 
-    def __init__(self, layer_args):
+    def __init__(self, name,
+                 input_shapes,
+                 output_shapes,
+                 param_shapes,
+                 activation,
+                 border_mode,
+                 pool_shape,
+                 downsample_shape):
         """
-        layer_args : dict
+        node_args : AffineArgs
 
         """
-        Node.__init__(self, layer_args)
+        Node.__init__(self, name, input_shapes, output_shapes,
+                      param_shapes, activation)
+        self._border_mode = border_mode
+        self._pool_shape = pool_shape
+        self._downsample_shape = downsample_shape
+
         # Create all the weight values at once
         weight_shape = self._param_shapes.get(self.WEIGHTS)
         fan_in = np.prod(weight_shape[1:])
@@ -578,21 +633,19 @@ class Conv3D(Node):
 
     @property
     def _border_mode(self):
-        """
-        Returns
-        -------
-        shapes : dict
-        """
         return self.get(self.BORDER_MODE)
+
+    @_border_mode.setter
+    def _border_mode(self, value):
+        self[self.BORDER_MODE] = value
 
     @property
     def _pool_shape(self):
-        """
-        Returns
-        -------
-        shapes : dict
-        """
-        return self.get(self.POOL)
+        return self.get(self.POOL_SHAPE)
+
+    @_pool_shape.setter
+    def _pool_shape(self, value):
+        self[self.POOL_SHAPE] = value
 
     @property
     def _downsample_shape(self):
@@ -601,7 +654,11 @@ class Conv3D(Node):
         -------
         shapes : dict
         """
-        return self.get(self.DOWNSAMPLE)
+        return self.get(self.DOWNSAMPLE_SHAPE)
+
+    @_downsample_shape.setter
+    def _downsample_shape(self, value):
+        self[self.DOWNSAMPLE_SHAPE] = value
 
     def transform(self, inputs):
         """
@@ -681,10 +738,18 @@ class Softmax(Affine):
     """
     """
 
-    def __init__(self, layer_args):
+    def __init__(self, name,
+                 input_shapes,
+                 output_shapes,
+                 param_shapes,
+                 activation):
         """
         """
-        Affine.__init__(self, layer_args)
+        Affine.__init__(self, name,
+                        input_shapes,
+                        output_shapes,
+                        param_shapes,
+                        activation)
         self._scalars.clear()
 
     def transform(self, inputs):

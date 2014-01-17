@@ -1,0 +1,111 @@
+networks need to be named; how else would a pairwise architecture disambiguate its outputs?
+
+http://network_name/node_name;var_name
+
+private dictionaries are always referenced by local / relative names
+however, when a lower object becomes "owned" by a higher one, its symbolic
+stuff (vars and params) should update their names.
+
+
+
+Training Framework
+- data_source : Batch(args)
+    when configuring a batch, must take naming args
+    data -> "network/layer.input"
+    data -> "loss.index"
+    ?? : how are batches connected to graphs? what if one batch is processed by
+        multiple graphs (one batch for plural inputs)
+
+    args : dict of data params
+    {data_name:
+
+    }
+
+
+- param_source : dict
+
+- Graph.from_def(args)
+    args : dict-like graph definition, containing
+      - name
+      - input_names
+      - nodes
+      - edges
+
+
+- Loss(args)
+    args : list of dictionary arguments
+    [
+      {type: NegativeLogLikelihood,
+       inputs: {posterior: net/classifier.z_output},
+       givens: {target_idx: class_labels}
+      }
+    ]
+
+- Constraints(args)
+    args : list of Loss args as dictionaries
+    [
+      {type: L2Norm,
+       inputs: net/affine0.weights]},
+       givens: {}},
+    ]
+
+- Updates(params)
+    params : list of Update args as dictionaries
+
+
+Class-wise Notes
+----------------
+
+Overall, stop serializing 'type', in favor of 'class'. This will indicate that
+the string is safe to interpret as code, having only been written using
+private class variables. These will be safe so long as classes are not
+refactored.
+
+
+Nodes
++ init(name, input_shapes, output_shape, param_shapes, activation, ...)
+    type: implicit, classname
+    name: url-compliant identifier for the node
+    input_shapes: dict of shapes, keyed by reserved input name
+    output_shapes: dict of shapes, keyed by reserved output name
+    param_shapes: dict of shapes, keyed by reserved param name
+    activation: name of activation function
+    ...
+    ...
++ transform(inputs)
+
+TODO: Drop the NodeArg classes. Serialize only the data used to create a node,
+    and expose this data through properties (stored internally as a dict).
+    Values that are not stored are computed dynamically on each init
+    (e.g., output_shape of a Conv3D) and stored as private members, and
+    exposed as properties (for full urls).
+
+
+Graphs
++ init(name, nodes, inputs, edges)
+    name: name of the graph
+    nodes: dict of nodes in the graph
+    inputs: dict of inputs to the graph {name: input_url, ...}
+    edges: list of tuples
+
+TODO: Transition all graphs to have 'inputs' as a dictionary, rather than the
+    current 'input_names' as a list. An input variable takes the key, while
+    the value is the url of a node's input.
+
+
+Loss
++ init(inputs, givens)
+    type
+    inputs: symbolic types to process
+    givens: side-information necessary to compute the loss / inputs to create
++ loss(variables)
+    returns scalar_loss, givens
+
+Update
++ init(param_url, eta_url)
+    type
+    param
+    eta
++ update(scalar_loss, variables)
+  returns rules, inputs
+

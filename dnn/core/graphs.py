@@ -6,19 +6,16 @@ import json
 import os
 
 import theano
-import theano.tensor as T
 
 from ejhumphrey.dnn.core import FLOATX
-from ejhumphrey.dnn.core import nodes
+from ejhumphrey.dnn.core import TENSOR_TYPES
+from ejhumphrey.dnn.core.nodes import NodeFactory
 from ejhumphrey.dnn import utils
 from ejhumphrey.dnn import urls
 
 
 DEF_EXT = "definition"
 PARAMS_EXT = "params"
-TENSOR_TYPES = {1: T.matrix,
-                2: T.tensor3,
-                3: T.tensor4}
 
 
 def save_params(net, filebase, add_time=True):
@@ -90,7 +87,7 @@ class Network(dict):
     NAME = "name"
     NODES = "nodes"
     EDGES = "edges"
-    INPUTS = "inputs"
+    INPUTS = "input_names"
 
     def __init__(self, name, input_names, nodes, edges):
         """
@@ -113,14 +110,15 @@ class Network(dict):
         self.compute_outputs()
 
     @classmethod
-    def from_def(cls, args):
+    def from_args(cls, args):
         assert cls.NAME in args
         assert cls.NODES in args
         assert cls.EDGES in args
         assert cls.INPUTS in args
+        nodes = dict([(k, NodeFactory(a)) for k, a in args[cls.NODES].items()])
         return cls(name=args[cls.NAME],
                    input_names=args[cls.INPUTS],
-                   nodes=args[cls.NODES],
+                   nodes=nodes,
                    edges=args[cls.EDGES])
 
     def own(self, path):
@@ -210,7 +208,9 @@ class Network(dict):
 
     def _own_symbolics(self):
         for param in self.params.values():
-            param.name = self.own(param.name)
+            # Only own unclaimed parameters.
+            if not urls.network(param.name):
+                param.name = self.own(param.name)
 
         for var in self.inputs.values():
             var.name = self.own(var.name)
@@ -227,7 +227,7 @@ class Network(dict):
     # -------------------------------------------------
 
     def __str__(self):
-        return json.dumps({self.name: self}, indent=2)
+        return json.dumps({self.name: self}, indent=4)
 
     @classmethod
     def load(self, definition_file, param_file=None):
@@ -317,7 +317,7 @@ class Network(dict):
         return self._fx(**inputs)
 
     @property
-    def vars(self):
+    def variables(self):
         """Return all symbolic variables
         """
         all_vars = dict()

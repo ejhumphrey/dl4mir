@@ -42,6 +42,13 @@ def sgd(scalar_loss, params):
 
     return updates, hyperparams
 
+
+class Update(dict):
+
+    def __init__(self, params, givens):
+        pass
+
+
 class SGD(object):
 
     def __init__(self):

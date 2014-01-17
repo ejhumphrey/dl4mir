@@ -50,3 +50,15 @@ def split_param(url):
 def append_node(base, node):
     assert not NODE_MARKER in node
     return "%s%s%s" % (base, NODE_MARKER, node)
+
+
+def network(url):
+    return parse(url)[0]
+
+
+def node(url):
+    return parse(url)[1]
+
+
+def param(url):
+    return parse(url)[2]
