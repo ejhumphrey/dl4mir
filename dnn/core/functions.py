@@ -30,12 +30,12 @@ def sigmoid(x):
 
 def soft_shrink(x, threshold, Q):
     """ Write my LaTeX form."""
-    raise NotImplementedError("SoftShrink is not implemented yet.")
+    raise NotImplementedError("'soft_shrink' is not implemented yet.")
 
 
 def hard_shrink(x, threshold):
     """ Write my LaTeX form."""
-    raise NotImplementedError("SoftShrink is not implemented yet.")
+    raise NotImplementedError("'hard_shrink' is not implemented yet.")
 
 
 Activations = {'linear': linear,

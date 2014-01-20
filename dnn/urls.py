@@ -1,39 +1,28 @@
 
 PARAM_MARKER = "."
-NODE_MARKER = "/"
+INPUT_MARKER = "$:"
+OUTPUT_MARKER = "=:"
 
 
-def _name_assert(inputs):
-    for name in inputs:
-        for marker in [NODE_MARKER, PARAM_MARKER]:
-            assert not marker in name, \
-                "'%s' may not contain '%s'!" % (name, marker)
-
-
-def create(network, node, param):
-    return "%s"*5 % (network, NODE_MARKER, node, PARAM_MARKER, param)
+def create(node, param):
+    return "%s"*3 % (node, PARAM_MARKER, param)
 
 
 def parse(url):
-    network, node, param = '', '', ''
-    if NODE_MARKER in url:
-        network, node_path = url.split(NODE_MARKER)
+    node, param = '', ''
+    if PARAM_MARKER in url:
+        node, param = url.split(PARAM_MARKER)
     else:
-        node_path = url
-
-    if PARAM_MARKER in node_path:
-        node, param = node_path.split(PARAM_MARKER)
-    else:
-        param = node_path
-    return network, node, param
+        param = url
+    return node, param
 
 
-def update(url, network="", node="", param=""):
+def update(url, node="", param=""):
     res = parse(url)
-    for n, v in enumerate([network, node, param]):
+    for n, v in enumerate([node, param]):
         if v:
             res[n] = v
-    return create(res[0], res[1], res[2])
+    return create(res[0], res[1])
 
 
 def append_param(base, param):
@@ -47,18 +36,27 @@ def split_param(url):
     return url, ""
 
 
-def append_node(base, node):
-    assert not NODE_MARKER in node
-    return "%s%s%s" % (base, NODE_MARKER, node)
-
-
-def network(url):
-    return parse(url)[0]
-
-
 def node(url):
     return parse(url)[1]
 
 
 def param(url):
     return parse(url)[2]
+
+
+def is_input(url):
+    return url.startswith(INPUT_MARKER)
+
+
+def parse_input(url):
+    assert is_input(url)
+    return url.strip(INPUT_MARKER)
+
+
+def is_output(url):
+    return url.startswith(OUTPUT_MARKER)
+
+
+def parse_output(url):
+    assert is_output(url)
+    return url.strip(OUTPUT_MARKER)

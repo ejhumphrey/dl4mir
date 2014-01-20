@@ -1,62 +1,41 @@
+from ejhumphrey import dnn
 
-import numpy as np
-from ejhumphrey.dnn.core import nodes as N
-from ejhumphrey.dnn.core import graphs as G
-from ejhumphrey.dnn.core import losses as L
-from ejhumphrey.dnn.core import updates as U
 
-from ejhumphrey.dnn import driver as D
-
-# Use convenience functions to create nodes.
-# - - - - - - - - - - - - - - - - - - - - - -
-node0 = N.Conv3DArgs(
+# Define nodes.
+# - - - - - - -
+conv0 = dnn.Conv3D(
     name='conv0',
     input_shape=(1, 28, 28),
     weight_shape=(15, 9, 9),
     pool_shape=(2, 2),
-    activation='relu').Node()
+    activation='relu')
 
-node1 = N.AffineArgs(
+affine0 = dnn.Affine(
     name='affine0',
-    weight_shape=(np.prod(node0.output_shapes.values()), 512),
-    activation='relu').Node()
+    input_shape=conv0.output_shapes.values()[0],
+    output_shape=(512,),
+    activation='relu')
 
-node2 = N.SoftmaxArgs(
-    name='classifier',
-    input_dim=512,
-    output_dim=10).Node()
+softmax0 = dnn.Softmax(
+    name='softmax0',
+    input_shape=(512,),
+    output_shape=(2,),
+    activation='linear')
 
-# Store all nodes in a dictionary.
-# - - - - - - - - - - - - - - - - -
-nodes = {node0.name: node0,
-         node1.name: node1,
-         node2.name: node2}
+# Store all nodes in a list.
+# - - - - - - - - - - - - - -
+nodes = [conv0, affine0, softmax0]
 
 # Define edges as (from, to) tuples.
 # - - - - - - - - - - - - - - - - - -
-edges = [(node0.outputs[0], node1.inputs[0]),
-         (node1.outputs[0], node2.inputs[0])]
+edges = [("$:x", conv0.inputs[0]),
+         (conv0.outputs[0], affine0.inputs[0]),
+         (affine0.outputs[0], softmax0.inputs[0]),
+         (softmax0.outputs[0], "=:posterior")]
 
-# Create a graph, specifying the name and input in-line.
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-graph = G.Network(
-    name='mnist_classifier',
-    input_names=node0.inputs,
+# Create the graph, specifying the name in-line.
+# - - - - - - - - - - - - - - - - - - - - - - - -
+graph = dnn.Graph(
+    name='classifier',
     nodes=nodes,
     edges=edges)
-
-# Define losses over the network.
-# - - - - - - - - - - - - - - - -
-nll = L.NegativeLogLikelihood(
-    posterior='mnist_classifier/classifier.output',
-    target_idx='class_labels')
-
-# Configure the parameters to update.
-# - - - - - - - - - - - - - - - - - -
-updates = U.SGD(param_urls=graph.params.keys())
-
-driver = D.Driver(
-    graphs={graph.name: graph},
-    losses=[nll],
-    updates=updates,
-    constraints=None)

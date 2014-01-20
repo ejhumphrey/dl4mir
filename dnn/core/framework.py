@@ -1,6 +1,7 @@
 """
 """
 
+import cPickle
 import os
 import time
 
@@ -9,7 +10,6 @@ from ejhumphrey.dnn.core.graphs import Network
 from ejhumphrey.dnn.core.modules import Loss
 from ejhumphrey.dnn.core.updates import SGD
 from ejhumphrey.dnn.core.updates import Constraints
-import cPickle
 
 
 def select_update(base, newdict):
@@ -91,7 +91,8 @@ class Trainer(object):
         assert self.network, "Network must be built first."
         self.constraints = Constraints()
         for param_name, args in constraint_args.iteritems():
-            self.constraints.register(self.network.params.get(param_name), args)
+            self.constraints.register(
+                self.network.params.get(param_name), args)
 
     def run(self, sources, train_params, hyperparams):
         assert self.network, "Network must be built first."
@@ -110,7 +111,8 @@ class Trainer(object):
         self.constraints.apply()
         while not Done:
             try:
-                batch = sources['train'].next_batch(train_params.get("batch_size"))
+                batch = sources['train'].next_batch(
+                    train_params.get("batch_size"))
                 train_inputs[self.input_name] = batch.values
                 train_inputs[self.target_name] = batch.labels
 

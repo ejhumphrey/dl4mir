@@ -3,217 +3,119 @@
 
 import cPickle
 import json
-import os
-
 import theano
 
 from ejhumphrey.dnn.core import FLOATX
 from ejhumphrey.dnn.core import TENSOR_TYPES
-from ejhumphrey.dnn.core.nodes import NodeFactory
+
 from ejhumphrey.dnn import utils
 from ejhumphrey.dnn import urls
 
 
-DEF_EXT = "definition"
-PARAMS_EXT = "params"
+# DEF_EXT = "definition"
+# PARAMS_EXT = "params"
 
 
-def save_params(net, filebase, add_time=True):
-    """Serialize a network to disk.
-
-    Parameters
-    ----------
-    net : Network
-        Instantiated network to serialize.
-    filebase : string
-        Path to save a parameter dictionary, with optional timestamp.
-    """
-    model_directory = os.path.split(filebase)[0]
-    if not os.path.exists(model_directory):
-        os.makedirs(model_directory)
-
-    nowstamp = ""
-    if add_time:
-        nowstamp += "-" + utils.timestamp()
-    # Save pickled parameters.
-    model_params_file = "%s%s.%s" % (filebase, nowstamp, PARAMS_EXT)
-    model_params = open(model_params_file, "w")
-    cPickle.dump(net.param_values, model_params)
-    model_params.close()
-
-
-def save_definition(net, filebase, add_time=True):
-    """Serialize a network to disk.
-
-    Parameters
-    ----------
-    net : Network
-        Instantiated network to serialize.
-    filebase : string
-        Path to save the model definition, with optional timestamp.
-    """
-    model_directory = os.path.split(filebase)[0]
-    if not os.path.exists(model_directory):
-        os.makedirs(model_directory)
-
-    nowstamp = ""
-    if add_time:
-        nowstamp += "-" + utils.timestamp()
-    # Save json-encoded architecture.
-    model_def_file = "%s%s.%s" % (filebase, nowstamp, DEF_EXT)
-    model_def = open(model_def_file, "w")
-    json.dump(net.layers, model_def, indent=2)
-    model_def.close()
-
-
-def load_network_def(definition_file):
-    """Load a network from disk.
-
-    Parameters
-    ----------
-    definition_file : string
-        Path to a file that matches a JSON-ed model definition.
-    """
-
-    network_def = utils.convert(json.load(open(definition_file)))
-
-    # return Network([Layer(args) for args in layer_args])
-
-
-class Network(dict):
+class Graph(object):
     """
     An acyclic graph.
     """
-    NAME = "name"
-    NODES = "nodes"
-    EDGES = "edges"
-    INPUTS = "input_names"
+    _NAME = "name"
+    _NODES = "nodes"
+    _EDGES = "edges"
 
-    def __init__(self, name, input_names, nodes, edges):
+    def __init__(self, name, nodes, edges):
         """
         Parameters
         ----------
-        input_names : list
+        nodes : list of Nodes
             asdf
-        nodes : dict
-            asdf
-        edges : list
+        edges : list of tuples
             asdf
         """
+        self._inputs = dict()
+        self._outputs = dict()
+        self._params = set()
+        self._scalars = dict()
+
         self.name = name
-        self._nodes = nodes
-        self._edges = edges
-        self._input_names = input_names
+        self.nodes = nodes
+        self.edges = edges
 
-        self._init_inputs()
-        self._own_symbolics()
-        self.compute_outputs()
-
-    @classmethod
-    def from_args(cls, args):
-        assert cls.NAME in args
-        assert cls.NODES in args
-        assert cls.EDGES in args
-        assert cls.INPUTS in args
-        nodes = dict([(k, NodeFactory(a)) for k, a in args[cls.NODES].items()])
-        return cls(name=args[cls.NAME],
-                   input_names=args[cls.INPUTS],
-                   nodes=nodes,
-                   edges=args[cls.EDGES])
-
-    def own(self, path):
-        url = path
-        if not self.name in url:
-            url = urls.append_node(self.name, path)
-        return url
-
-    @property
-    def name(self):
-        return self.get(self.NAME)
-
-    @name.setter
-    def name(self, value):
-        self[self.NAME] = value
-
-    @property
-    def _nodes(self):
-        return self.get(self.NODES)
-
-    @_nodes.setter
-    def _nodes(self, value):
-        self[self.NODES] = value
+        # self.compute_outputs()
 
     @property
     def nodes(self):
-        return dict([(self.own(k), v) for k, v in self._nodes.items()])
+        return self._nodes.values()
 
-    @property
-    def _edges(self):
-        return self.get(self.EDGES)
+    @nodes.setter
+    def nodes(self, nodes):
+        self._input_shapes = dict()
+        [self._input_shapes.update(n.input_shapes) for n in nodes]
+        self._nodes = dict([(n.name, n) for n in nodes])
 
-    @_edges.setter
-    def _edges(self, value):
-        self[self.EDGES] = value
+    def connect(self):
+        """Graph traversal logic to connect arbitrary, acyclic networks."""
+        assert self.edges
+        assert self.nodes
 
-    @property
-    def _input_names(self):
-        return self.get(self.INPUTS)
+        self._inputs.clear()
+        self._outputs.clear()
 
-    @_input_names.setter
-    def _input_names(self, value):
-        self[self.INPUTS] = value
+        # Local data structures to consume.
+        connections = utils.edges_to_connections(self.edges)
 
-    @property
-    def input_names(self):
-        return self.inputs.keys()
+        # Recover inputs from the connection map.
+        input_keys = connections.keys()
+        inputs = dict()
+        for key in input_keys:
+            if urls.is_input(key):
+                input_var = urls.parse_input(key)
+                next_inputs = connections.pop(key)
+                # Recover the input's ndim from its sink.
+                # TODO(ejhumphrey): Stop being a hack and make sure they're
+                #   all the same ndim.
+                ndim = len(self._input_shapes[next_inputs[0]])
+                self._inputs[input_var] = TENSOR_TYPES[ndim](name=input_var)
+                # Unpack all inputs this variable maps to.
+                inputs.update(dict([(k, self._inputs[input_var])
+                                    for k in next_inputs]))
 
-    def _init_inputs(self):
-        self._inputs = {}
-        for node_path in self._input_names:
-            node, param = urls.split_param(node_path)
-            ndim = len(self._nodes[node].input_shapes[node_path])
-            self._inputs[node_path] = TENSOR_TYPES[ndim](name=node_path,
-                                                         dtype=FLOATX)
-
-    def compute_outputs(self):
-        """Graph traversal logic to connect arbitrary, acyclic networks.
-        """
-        inputs = self._inputs.copy()
-        connections = utils.edges_to_connections(self._edges)
-        self._outputs = {}
-        while connections or inputs:
-            no_match = True
-            for node in self._nodes.values():
+        # Having created the input variables, walk the edges until
+        #   inputs is empty.
+        while inputs:
+            # Set a flag to catch a full loop where no inputs are consumed.
+            # This should never happen when everything is going to plan.
+            print "Inputs: %s" % inputs
+            print "Connections: %s\n" % connections
+            nothing_happened = True
+            for node in self.nodes:
                 if not node.validate_inputs(inputs):
-                    # Insufficient inputs; continue to the next.
+                    # Insufficient inputs; try the next node.
                     continue
-                no_match = False
+                nothing_happened = False
                 node_outputs = node.transform(node.filter_inputs(inputs))
-                self._outputs.update(node_outputs)
-                for new_output in node_outputs:
-                    if not new_output in connections:
-                        # Terminal output; move along.
-                        continue
-                    # List of new input names that are equivalent to the symb
-                    # var produced as an output.
-                    equiv_inputs = connections.pop(new_output)
-                    # Associate the symb output with its input names.
-                    new_inputs = dict([(equiv_input, node_outputs[new_output])
-                                      for equiv_input in equiv_inputs])
-                    inputs.update(new_inputs)
+                [self._params.add(p) for p in node.params.values()]
+                self._scalars.update(node.scalars)
+                for out_key, output in node_outputs.items():
+                    if not out_key in connections:
+                        # When would this ever happen? Never, right?
+                        raise IOError("%s produced an extraneous output: %s" %
+                                      (node.name, out_key))
+                    # Associate the symb output with its input names, removing
+                    # equivalences from the connection map.
+                    for in_key in connections.pop(out_key):
+                        if urls.is_output(in_key):
+                            # - output leaves the graph, added to outputs
+                            output.name = urls.parse_output(in_key)
+                            self._outputs[output.name] = output
+                        else:
+                            # - output maps to a new input, added to 'inputs'
+                            inputs[in_key] = output
                 break
-
-            if no_match:
+            if nothing_happened:
                 raise ValueError("Caught infinite connection loop.")
 
-    def _own_symbolics(self):
-        for param in self.params.values():
-            # Only own unclaimed parameters.
-            if not urls.network(param.name):
-                param.name = self.own(param.name)
-
-        for var in self.inputs.values():
-            var.name = self.own(var.name)
 
     # TODO(ejhumphrey): These come from node-inspection
     # -------------------------------------------------
@@ -330,3 +232,67 @@ class Network(dict):
 
     def save_definition(self, filebase, add_time):
         save_definition(self, filebase, add_time)
+
+'''
+def save_params(net, filebase, add_time=True):
+    """Serialize a network to disk.
+
+    Parameters
+    ----------
+    net : Network
+        Instantiated network to serialize.
+    filebase : string
+        Path to save a parameter dictionary, with optional timestamp.
+    """
+    model_directory = os.path.split(filebase)[0]
+    if not os.path.exists(model_directory):
+        os.makedirs(model_directory)
+
+    nowstamp = ""
+    if add_time:
+        nowstamp += "-" + utils.timestamp()
+    # Save pickled parameters.
+    model_params_file = "%s%s.%s" % (filebase, nowstamp, PARAMS_EXT)
+    model_params = open(model_params_file, "w")
+    cPickle.dump(net.param_values, model_params)
+    model_params.close()
+
+
+def save_definition(net, filebase, add_time=True):
+    """Serialize a network to disk.
+
+    Parameters
+    ----------
+    net : Network
+        Instantiated network to serialize.
+    filebase : string
+        Path to save the model definition, with optional timestamp.
+    """
+    model_directory = os.path.split(filebase)[0]
+    if not os.path.exists(model_directory):
+        os.makedirs(model_directory)
+
+    nowstamp = ""
+    if add_time:
+        nowstamp += "-" + utils.timestamp()
+    # Save json-encoded architecture.
+    model_def_file = "%s%s.%s" % (filebase, nowstamp, DEF_EXT)
+    model_def = open(model_def_file, "w")
+    json.dump(net.layers, model_def, indent=2)
+    model_def.close()
+
+
+def load_network_def(definition_file):
+    """Load a network from disk.
+
+    Parameters
+    ----------
+    definition_file : string
+        Path to a file that matches a JSON-ed model definition.
+    """
+
+    network_def = utils.convert(json.load(open(definition_file)))
+
+    # return Network([Layer(args) for args in layer_args])
+
+'''

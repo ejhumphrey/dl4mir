@@ -11,76 +11,54 @@ from theano.tensor.shared_randomstreams import RandomStreams
 from theano.tensor.signal import downsample
 
 from ejhumphrey.dnn.core import FLOATX
+from ejhumphrey.dnn.core import TENSOR_TYPES
 from ejhumphrey.dnn.core import functions
 from ejhumphrey.dnn import urls
 
 
-def NodeFactory(args):
-    """Node factory; uses 'type' in the node_args dictionary."""
-    local_args = dict(args)
-    node_type = local_args.pop(Node.TYPE)
-    return eval("%s(**local_args)" % node_type)
+class Variable(dict):
+    """Independent variable of a function."""
 
+    _NAME = "name"
+    _NDIM = "ndim"
+    _DTYPE = "dtype"
 
-# Argument Classes no longer exist because that was dumb.
-'''
-class MultiSoftmaxArgs(AffineArgs):
-    """
-    """
-    def __init__(self, name,
-                 input_shape,
-                 output_shape,
-                 activation='linear'):
-        """
-        Parameters
-        ----------
-        name : str
-            Identifier for this layer.
-        input_shape : tuple
-            Input shape, flattened to 1D.
-        output_shape : tuple
-            (n_softmaxes, output_dim)
-        """
-        n_in = np.prod(input_shape, dtype=int)
-        assert len(output_shape) == 2
-        weight_shape = (output_shape[0], n_in, output_shape[1])
-        NodeArgs.__init__(self, name=name,
-                          input_shape=(n_in,),
-                          param_shapes=dict(weights=weight_shape,
-                                            bias=output_shape),
-                          activation=activation)
-        self.update(input_shape=self.input_shape,
-                    output_shape=self.output_shape)
+    def __init__(self, name, ndim, dtype):
+        self.update(name=name, ndim=ndim, dtype=dtype, type=self.type)
+
+    def __str__(self):
+        return json.dumps(self, indent=4)
 
     @property
-    def output_shape(self):
-        return (self.weight_shape[0], self.weight_shape[2])
+    def type(self):
+        return self.__class__.__name__
 
     @property
-    def weight_shape(self):
-        return self.param_shapes.get("weights")
+    def name(self):
+        return self._name
 
+    @property
+    def ndim(self):
+        return self._ndim
 
-class RBFArgs(AffineArgs):
-    """
-    """
-    def __init__(self, name,
-                 input_dim,
-                 output_dim,
-                 lp_norm='l1',
-                 activation='linear'):
-        """
-        """
-        AffineArgs.__init__(self, name,
-                            input_shape=(input_dim,),
-                            output_shape=(output_dim,),
-                            activation=activation)
-        del self['param_shapes']['bias']
-        self.update(lp_norm=lp_norm)
-'''
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def outputs(self):
+        return {self.name: TENSOR_TYPES.get(self.ndim)(name=self.name,
+                                                       dtype=self.dtype)}
 
 
 # --- Node Implementations ------
+def Factory(args):
+    """Node factory; uses 'type' in the node_args dictionary."""
+    local_args = dict(args)
+    node_type = local_args.pop(Node._TYPE)
+    return eval("%s(**local_args)" % node_type)
+
+
 class Node(dict):
     """
     Nodes in the graph perform parameter management and micro-math operations.
@@ -124,7 +102,7 @@ class Node(dict):
         self._scalars = dict(dropout=dropout)
 
     def __str__(self):
-        return json.dumps(self, indent=4)
+        return json.dumps(self, indent=4, sort_keys=True)
 
     # --- Private Properties ---
     @property
@@ -162,9 +140,9 @@ class Node(dict):
     def name(self):
         return self.get(self._NAME)
 
-    # @name.setter
-    # def name(self, value):
-    #     rename all the things
+    @name.setter
+    def name(self, value):
+        self[self._NAME] = value
 
     @property
     def input_shapes(self):
@@ -228,14 +206,11 @@ class Node(dict):
 
         """
         for url, value in param_values.items():
-            network, node, param = urls.parse(url)
-            # Bypass all values that do not correspond to this layer.
-            if self.name != node:
-                continue
-            if not param in self._params:
+            node, param = urls.parse(url)
+            if not url in self.params:
                 # Catch undeclared parameters.
-                raise ValueError("Undeclared parameter: %s" % param)
-            elif self._params[param] is None:
+                continue
+            elif self.params[url] is None:
                 # Declared but uninitialized; safe to do so now.
                 self._params[param] = theano.shared(
                     value=value.astype(FLOATX), name=url)
@@ -267,13 +242,9 @@ class Node(dict):
 
     def validate_inputs(self, inputs):
         """Determine if the inputs dictionary contains the necessary keys."""
-        # TODO(ejhumphrey): Look into this method. It just failed rather
-        # opaquely, and I'm not sure why.
-        valid_inputs = []
-        for url in inputs:
-            network, node, param = urls.parse(url)
-            valid_inputs.append(urls.append_param(node, param) in self.inputs)
-        return not False in valid_inputs
+        # TODO(ejhumphrey): Look into this method. It has failed opaquely
+        # in the past, and I'm not sure why.
+        return not False in [url in inputs for url in self.inputs]
 
     def filter_inputs(self, inputs):
         """Extract the relevant input items, iff all are present."""
@@ -285,6 +256,15 @@ class Node(dict):
         """
         raise NotImplementedError("Subclass me!")
 
+    def copy(self, name):
+        args = dict(self)
+        args[self._NAME] = name
+        args.pop(self._TYPE)
+        node = self.__class__(**args)
+        for k, v in self._params.items():
+            node._params[k] = v
+        return node
+
 
 class Affine(Node):
     """
@@ -292,26 +272,26 @@ class Affine(Node):
       (i.e., a fully-connected non-linear projection)
 
     """
-    _N_IN = 'n_in'
-    _N_OUT = 'n_out'
+    _INPUT_SHAPE = 'input_shape'
+    _OUTPUT_SHAPE = 'output_shape'
     _INPUT = 'input'
     _OUTPUT = 'output'
     _WEIGHTS = 'weights'
     _BIAS = 'bias'
 
-    def __init__(self, name, n_in, n_out, activation):
+    def __init__(self, name, input_shape, output_shape, activation):
         """
 
         """
         # Preamble before calling super-init
-        self.update(dict(n_in=n_in, n_out=n_out))
+        self.update(dict(input_shape=input_shape, output_shape=output_shape))
         Node.__init__(self, name, activation)
         weight_shape = self._param_shapes[self._WEIGHTS]
         weight_values = self.numpy_rng.normal(
             loc=0.0,
             scale=np.sqrt(1.0 / np.sum(weight_shape)),
             size=weight_shape)
-        bias_values = np.zeros(n_out)
+        bias_values = np.zeros(weight_shape[1:])
         self.param_values = {self._own(self._WEIGHTS): weight_values,
                              self._own(self._BIAS): bias_values, }
 
@@ -323,7 +303,7 @@ class Affine(Node):
         -------
         shapes : dict
         """
-        return {self._INPUT: (self.get(self._N_IN), )}
+        return {self._INPUT: self.get(self._INPUT_SHAPE)}
 
     @property
     def _output_shapes(self):
@@ -332,12 +312,14 @@ class Affine(Node):
         -------
         shapes : dict
         """
-        return {self._OUTPUT: (self.get(self._N_OUT), )}
+        return {self._OUTPUT: self.get(self._OUTPUT_SHAPE)}
 
     @property
     def _param_shapes(self):
-        return {self._WEIGHTS: (self.get(self._N_IN), self.get(self._N_OUT)),
-                self._BIAS: (self.get(self._N_OUT), )}
+        weight_shape = (np.prod(self.get(self._INPUT_SHAPE)),
+                        np.prod(self.get(self._OUTPUT_SHAPE)))
+        return {self._WEIGHTS: weight_shape,
+                self._BIAS: weight_shape[1:]}
 
     def transform(self, inputs):
         """
@@ -581,10 +563,10 @@ class Softmax(Affine):
     """
     """
 
-    def __init__(self, name, n_in, n_out, activation):
+    def __init__(self, name, input_shape, output_shape, activation):
         """
         """
-        Affine.__init__(self, name, n_in, n_out, activation)
+        Affine.__init__(self, name, input_shape, output_shape, activation)
         # Softmax layers don't typically have dropout.
         self._scalars.clear()
 
@@ -600,10 +582,134 @@ class Softmax(Affine):
         bias = self._params[self._BIAS].dimshuffle('x', 0)
 
         # TODO(ejhumphrey): This isn't very stable, is it.
+        # Use the given output shape to handle a multi-dim softmax output.
         x_in = T.flatten(x_in, outdim=2)
         z_out = T.nnet.softmax(self.activation(T.dot(x_in, weights) + bias))
         z_out.name = self.outputs[0]
         return {z_out.name: z_out}
+
+
+class LpDistance(Node):
+    """
+    Distance Node
+
+    """
+    _INPUT_A = 'input-A'
+    _INPUT_B = 'input-B'
+    _OUTPUT = 'output'
+    _P = "p"
+
+    def __init__(self, name, p=2.0):
+        """
+
+        """
+        # Preamble before calling super-init
+        self.update(dict(p=p))
+        Node.__init__(self, name, activation='linear')
+        self._scalars.clear()
+
+    # --- Over-ridden private properties ---
+    @property
+    def _input_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return {self._INPUT_A: (), self._INPUT_B: ()}
+
+    @property
+    def _output_shapes(self):
+        """
+        Returns
+        -------
+        shapes : dict
+        """
+        return {self._OUTPUT: ()}
+
+    @property
+    def _param_shapes(self):
+        return {}
+
+    def transform(self, inputs):
+        """
+        Parameters
+        ----------
+        inputs: dict
+            Must contain all known data inputs to this node, keyed by full
+            URLs. Will fail loudly otherwise.
+
+        Returns
+        -------
+        outputs: dict
+            Will contain all outputs generated by this node, keyed by full
+            name. Note that the symbolic outputs will take this full name
+            internal to each object.
+        """
+        assert self.validate_inputs(inputs)
+
+        xA = T.flatten(inputs.get(self._own(self._INPUT_A)), outdim=2)
+        xB = T.flatten(inputs.get(self._own(self._INPUT_B)), outdim=2)
+        p = self.get(self._P)
+        z_out = T.pow(T.pow(T.abs_(xA - xB), p).sum(axis=1), 1.0 / p)
+        z_out.name = self.outputs[0]
+        return {z_out.name: z_out}
+
+# Argument Classes no longer exist because that was dumb.
+'''
+class MultiSoftmaxArgs(AffineArgs):
+    """
+    """
+    def __init__(self, name,
+                 input_shape,
+                 output_shape,
+                 activation='linear'):
+        """
+        Parameters
+        ----------
+        name : str
+            Identifier for this layer.
+        input_shape : tuple
+            Input shape, flattened to 1D.
+        output_shape : tuple
+            (n_softmaxes, output_dim)
+        """
+        n_in = np.prod(input_shape, dtype=int)
+        assert len(output_shape) == 2
+        weight_shape = (output_shape[0], n_in, output_shape[1])
+        NodeArgs.__init__(self, name=name,
+                          input_shape=(n_in,),
+                          param_shapes=dict(weights=weight_shape,
+                                            bias=output_shape),
+                          activation=activation)
+        self.update(input_shape=self.input_shape,
+                    output_shape=self.output_shape)
+
+    @property
+    def output_shape(self):
+        return (self.weight_shape[0], self.weight_shape[2])
+
+    @property
+    def weight_shape(self):
+        return self.param_shapes.get("weights")
+
+
+class RBFArgs(AffineArgs):
+    """
+    """
+    def __init__(self, name,
+                 input_dim,
+                 output_dim,
+                 lp_norm='l1',
+                 activation='linear'):
+        """
+        """
+        AffineArgs.__init__(self, name,
+                            input_shape=(input_dim,),
+                            output_shape=(output_dim,),
+                            activation=activation)
+        del self['param_shapes']['bias']
+        self.update(lp_norm=lp_norm)
 
 
 class RBF(Node):
@@ -637,9 +743,11 @@ class RBF(Node):
         # TODO(ejhumphrey): This isn't very stable, is it.
         x_in = T.flatten(x_in, outdim=2)
         if self.get("lp_norm") == "l1":
-            z_out = T.abs_(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1))
+            z_out = T.abs_(x_in.dimshuffle(0, 'x', 1) - \
+                W.dimshuffle('x', 0, 1))
         elif self.get("lp_norm") == "l2":
-            z_out = T.pow(x_in.dimshuffle(0, 'x', 1) - W.dimshuffle('x', 0, 1), 2.0)
+            z_out = T.pow(x_in.dimshuffle(0, 'x', 1) - \
+                W.dimshuffle('x', 0, 1), 2.0)
         else:
             raise NotImplementedError(
                 "Lp_norm type '%s' unsupported." % self.get("lp_norm"))
@@ -647,7 +755,8 @@ class RBF(Node):
         selector = self.theano_rng.binomial(size=self.output_shape,
                                             p=1.0 - self.dropout,
                                             dtype=FLOATX)
-        return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * (self.dropout + 0.5)
+        return T.sum(z_out, axis=2) * selector.dimshuffle('x', 0) * \
+            (self.dropout + 0.5)
 
 
 class SoftMask(Node):
@@ -745,3 +854,4 @@ class EnergyPDF(Node):
         (N x d0 x d1 x ... dn) -> (N x prod(d_(0:n)))
         """
         return T.nnet.softmax(-1.0 * x_in)
+'''

@@ -14,11 +14,10 @@ class Driver(dict):
     DATA = 'data_source'
     PARAMS = 'hyperparams'
 
-    def __init__(self, graphs, losses=None, updates=None, constraints=None,
-                 data_sources=None, params=None):
+    def __init__(self, nodes, losses=None, updates=None, constraints=None):
         self[self.GRAPHS] = dict()
 
-        self.graphs = graphs
+        self.graphs = dict()
         if losses is None:
             losses = list()
 
