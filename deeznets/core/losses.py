@@ -3,28 +3,40 @@
 import json
 import theano.tensor as T
 
-# from ejhumphrey.dnn.core import FLOATX
 
+class Accumulator(list):
 
-def LossFactory(args):
-    """Uses 'type' in the node_args dictionary to build a general loss."""
-    local_args = dict(args)
-    loss_type = local_args.pop(Loss.TYPE)
-    return eval("%s(**local_args)" % loss_type)
+    def __init__(self, losses, variables):
+        list.__init__(self, losses)
+        self._total(variables)
+
+    def _total(self, variables):
+        self._inputs = dict()
+        self._total_loss = 0.0
+        for l in self:
+            scalar_loss, inputs = l.loss(variables)
+            self._inputs.update(inputs)
+            self._total_loss += scalar_loss
+
+    @property
+    def total(self):
+        return self._total_loss
+
+    @property
+    def inputs(self):
+        return self._inputs
 
 
 class Loss(dict):
-    TYPE = 'type'
-    INPUTS = 'inputs'
-    GIVENS = 'givens'
+    _TYPE = 'type'
+    _INPUTS = 'inputs'
+    _GIVENS = 'givens'
 
-    def __init__(self, inputs, givens):
-        self.inputs = inputs
-        self.givens = givens
+    def __init__(self):
         self.type = self.type
 
     def __str__(self):
-        return json.dumps(self, indent=2)
+        return json.dumps(self, indent=4)
 
     @property
     def type(self):
@@ -32,7 +44,7 @@ class Loss(dict):
 
     @type.setter
     def type(self, value):
-        self[self.TYPE] = value
+        self[self._TYPE] = value
 
     @property
     def inputs(self):
@@ -40,7 +52,7 @@ class Loss(dict):
 
     @inputs.setter
     def inputs(self, value):
-        self[self.INPUTS] = value
+        self[self._INPUTS] = value
 
     @property
     def givens(self):
@@ -48,42 +60,98 @@ class Loss(dict):
 
     @givens.setter
     def givens(self, value):
-        self[self.GIVENS] = value
+        self[self._GIVENS] = value
 
     def loss(self, inputs):
-        for url in self.inputs.values():
-            assert url in inputs, "Expected '$%s' in 'inputs'" % url
+        raise NotImplementedError()
 
 
 class NegativeLogLikelihood(Loss):
-    POSTERIOR = 'posterior'
-    TARGET_IDX = 'target_idx'
+    _POSTERIOR = 'posterior'
+    _TARGET_IDX = 'target_idx'
 
-    def __init__(self, inputs, givens):
+    def __init__(self, posterior, target_idx):
         # Input Validation
-        assert self.POSTERIOR in inputs, \
-            "Expected '%s' in 'inputs'." % self.POSTERIOR
-        assert self.TARGET_IDX in givens, \
-            "Expected '%s' in 'givens'." % self.TARGET_IDX
+        self.update(posterior=posterior, target_idx=target_idx)
+        Loss.__init__(self)
 
-        Loss.__init__(self, inputs, givens)
-
-    def loss(self, inputs):
+    def loss(self, variables):
         """
-        inputs : dict
+        variables : dict
             Set of URL-keyed variables from which to select.
         """
-        Loss.loss(self, inputs)
+        posterior = variables[self[self._POSTERIOR]]
         # Create the local givens.
-        target_name = self.givens[self.TARGET_IDX]
-        target_idx = T.ivector(name=target_name)
-
-        posterior_url = self.inputs.get(self.POSTERIOR)
-        posterior = inputs.get(posterior_url)
+        target_idx = T.ivector(name=self[self._TARGET_IDX])
         batch_idx = T.arange(target_idx.shape[0], dtype='int32')
         scalar_loss = T.mean(-T.log(posterior)[batch_idx, target_idx])
         return scalar_loss, {target_idx.name: target_idx}
 
+
+class LpNorm(Loss):
+    _VARIABLE = 'variable'
+    _WEIGHT = 'weight'
+    _P = 'p'
+
+    def __init__(self, variable, weight, p):
+        # Input Validation
+        self.update(variable=variable, p=p, weight=weight)
+        Loss.__init__(self)
+
+    @property
+    def _p(self):
+        return self.get(self._P)
+
+    def loss(self, variables):
+        """
+        variables : dict
+            Set of URL-keyed variables from which to select.
+        """
+        variable = variables[self[self._VARIABLE]]
+        scalar_loss = T.pow(T.sum(T.pow(T.abs_(variable), self._p)),
+                            1.0 / self._p)
+        weight = T.scalar(name=self[self._WEIGHT])
+        return scalar_loss*weight, {weight.name: weight}
+
+
+class L1Norm(Loss):
+    _VARIABLE = 'variable'
+    _WEIGHT = 'weight'
+
+    def __init__(self, variable, weight):
+        # Input Validation
+        self.update(variable=variable, weight=weight)
+        Loss.__init__(self)
+
+    def loss(self, variables):
+        """
+        variables : dict
+            Set of URL-keyed variables from which to select.
+        """
+        variable = variables[self[self._VARIABLE]]
+        scalar_loss = T.sum(T.abs_(variable))
+        weight = T.scalar(name=self[self._WEIGHT])
+        return scalar_loss*weight, {weight.name: weight}
+
+
+class L2Norm(Loss):
+    _VARIABLE = 'variable'
+    _WEIGHT = 'weight'
+
+    def __init__(self, variable, weight):
+        # Input Validation
+        self.update(variable=variable, weight=weight)
+        Loss.__init__(self)
+
+    def loss(self, variables):
+        """
+        variables : dict
+            Set of URL-keyed variables from which to select.
+        """
+        variable = variables[self[self._VARIABLE]]
+        scalar_loss = T.pow(T.sum(T.pow(variable, 2.0)), 0.5)
+        weight = T.scalar(name=self[self._WEIGHT])
+        return scalar_loss*weight, {weight.name: weight}
 
 # def mean_squared_error(name, inputs):
 #     """

@@ -10,10 +10,10 @@ import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 from theano.tensor.signal import downsample
 
-from ejhumphrey.dnn.core import FLOATX
-from ejhumphrey.dnn.core import TENSOR_TYPES
-from ejhumphrey.dnn.core import functions
-from ejhumphrey.dnn import urls
+from . import FLOATX
+from . import TENSOR_TYPES
+from . import functions
+from .. import urls
 
 
 class Variable(dict):
@@ -52,13 +52,6 @@ class Variable(dict):
 
 
 # --- Node Implementations ------
-def Factory(args):
-    """Node factory; uses 'type' in the node_args dictionary."""
-    local_args = dict(args)
-    node_type = local_args.pop(Node._TYPE)
-    return eval("%s(**local_args)" % node_type)
-
-
 class Node(dict):
     """
     Nodes in the graph perform parameter management and micro-math operations.

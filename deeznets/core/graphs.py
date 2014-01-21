@@ -1,30 +1,24 @@
 """
 """
 
-import cPickle
-import json
 import theano
 
-from ejhumphrey.dnn.core import FLOATX
-from ejhumphrey.dnn.core import TENSOR_TYPES
-
-from ejhumphrey.dnn import utils
-from ejhumphrey.dnn import urls
-
-
-# DEF_EXT = "definition"
-# PARAMS_EXT = "params"
+# from . import FLOATX
+from . import TENSOR_TYPES
+from .. import utils
+from .. import urls
 
 
 class Graph(object):
     """
     An acyclic graph.
     """
-    _NAME = "name"
-    _NODES = "nodes"
-    _EDGES = "edges"
+    # Unnecessary? Graphs probably shouldn't be involved in any serialization.
+    # _NAME = "name"
+    # _NODES = "nodes"
+    # _EDGES = "edges"
 
-    def __init__(self, name, nodes, edges):
+    def __init__(self, nodes, edges):
         """
         Parameters
         ----------
@@ -33,16 +27,15 @@ class Graph(object):
         edges : list of tuples
             asdf
         """
-        self._inputs = dict()
-        self._outputs = dict()
+        self.inputs = dict()
+        self.outputs = dict()
         self._params = set()
-        self._scalars = dict()
+        self.scalars = dict()
 
-        self.name = name
+        # self.name = name
         self.nodes = nodes
         self.edges = edges
-
-        # self.compute_outputs()
+        self.connect()
 
     @property
     def nodes(self):
@@ -59,8 +52,8 @@ class Graph(object):
         assert self.edges
         assert self.nodes
 
-        self._inputs.clear()
-        self._outputs.clear()
+        self.inputs.clear()
+        self.outputs.clear()
 
         # Local data structures to consume.
         connections = utils.edges_to_connections(self.edges)
@@ -76,9 +69,9 @@ class Graph(object):
                 # TODO(ejhumphrey): Stop being a hack and make sure they're
                 #   all the same ndim.
                 ndim = len(self._input_shapes[next_inputs[0]])
-                self._inputs[input_var] = TENSOR_TYPES[ndim](name=input_var)
+                self.inputs[input_var] = TENSOR_TYPES[ndim](name=input_var)
                 # Unpack all inputs this variable maps to.
-                inputs.update(dict([(k, self._inputs[input_var])
+                inputs.update(dict([(k, self.inputs[input_var])
                                     for k in next_inputs]))
 
         # Having created the input variables, walk the edges until
@@ -86,8 +79,8 @@ class Graph(object):
         while inputs:
             # Set a flag to catch a full loop where no inputs are consumed.
             # This should never happen when everything is going to plan.
-            print "Inputs: %s" % inputs
-            print "Connections: %s\n" % connections
+            # print "Inputs: %s" % inputs
+            # print "Connections: %s\n" % connections
             nothing_happened = True
             for node in self.nodes:
                 if not node.validate_inputs(inputs):
@@ -96,7 +89,8 @@ class Graph(object):
                 nothing_happened = False
                 node_outputs = node.transform(node.filter_inputs(inputs))
                 [self._params.add(p) for p in node.params.values()]
-                self._scalars.update(node.scalars)
+                self.inputs.update(node.scalars)
+                # self.scalars.update(node.scalars)
                 for out_key, output in node_outputs.items():
                     if not out_key in connections:
                         # When would this ever happen? Never, right?
@@ -108,13 +102,66 @@ class Graph(object):
                         if urls.is_output(in_key):
                             # - output leaves the graph, added to outputs
                             output.name = urls.parse_output(in_key)
-                            self._outputs[output.name] = output
+                            self.outputs[output.name] = output
                         else:
                             # - output maps to a new input, added to 'inputs'
                             inputs[in_key] = output
                 break
             if nothing_happened:
                 raise ValueError("Caught infinite connection loop.")
+
+    @property
+    def params(self):
+        """
+        The symbolic parameters in a flat dictionary.
+
+        Returns
+        -------
+        params : dict
+            Theano symbolic variables
+        """
+        return dict([(p.name, p) for p in self._params])
+
+    @property
+    def param_values(self):
+        """
+        The numerical parameters in a flat dictionary.
+
+        Returns
+        -------
+        param_values : dict
+            Numpy arrays keyed by full parameter names,
+            i.e. 'node_name/param_name'
+        """
+        return dict([(k, p.get_value()) for k, p in self.params.items()])
+
+    @param_values.setter
+    def param_values(self, param_values):
+        """
+        Parameters
+        ----------
+        param_values : dict
+            Flat dictionary of values, keyed by full parameter names.
+        """
+        # Filter and validate.
+        for node in self.nodes:
+            node.param_values = param_values
+
+    def compile(self, output_name=None):
+        return theano.function(
+            inputs=self.inputs.values() + self.scalars.values(),
+            outputs=self.outputs.get(output_name),
+            allow_input_downcast=True,
+            on_unused_input='warn')
+
+    @property
+    def variables(self):
+        """Return all symbolic variables
+        """
+        all_vars = dict()
+        all_vars.update(self.outputs)
+        all_vars.update(dict([(k, p) for k, p in self.params.items()]))
+        return all_vars
 
 
     # TODO(ejhumphrey): These come from node-inspection
@@ -128,110 +175,53 @@ class Graph(object):
     #     return self.layers[-1].output_shape
     # -------------------------------------------------
 
-    def __str__(self):
-        return json.dumps({self.name: self}, indent=4)
+    # def __str__(self):
+    #     return json.dumps({self.name: self}, indent=4)
 
-    @classmethod
-    def load(self, definition_file, param_file=None):
-        """Load a network from disk.
+    # @classmethod
+    # def load(self, definition_file, param_file=None):
+    #     """Load a network from disk.
 
-        Parameters
-        ----------
-        definition_file : string
-            Path to a file that matches a JSON-ed model definition.
-        param_file : string
-            Path to a pickled dictionary of parameters.
-        """
-        net = load_network_def(definition_file)
-        if param_file:
-            net.param_values = cPickle.load(open(param_file))
-        return net
+    #     Parameters
+    #     ----------
+    #     definition_file : string
+    #         Path to a file that matches a JSON-ed model definition.
+    #     param_file : string
+    #         Path to a pickled dictionary of parameters.
+    #     """
+    #     net = load_network_def(definition_file)
+    #     if param_file:
+    #         net.param_values = cPickle.load(open(param_file))
+    #     return net
 
-    @property
-    def params(self):
-        """
-        The symbolic parameters in a flat dictionary.
+    # @property
+    # def scalars(self):
+    #     scalars = dict()
+    #     for node in self.nodes.values():
+    #         scalars.update(dict([(self.own(k), v)
+    #                              for k, v in node.scalars.items()]))
+    #     return scalars
 
-        Returns
-        -------
-        params : dict
-            Symbolic variables keyed by full parameter names,
-            i.e. 'node_name/param_name'
-        """
-        all_params = dict()
-        for node in self.nodes.values():
-            all_params.update(dict([(self.own(k), v)
-                                    for k, v in node.params.items()]))
-        return all_params
+    # @property
+    # def inputs(self):
+    #     inputs = dict([(self.own(k), v) for k, v in self._inputs.items()])
+    #     inputs.update(self.scalars)
+    #     return inputs
 
-    @property
-    def param_values(self):
-        """
-        The numerical parameters in a flat dictionary.
+    # @property
+    # def outputs(self):
+    #     return dict([(self.own(k), v) for k, v in self._outputs.items()])
 
-        Returns
-        -------
-        param_values : dict
-            Numpy arrays keyed by full parameter names,
-            i.e. 'node_name/param_name'
-        """
-        return dict([(k, v.get_value()) for k, v in self.params.items()])
+    # def __call__(self, inputs):
+    #     if self._fx is None:
+    #         self.compile()
+    #     return self._fx(**inputs)
 
-    @param_values.setter
-    def param_values(self, param_values):
-        """
-        Parameters
-        ----------
-        param_values : dict
-            Flat dictionary of values, keyed by full parameter names.
-        """
-        # Filter and validate.
-        for node in self.nodes.values():
-            node.param_values = param_values
+    # def save_params(self, filebase, add_time):
+    #     save_params(self, filebase, add_time)
 
-    @property
-    def scalars(self):
-        scalars = dict()
-        for node in self.nodes.values():
-            scalars.update(dict([(self.own(k), v)
-                                 for k, v in node.scalars.items()]))
-        return scalars
-
-    @property
-    def inputs(self):
-        inputs = dict([(self.own(k), v) for k, v in self._inputs.items()])
-        inputs.update(self.scalars)
-        return inputs
-
-    @property
-    def outputs(self):
-        return dict([(self.own(k), v) for k, v in self._outputs.items()])
-
-    def compile(self, output_name=None):
-        self._fx = theano.function(inputs=self.inputs.values(),
-                                   outputs=self._outputs.get(output_name),
-                                   allow_input_downcast=True,
-                                   on_unused_input='warn')
-
-    def __call__(self, inputs):
-        if self._fx is None:
-            self.compile()
-        return self._fx(**inputs)
-
-    @property
-    def variables(self):
-        """Return all symbolic variables
-        """
-        all_vars = dict()
-        all_vars.update(self.outputs)
-        all_vars.update(self.params)
-        return all_vars
-
-    def save_params(self, filebase, add_time):
-        save_params(self, filebase, add_time)
-
-    def save_definition(self, filebase, add_time):
-        save_definition(self, filebase, add_time)
+    # def save_definition(self, filebase, add_time):
+    #     save_definition(self, filebase, add_time)
 
 '''
 def save_params(net, filebase, add_time=True):
