@@ -2,6 +2,7 @@
 """
 import json
 import theano.tensor as T
+from .functions import soft_hinge
 
 
 class Accumulator(list):
@@ -86,6 +87,37 @@ class NegativeLogLikelihood(Loss):
         batch_idx = T.arange(target_idx.shape[0], dtype='int32')
         scalar_loss = T.mean(-T.log(posterior)[batch_idx, target_idx])
         return scalar_loss, {target_idx.name: target_idx}
+
+
+class ContrastiveDivergence(Loss):
+    _DISTANCE = 'distance'
+    _SCORE = 'score'
+    _MARGIN = 'margin'
+
+    def __init__(self, distance, score, margin):
+        # Input Validation
+        self.update(distance=distance, score=score, margin=margin)
+        Loss.__init__(self)
+
+    def loss(self, variables):
+        """
+        variables : dict
+            Set of URL-keyed variables from which to select.
+        """
+        distance = variables[self[self._DISTANCE]]
+        # Create the local givens.
+        score = T.ivector(name=self[self._SCORE])
+        margin = T.scalar(name=self[self._MARGIN])
+        diff_loss = 0.5 * (1.0 - score) * self._diff_cost(distance, margin)
+        same_loss = 0.5 * score * self._same_cost(distance)
+        scalar_loss = T.mean(diff_loss + same_loss)
+        return scalar_loss, {score.name: score, margin.name: margin}
+
+    def _same_cost(self, x):
+        return T.pow(x, 2.0)
+
+    def _diff_cost(self, x, margin):
+        return T.pow(soft_hinge(margin, x), 2.0)
 
 
 class LpNorm(Loss):

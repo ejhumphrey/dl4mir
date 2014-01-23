@@ -1,76 +1,118 @@
 """
 """
+import json
+from theano import function
+from . import *
+import time
+# from .core.losses import Loss
 
-from ejhumphrey.dnn.core.graphs import Network
-from ejhumphrey.dnn.core.losses import Loss
 
+class Driver(object):
 
-class Driver(dict):
-    GRAPHS = 'graphs'
-    LOSSES = 'losses'
-    CONSTRAINTS = 'constraints'
-    UPDATES = 'update_rules'
+    def __init__(self, nodes, edges, losses=None, constraints=None):
+        self._graph_fx = None
+        self._loss_fx = None
+        self._update_fx = None
 
-    DATA = 'data_source'
-    PARAMS = 'hyperparams'
+        self._graph = Graph(nodes=nodes, edges=edges)
+        self._outputs = self._graph.outputs.values()
 
-    def __init__(self, nodes, losses=None, updates=None, constraints=None):
-        self[self.GRAPHS] = dict()
-
-        self.graphs = dict()
         if losses is None:
-            losses = list()
+            losses = []
+        self._losses = Accumulator(losses, self._graph.variables)
 
-        self.losses = losses
+        self._updates = SGD(self._graph.params, self._losses.total)
 
-        self[self.UPDATES] = list()
-        self[self.CONSTRAINTS] = list()
-
-        self[self.DATA] = dict()
-        self[self.PARAMS] = dict()
-
+        if constraints is None:
+            constraints = []
+        self.constraints = []
+        # self.constraints = Constraints(constraints, graph.params)
+        self._graph_compile()
+        self._loss_compile()
+        self._update_compile()
         self.monitor = None
+
+    def __str__(self):
+        args = dict(nodes=self._graph.nodes,
+                    edges=self._graph.edges,
+                    losses=self._losses,
+                    constraints=self.constraints)
+        return json.dumps(args, indent=4)
 
     @classmethod
     def from_file(cls, train_def):
         pass
 
+    def apply_constraints(self, args):
+        pass
+
+    def _graph_compile(self):
+        self._graph_inputs = self._graph.inputs.values()
+        self._graph_fx = function(
+            inputs=self._graph_inputs,
+            outputs=self._outputs,
+            allow_input_downcast=True)
+
+    def _loss_compile(self):
+        if not self._losses:
+            return
+        self._loss_inputs = self._graph_inputs + self._losses.inputs.values()
+        self._loss_fx = function(
+            inputs=self._loss_inputs,
+            outputs=self._losses.total,
+            allow_input_downcast=True)
+
+    def _update_compile(self):
+        if not self._updates:
+            return
+        self._update_inputs = self._loss_inputs + self._updates.inputs.values()
+        self._update_fx = function(
+            inputs=self._update_inputs,
+            outputs=self._losses.total,
+            updates=self._updates,
+            allow_input_downcast=True)
+
     @property
-    def graphs(self):
-        return self[self.GRAPHS]
-
-    @graphs.setter
-    def graphs(self, graph_args):
-        """
-        graph_args: dict of named graphs
-        """
-        for k, v in graph_args:
-            self[self.GRAPHS][k] = v
+    def graph_inputs(self):
+        return [v.name for v in self._graph_inputs]
 
     @property
-    def losses(self):
-        return self[self.LOSSES]
+    def loss_inputs(self):
+        return [v.name for v in self._loss_inputs]
 
-    @losses.setter
-    def losses(self, value):
-        self[self.LOSSES] = value
+    @property
+    def update_inputs(self):
+        return [v.name for v in self._update_inputs]
 
-    def config_graph(self, graph_args):
-        net = Network.from_args(graph_args)
-        self.graphs[net.name] = net
+    def _validate(self, inputs, keys):
+        return set(inputs.keys()) == set(keys)
 
-    def config_losses(self, args):
-        self._loss
-        pass
+    def transform(self, inputs):
+        assert self._graph_fx
+        self._validate(inputs, self.graph_inputs)
+        # return self._graph_fx(**inputs)
+        return dict([(v.name, res) for v, res in zip(self._outputs, outputs)])
 
-    def config_updates(self, args):
-        pass
+    def loss(self, inputs):
+        assert self._loss_fx
+        self._validate(inputs, self.loss_inputs)
+        return self._loss_fx(**inputs)
 
-    def config_constraints(self, args):
-        pass
+    def update(self, inputs):
+        assert self._update_fx
+        self._validate(inputs, self.update_inputs)
+        return self._update_fx(**inputs)
 
-    def compile(self,):
-        pass
+    def train(self, inputs, n_iter, print_frequency=50):
+        try:
+            for n, data in enumerate(inputs):
+                loss = self.update(data)
+                if (n % print_frequency) == 0:
+                    print "[%s] Iter: %07d\tloss: %0.5f" % (time.asctime(),
+                                                            n, loss)
+        except KeyboardInterrupt:
+            print "[%s] Stopping - Iter: %07d\tloss: %0.5f" % (time.asctime(),
+                                                               n, loss)
 
 
 class Trainer(dict):

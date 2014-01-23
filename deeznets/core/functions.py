@@ -38,6 +38,21 @@ def hard_shrink(x, threshold):
     raise NotImplementedError("'hard_shrink' is not implemented yet.")
 
 
+def soft_hinge(x, margin, knee=1.0):
+    """
+    x : symbolic, or scalar
+        typically, the independent variable
+    margin : scalar, or symbolic
+        typically, the margin or offset
+    knee : scalar
+        knee of the log-approx
+
+    note: standard behavior is monotonically increasing; swapping a and b
+        will flip the function horizontally.
+    """
+    return T.log(1 + T.exp(knee * (x - margin))) / knee
+
+
 Activations = {'linear': linear,
                'relu': relu,
                'tanh': tanh,

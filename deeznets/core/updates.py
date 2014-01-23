@@ -24,29 +24,27 @@ def sgd(scalar_loss, params):
     pass
 
 
-class SGD(object):
+class SGD(OrderedDict):
 
     PREFIX = 'learning_rate:'
 
-    def __init__(self, param_names, scalar_loss, params):
+    def __init__(self, params, scalar_loss):
+        OrderedDict.__init__(self)
         self._inputs = dict()
-        self._updates = OrderedDict()
-        select_params = [params[name] for name in param_names]
         # Differentiate wrt those the given parameters
-        gparams = [T.grad(scalar_loss, p) for p in select_params]
+        if scalar_loss == 0:
+            return
 
-        for param, gparam in zip(select_params, gparams):
+        param_list = params.values()
+        gparams = [T.grad(scalar_loss, p) for p in param_list]
+        for param, gparam in zip(param_list, gparams):
             eta = T.scalar(name="%s%s" % (self.PREFIX, param.name))
-            self._updates[param] = param - eta * gparam
+            self[param] = param - eta * gparam
             self._inputs[eta.name] = eta
 
     @property
     def inputs(self):
         return self._inputs
-
-    @property
-    def updates(self):
-        return self._updates
 
 
 def UnitL2NormTensor4(tensor4, **ignored_args):
