@@ -1,5 +1,6 @@
 from ejhumphrey import deeznets
-import theano
+from ejhumphrey.shufflr import sources
+from ejhumphrey.shufflr import selectors
 
 # Define nodes.
 # - - - - - - -
@@ -19,7 +20,7 @@ affine0 = deeznets.Affine(
 softmax0 = deeznets.Softmax(
     name='softmax0',
     input_shape=(512,),
-    output_shape=(2,),
+    output_shape=(10,),
     activation='linear')
 
 # Store all nodes in a list.
@@ -33,10 +34,6 @@ edges = [("$:x", conv0.inputs[0]),
          (affine0.outputs[0], softmax0.inputs[0]),
          (affine0.outputs[0], "=:affine0_out"),
          (softmax0.outputs[0], "=:posterior")]
-
-# Create the graph, specifying the name in-line.
-# - - - - - - - - - - - - - - - - - - - - - - - -
-graph = deeznets.Graph(nodes=nodes, edges=edges)
 
 # Define losses over the network.
 # - - - - - - - - - - - - - - - -
@@ -53,25 +50,34 @@ affine0_sparsity = deeznets.L1Norm(
     weight='affine0-sparsity')
 
 losses = [nll, conv0_decay, affine0_sparsity]
-accumulator = deeznets.Accumulator(losses, graph.variables)
-
-param_names = graph.params.keys()
-sgd = deeznets.SGD(param_names, accumulator.total, graph.params)
 
 # conv_norm = deeznets.UnitL2Norm('conv0.weights')
 # constraints = deeznets.Constraints([conv_norm], graph.params)
-classify_inputs = graph.inputs.values()
-fx_classify = theano.function(inputs=classify_inputs,
-                              outputs=graph.outputs['posterior'],
-                              allow_input_downcast=True)
 
-loss_inputs = classify_inputs + accumulator.inputs.values()
-fx_loss = theano.function(inputs=loss_inputs,
-                          outputs=accumulator.total,
-                          allow_input_downcast=True)
+driver = deeznets.Driver(nodes=nodes, edges=edges, losses=losses)
 
-update_inputs = loss_inputs + sgd.inputs.values()
-fx_update = theano.function(inputs=update_inputs,
-                            outputs=accumulator.total,
-                            updates=sgd.updates,
-                            allow_input_downcast=True)
+fh = sources.File("/Users/ejhumphrey/Desktop/mnist.shf")
+cache = sources.Cache(selectors.Permutation(fh), refresh_prob=0)
+batch = sources.LabelBatch(
+    source=selectors.UniformLabel(cache),
+    batch_size=50,
+    label_key='0',
+    value_shape=(1, 28, 28))
+
+update_sources = {
+    'x': batch.values,
+    'affine0.dropout': deeznets.Constant(0),
+    'conv0.dropout': deeznets.Constant(0),
+    'class_idx': batch.labels,
+    'conv0-decay': deeznets.Constant(0),
+    'affine0-sparsity': deeznets.Constant(0),
+    'learning_rate:conv0.bias': deeznets.Constant(0.01),
+    'learning_rate:affine0.bias': deeznets.Constant(0.01),
+    'learning_rate:affine0.weights': deeznets.Constant(0.01),
+    'learning_rate:softmax0.bias': deeznets.Constant(0.01),
+    'learning_rate:conv0.weights': deeznets.Constant(0.01),
+    'learning_rate:softmax0.weights': deeznets.Constant(0.01)}
+
+inputs = deeznets.AutoInput(update_sources, updates=[batch.refresh])
+
+driver.train(inputs, 5000, 25)

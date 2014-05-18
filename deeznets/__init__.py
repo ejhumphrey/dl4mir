@@ -12,6 +12,7 @@ from .core.losses import Accumulator
 from .core.updates import SGD
 from .core.inputs import DataServer
 from .core.inputs import Constant
+from .core.inputs import Variable
 from .driver import Driver
 
 

@@ -14,16 +14,13 @@ import numpy as np
 import os
 from scipy.signal.signaltools import convolve2d
 from scipy.signal.windows import gaussian
+import marl.fileutils as futils
 import time
 
 NUM_CPUS = None  # Use None for system max.
 
 # Global dict
 transform = dict()
-
-class Pair(object):
-    def __init__(self, first, second):
-        self.first, self.second = first, second
 
 
 def lcn(X, kernel):
@@ -43,15 +40,14 @@ def lcn(X, kernel):
     """
     Xh = convolve2d(X, kernel, mode='same', boundary='symm')
     V = X - Xh
-    S = np.sqrt(convolve2d(np.power(V, 2.0),
-                           kernel,
-                           mode='same',
-                           boundary='symm'))
+    S = np.sqrt(
+        convolve2d(np.power(V, 2.0), kernel, mode='same', boundary='symm'))
     S2 = np.zeros(S.shape) + S.mean()
     S2[S > S.mean()] = S[S > S.mean()]
     if S2.sum() == 0.0:
         S2 += 1.0
     return V / S2
+
 
 def create_kernel(dim0, dim1):
     """
@@ -82,55 +78,23 @@ def apply_lcn(file_pair):
     -------
     Nothing, but the output file is written in this call.
     """
-
-    Z = lcn(np.load(file_pair.first), transform.get("kernel"))
+    Z = lcn(np.load(file_pair.first).squeeze(), transform.get("kernel"))
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
     np.save(file_pair.second, Z)
 
 
-def iofiles(file_list, output_dir):
-    """Generator for input/output file pairs.
-
-    Parameters
-    ----------
-    file_list : str
-        Path to a human-readable text file of absolute file paths.
-    output_dir : str
-        Base directory to write outputs under the same file base.
-
-    Yields
-    ------
-    file_pair : Pair of strings
-        first=input_file, second=output_file
-    """
-    for line in open(file_list, "r"):
-        input_file = line.strip("\n")
-        output_file = os.path.join(output_dir, os.path.split(input_file)[-1])
-        yield Pair(input_file, output_file)
-
-def create_output_directory(output_directory):
-    """
-    Returns
-    -------
-    output_dir : str
-        Expanded path, that now certainly exists.
-    """
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-    print "[%s] Output Directory: %s" % (time.asctime(), output_directory)
-    return output_directory
-
 def main(args):
     """Main routine for staging parallelization."""
     create_kernel(args.dim0, args.dim1)
-    output_dir = create_output_directory(args.output_directory)
-    param_file = open(os.path.join(output_dir, "lcn_params.txt"), "w")
-    json.dump({"dim0":args.dim0, "dim1":args.dim1}, param_file, indent=2)
-    param_file.close()
+    output_dir = futils.create_directory(args.output_directory)
+    with open(os.path.join(output_dir, "lcn_params.json"), "w") as fp:
+        json.dump({"dim0": args.dim0, "dim1": args.dim1}, fp, indent=2)
 
     pool = Pool(processes=NUM_CPUS)
-    pool.map_async(func=apply_lcn,
-                   iterable=iofiles(args.file_list, output_dir))
+    pool.map_async(
+        func=apply_lcn,
+        iterable=futils.map_path_file_to_dir(
+            args.file_list, output_dir, '.npy'))
     pool.close()
     pool.join()
 

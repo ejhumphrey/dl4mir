@@ -6,6 +6,8 @@ import numpy as np
 from random import choice
 
 from ejhumphrey.shufflr import keyutils
+from ejhumphrey.shufflr.core import Sample
+from ejhumphrey.shufflr import utils
 
 
 def split_index_table(index_table):
@@ -82,6 +84,7 @@ class UniformLabel(BaseSelector):
         key = keyutils.index_to_key(
             choice(self._index_table[label_key]), self.depth)
         return key, self._source.get(key)
+
 
 """
 class RandomSequenceSample(Random):

@@ -219,6 +219,7 @@ class Sequence(Sample):
         attrs[ReservedKeys.TYPE] = self.type
         return attrs
 
+
 '''
 Not sure any of this should happen here; sub-Sequence should probably be a
 filter. Consume a sequence and parameters, return another (smaller) Sequence.

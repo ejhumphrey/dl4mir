@@ -1,6 +1,15 @@
+"""
+"""
+
+import numpy as np
+
 from ejhumphrey import deeznets
-from ejhumphrey.shufflr import sources
-from ejhumphrey.shufflr import selectors
+from ejhumphrey.shufflr import batches
+from ejhumphrey.deeznets import Constant, Variable
+from ejhumphrey.shufflr.mnist_example import load_mnist
+
+# Constants
+MNIST_PKL = "/Users/ejhumphrey/Desktop/mnist.pkl"
 
 # Define nodes.
 # - - - - - - -
@@ -56,32 +65,25 @@ losses = [nll, conv0_decay, affine0_sparsity]
 
 driver = deeznets.Driver(nodes=nodes, edges=edges, losses=losses)
 
-fh = sources.File("/Users/ejhumphrey/Desktop/mnist.shf")
-cache = sources.Cache(
-    source=selectors.Permutation(fh),
-    cache_size=1000,
-    refresh_prob=0)
+# Training Data Presentation
+train = load_mnist(MNIST_PKL)['train']
+batch = batches.SimpleBatch(values=train['values'][:, np.newaxis, :, :],
+                            labels=train['labels'],
+                            batch_size=50)
 
-batch = sources.LabelBatch(
-    source=selectors.UniformLabel(cache),
-    batch_size=50,
-    label_key='0',
-    value_shape=(1, 28, 28))
+data_sources = [Variable('x', batch.values, batch.refresh),
+                Variable('class_idx', batch.labels),
+                Constant('affine0.dropout', 0),
+                Constant('conv0.dropout', 0),
+                Constant('weight_decay:conv0.weights', 0),
+                Constant('sparsity:affine0_out', 0),
+                Constant('learning_rate:conv0.bias', 0.01),
+                Constant('learning_rate:affine0.bias', 0.01),
+                Constant('learning_rate:affine0.weights', 0.01),
+                Constant('learning_rate:softmax0.bias', 0.01),
+                Constant('learning_rate:conv0.weights', 0.01),
+                Constant('learning_rate:softmax0.weights', 0.01)]
 
-update_sources = {
-    'x': batch.values,
-    'class_idx': batch.labels,
-    'affine0.dropout': deeznets.Constant(0),
-    'conv0.dropout': deeznets.Constant(0),
-    'weight_decay:conv0.weights': deeznets.Constant(0),
-    'sparsity:affine0_out': deeznets.Constant(0),
-    'learning_rate:conv0.bias': deeznets.Constant(0.01),
-    'learning_rate:affine0.bias': deeznets.Constant(0.01),
-    'learning_rate:affine0.weights': deeznets.Constant(0.01),
-    'learning_rate:softmax0.bias': deeznets.Constant(0.01),
-    'learning_rate:conv0.weights': deeznets.Constant(0.01),
-    'learning_rate:softmax0.weights': deeznets.Constant(0.01)}
-
-inputs = deeznets.DataServer(update_sources, updates=[batch.refresh])
+inputs = deeznets.DataServer(data_sources)
 
 driver.train(inputs, 5000, 50)
