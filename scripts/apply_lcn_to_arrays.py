@@ -78,7 +78,14 @@ def apply_lcn(file_pair):
     -------
     Nothing, but the output file is written in this call.
     """
-    Z = lcn(np.load(file_pair.first).squeeze(), transform.get("kernel"))
+    data = np.load(file_pair.first)
+    if data.ndim == 2:
+        Z = lcn(data, transform["kernel"])
+    elif data.ndim == 3:
+        Z = np.array([lcn(data[:, :, n], transform["kernel"])
+                      for n in range(data.shape[-1])])
+    else:
+        raise ValueError("No idea what to do with a %d-dim array." % data.ndim)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
     np.save(file_pair.second, Z)
 
