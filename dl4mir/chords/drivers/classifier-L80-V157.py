@@ -125,6 +125,7 @@ def main(args):
         optimus.File(args.training_file),
         transformers=[
             T.chord_sample(input_data.shape[2]),
+            T.pitch_shift(8),
             T.map_to_index(VOCAB)],
         **SOURCE_ARGS)
 
