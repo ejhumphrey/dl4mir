@@ -8,14 +8,14 @@ VOCAB = 157
 LEARNING_RATE = 0.002
 
 DRIVER_ARGS = dict(
-    max_iter=10000,
-    save_freq=250,
-    print_freq=5)
+    max_iter=20,
+    save_freq=5,
+    print_freq=1)
 
 SOURCE_ARGS = dict(
-    batch_size=50,
-    refresh_prob=0.1,
-    cache_size=500)
+    batch_size=10,
+    refresh_prob=0.0,
+    cache_size=1)
 
 
 def main(args):
@@ -123,7 +123,9 @@ def main(args):
     # 3. Create Data
     source = optimus.Queue(
         optimus.File(args.training_file),
-        transformers=[T.sample(input_data.shape[2]), T.map_to_index(VOCAB)],
+        transformers=[
+            T.chord_sample(input_data.shape[2]),
+            T.map_to_index(VOCAB)],
         **SOURCE_ARGS)
 
     driver = optimus.Driver(
