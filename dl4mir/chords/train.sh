@@ -1,5 +1,6 @@
 #!/bin/bash
-BASEDIR=/media/attic/dl4mir/chord_estimation
+# BASEDIR=/media/attic/dl4mir/chord_estimation
+BASEDIR=~/dl4mir_test/chord_estimation
 SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
 
 # Flat directory of all audio

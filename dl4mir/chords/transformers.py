@@ -7,17 +7,19 @@ from marl.chords.utils import transpose_chord_index
 from . import parts_to_index
 
 
-def sample(length):
+def chord_sample(length):
     """Slices the CQT of an entity and encodes the chord label in its
     (root, semitones, bass) triple.
     """
     def fx(entity):
-        i0 = (entity.cqt.value.shape[1] - length) / 2
-        root, semitones, bass = C.encode(entity.chord_labels.value[i0])
-        return optimus.Entity(cqt=entity.cqt.value[:, i0:i0+length],
-                              root=root,
-                              semitones=semitones,
-                              bass=bass)
+        start_idx = np.random.randint(entity.cqt.value.shape[1] - length)
+        mid_idx = start_idx + length / 2
+        root, semitones, bass = C.encode(entity.chord_labels.value[mid_idx])
+        return optimus.Entity(
+            cqt=entity.cqt.value[:, start_idx:start_idx + length, :],
+            root=root,
+            semitones=semitones,
+            bass=bass)
     return fx
 
 
@@ -54,4 +56,7 @@ def map_to_index(vocabulary):
     def fx(entity):
         chord_idx = parts_to_index(
             entity.root.value, entity.semitones.value, vocabulary)
+        if chord_idx is None:
+            return None
         return optimus.Entity(cqt=entity.cqt.value, chord_idx=chord_idx)
+    return fx
