@@ -66,7 +66,10 @@ def audio_file_to_cqt(file_pair):
     """
     kwargs = dict(**DEFAULT_PARAMS)
     kwargs.update(filepath=file_pair.first)
-    np.save(file_pair.second, cqt(**kwargs))
+    # CQT Transform returns (time, pitch, channels), but we need
+    #    (channels, time, pitch). Correct this here and forget about it.
+    X = cqt(**kwargs).transpose([2, 0, 1])
+    np.save(file_pair.second, X)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
 
 

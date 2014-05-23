@@ -28,7 +28,7 @@ def lcn(X, kernel):
 
     Parameters
     ----------
-    X : np.ndarray
+    X : np.ndarray, ndim=2
         Input representation.
     kernel : np.ndarray
         Convolution kernel (should be roughly low-pass).
@@ -38,6 +38,8 @@ def lcn(X, kernel):
     Z : np.ndarray
         The processed output.
     """
+    if X.ndim != 2:
+        raise ValueError("Input must be a 2D matrix.")
     Xh = convolve2d(X, kernel, mode='same', boundary='symm')
     V = X - Xh
     S = np.sqrt(
@@ -82,8 +84,7 @@ def apply_lcn(file_pair):
     if data.ndim == 2:
         Z = lcn(data, transform["kernel"])
     elif data.ndim == 3:
-        Z = np.array([lcn(data[:, :, n], transform["kernel"])
-                      for n in range(data.shape[-1])])
+        Z = np.array([lcn(x, transform["kernel"]) for x in data])
     else:
         raise ValueError("No idea what to do with a %d-dim array." % data.ndim)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)

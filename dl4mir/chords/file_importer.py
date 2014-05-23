@@ -12,7 +12,6 @@ import time
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
 # TODO: Get rid of this in the future.
-TRANSPOSE = [2, 0, 1]
 TIME_AXIS = 1
 
 
@@ -35,7 +34,6 @@ def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
         Data type to load the requested numpy file.
     """
     data = np.load(cqt_file)
-    data = data.transpose(TRANSPOSE)
     intervals, labels = mir_eval.io.load_intervals(lab_file)
     framerate = float(cqt_params['framerate'])
     time_points = np.arange(data.shape[TIME_AXIS]) / framerate
