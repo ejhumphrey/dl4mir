@@ -1,9 +1,10 @@
 import mir_eval.chord as _chord
 
 QUALITIES = {
+    25: ['maj', 'min'],
     61: ['maj', 'min', 'maj7', 'min7', '7'],
     157: ['maj', 'min', 'maj7', 'min7', '7', 'maj6', 'min6', 'dim', 'aug',
-          'sus4', 'sus2', 'aug', 'dim7', 'hdim7']
+          'sus4', 'sus2', 'aug', 'dim7', 'hdim7'],
 }
 
 _QINDEX = dict([(v, dict([(tuple(_chord.QUALITIES[q]), i)
