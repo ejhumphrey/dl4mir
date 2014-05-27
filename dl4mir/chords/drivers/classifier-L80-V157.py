@@ -104,6 +104,14 @@ def main(args):
         losses=[chord_nll],
         updates=update_manager.connections)
 
+    validator = optimus.Graph(
+        name='chord_classifier',
+        inputs=[input_data, chord_idx, learning_rate],
+        nodes=all_nodes,
+        connections=trainer_edges.connections,
+        outputs=[optimus.Graph.TOTAL_LOSS],
+        losses=[chord_nll])
+
     optimus.random_init(chord_classifier.weights)
 
     predictor_edges = optimus.ConnectionManager([
@@ -148,7 +156,7 @@ if __name__ == "__main__":
     # Inputs
     parser.add_argument("training_file",
                         metavar="training_file", type=str,
-                        help="Path to an optimus file to predict.")
+                        help="Path to an optimus file for training.")
     # Outputs
     parser.add_argument("model_directory",
                         metavar="model_directory", type=str,
@@ -156,8 +164,10 @@ if __name__ == "__main__":
     parser.add_argument("trial_name",
                         metavar="trial_name", type=str,
                         help="Unique name for this training run.")
-    parser.add_argument("transform_file",
-                        metavar="transform_file", type=str,
-                        help="Optimus parameter archive matching the given "
-                        "graph defintion.")
+    parser.add_argument("validator_file",
+                        metavar="validator_file", type=str,
+                        help="Name for the resulting validator graph.")
+    parser.add_argument("predictor_file",
+                        metavar="predictor_file", type=str,
+                        help="Name for the resulting predictor graph.")
     main(parser.parse_args())
