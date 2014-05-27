@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Train a set of end-to-end classifiers and sweep over the checkpointed
+#    parameters to identify the early stopping point.
+
 BASEDIR=/media/attic/dl4mir/chord_estimation
 SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
 
@@ -17,7 +21,7 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "train_classifier.sh {L}"
+    echo "train_classifiers.sh {L}"
     # echo $'\tV - Vocabulary'
     echo $'\tL - Length of the input window'
     exit 0
