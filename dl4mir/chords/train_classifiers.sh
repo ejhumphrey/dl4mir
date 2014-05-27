@@ -12,6 +12,7 @@ OPTFILES=${BASEDIR}/optfiles
 
 CONFIGS=${BASEDIR}/configs
 MODELS=${BASEDIR}/models
+OUTPUTS=${BASEDIR}/outputs
 
 TRIAL_NAME="test123"
 VALIDATOR_NAME="validator"
@@ -62,5 +63,14 @@ ${OPTFILES}/${idx}/valid.hdf5 \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${VALIDATOR_NAME}.json \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST} \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz
+
+        for split in valid # train test
+        do
+            python ${SRC}/chords/transform_data.py \
+${OPTFILES}/${idx}/${split}.hdf5 \
+${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
+${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${DRIVER}/${idx}/${TRIAL_NAME}/${split}.hdf5
+        done
     done
 done
