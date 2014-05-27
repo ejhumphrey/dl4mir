@@ -22,14 +22,10 @@ LABEL_MAPS = {
 }
 
 
-def classification_error(reference, estimation):
-    return np.equal(reference, estimation.argmax(axis=1)).mean()
-
-
 def average_loss(source, predictor):
     param_loss = 0.0
     for n in range(NUM_OBS):
-        param_loss += predictor(**source.next())[0]
+        param_loss += predictor(**source.next())[optimus.Graph.TOTAL_LOSS]
     return param_loss / float(NUM_OBS)
 
 

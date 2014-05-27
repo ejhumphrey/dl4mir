@@ -9,14 +9,14 @@ VOCAB = 157
 LEARNING_RATE = 0.002
 
 DRIVER_ARGS = dict(
-    max_iter=1000,
-    save_freq=200,
-    print_freq=100)
+    max_iter=100,
+    save_freq=50,
+    print_freq=50)
 
 SOURCE_ARGS = dict(
     batch_size=50,
     refresh_prob=0.1,
-    cache_size=500)
+    cache_size=100)
 
 GRAPH_NAME = "classifier-V%03d" % VOCAB
 
@@ -115,19 +115,23 @@ def main(args):
         outputs=[optimus.Graph.TOTAL_LOSS],
         losses=[chord_nll])
 
+    posterior = optimus.Output(
+        name='posterior')
+
     predictor_edges = optimus.ConnectionManager([
         (input_data, layer0.input),
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, chord_classifier.input)])
+        (layer3.output, chord_classifier.input),
+        (chord_classifier.output, posterior)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
         inputs=[input_data],
         nodes=all_nodes,
         connections=predictor_edges.connections,
-        outputs=[chord_classifier.output])
+        outputs=[posterior])
 
     # 3. Create Data
     source = optimus.Queue(
