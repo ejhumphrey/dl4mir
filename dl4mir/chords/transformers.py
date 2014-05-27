@@ -14,7 +14,11 @@ def chord_sample(length):
     def fx(entity):
         start_idx = np.random.randint(entity.cqt.value.shape[1] - length)
         mid_idx = start_idx + length / 2
-        root, semitones, bass = C.encode(entity.chord_labels.value[mid_idx])
+        chord_label = entity.chord_labels.value[mid_idx]
+        # Fucking billboard...
+        if chord_label == 'X':
+            return None
+        root, semitones, bass = C.encode(chord_label)
         return optimus.Entity(
             cqt=entity.cqt.value[:, start_idx:start_idx + length, :],
             root=root,
