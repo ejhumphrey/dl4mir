@@ -22,9 +22,9 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "train_classifiers.sh {L}"
-    # echo $'\tV - Vocabulary'
-    echo $'\tL - Length of the input window'
+    echo "train_classifiers.sh {driver|all} {[0-5]|all}"
+    echo $'\tdriver - Name of the training driver, or all.'
+    echo $'\tfold - Number of the training fold, or all.'
     exit 0
 fi
 
@@ -41,7 +41,8 @@ else
     DRIVER="classifier-L$1-V157"
 fi
 
-for (( idx=0; idx< 1; idx++ ))
+# Train networks
+for (( idx=0; idx< 5; idx++ ))
 do
     for drv in DRIVER
     do
@@ -51,21 +52,36 @@ ${MODELS}/${DRIVER}/${idx} \
 ${TRIAL_NAME} \
 ${VALIDATOR_NAME}.json \
 ${TRANSFORM_NAME}.json
+    done
+done
 
-        echo "Collecting parameters."
-        python ${SRC}/common/collect_files.py \
+echo "Collecting parameters."
+python ${SRC}/common/collect_files.py \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME} \
 "*.npz" \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST}
 
+# Model Selection
+for (( idx=0; idx< 5; idx++ ))
+do
+    for drv in DRIVER
+    do
         python ${SRC}/chords/select_params.py \
 ${OPTFILES}/${idx}/valid.hdf5 \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${VALIDATOR_NAME}.json \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST} \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz
+    done
+done
 
-        for split in valid # train test
+# Transform data
+for (( idx=0; idx< 5; idx++ ))
+do
+    for drv in DRIVER
+    do
+        for split in valid train test
         do
+            echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
             python ${SRC}/chords/transform_data.py \
 ${OPTFILES}/${idx}/${split}.hdf5 \
 ${MODELS}/${DRIVER}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
