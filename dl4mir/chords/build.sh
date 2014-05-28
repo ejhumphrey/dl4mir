@@ -23,13 +23,15 @@ LCN_DIM1=45
 NUM_FOLDS=5
 VALID_RATIO=0.15
 SPLIT_FILE=${META}/data_splits.json
+REFERENCE_FILE=${META}/reference_chords.json
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "build.sh {clean|cqt|lcn|splits|optimus|all}"
+    echo "build.sh {clean|cqt|lcn|labs|splits|optimus|all}"
     echo $'\tclean - Cleans the directory structure'
     echo $'\tcqt - Builds the CQTs'
     echo $'\tlcn - Applies LCN to the CQTs (assumes the exist)'
+    echo $'\tlabs - Collects labfiles as a single JSON object'
     echo $'\tsplits - Builds the json metadata files'
     echo $'\toptimus - Builds optimus files from the input data'
     echo $'\tall - Do everything, in order'
@@ -88,6 +90,14 @@ ${SPLIT_FILE}
 exit 0
 fi
 
+# -- Labs --
+if [ "$1" == "labs" ] || [ "$1" == "all" ]; then
+    echo "Collecting lab files..."
+    python ${SRC}/chords/collect_labfiles.py \
+${LABS} \
+${REFERENCE_FILE}
+exit 0
+fi
 
 # -- Optimus --
 if [ "$1" == "optimus" ] || [ "$1" == "all" ]; then
