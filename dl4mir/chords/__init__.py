@@ -27,7 +27,7 @@ def parts_to_index(root, semitones, vocab):
     return root + q_idx*12
 
 
-def index_to_label(index, vocab):
+def index_to_chord_label(index, vocab):
     if index == vocab - 1:
         return "N"
     return "%s:%s" % (ROOTS[index % 12], QUALITIES[157][int(index) / 12])
