@@ -64,8 +64,7 @@ def main(args):
     for idx, key in enumerate(fin.keys()):
         fout.add(key, transform_cqt(fin.get(key), transform))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
-        if idx == 10:
-            break
+
     fout.close()
 
 
