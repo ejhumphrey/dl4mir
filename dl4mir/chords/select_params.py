@@ -11,7 +11,7 @@ SOURCE_ARGS = dict(
     batch_size=100,
     refresh_prob=0.,
     cache_size=500)
-NUM_OBS = 50
+NUM_OBS = 100
 
 LABEL_MAPS = {
     "tonnetz": T.map_to_tonnetz,
@@ -29,8 +29,20 @@ def average_loss(source, predictor):
     return param_loss / float(NUM_OBS)
 
 
+def find_best_param_file(param_files, validator, source):
+    best_loss = np.inf
+    best_params = ''
+    for pf in param_files:
+        validator.param_values = np.load(pf)
+        param_loss = average_loss(source, validator)
+        if param_loss < best_loss:
+            best_loss = param_loss
+            best_params = pf
+            print "New best: %0.4f @ %s" % (best_loss, split(pf)[-1])
+    return best_params
+
+
 def main(args):
-    param_files = futils.load_textlist(args.param_textlist)
     validator = optimus.load(args.validator_file)
     time_dim = validator.inputs.values()[0].shape[2]
 
@@ -41,15 +53,10 @@ def main(args):
             LABEL_MAPS[validator.name]],
         **SOURCE_ARGS)
 
-    best_loss = np.inf
-    best_params = ''
-    for pf in param_files:
-        validator.param_values = np.load(pf)
-        param_loss = average_loss(source, validator)
-        if param_loss < best_loss:
-            best_loss = param_loss
-            best_params = pf
-            print "New best: %0.4f @ %s" % (best_loss, split(pf)[-1])
+    best_params = find_best_param_file(
+        param_files=futils.load_textlist(args.param_textlist),
+        source=source,
+        validator=validator)
 
     shutil.copyfile(best_params, args.param_file)
 
