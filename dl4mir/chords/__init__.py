@@ -1,5 +1,7 @@
 import mir_eval.chord as _chord
 
+ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
 QUALITIES = {
     25: ['maj', 'min'],
     61: ['maj', 'min', 'maj7', 'min7', '7'],
@@ -23,3 +25,9 @@ def parts_to_index(root, semitones, vocab):
     if q_idx is None:
         return q_idx
     return root + q_idx*12
+
+
+def index_to_label(index, vocab):
+    if index == vocab - 1:
+        return "N"
+    return "%s:%s" % (ROOTS[index % 12], QUALITIES[157][int(index) / 12])
