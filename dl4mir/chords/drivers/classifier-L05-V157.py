@@ -9,14 +9,14 @@ VOCAB = 157
 LEARNING_RATE = 0.002
 
 DRIVER_ARGS = dict(
-    max_iter=100,
-    save_freq=50,
-    print_freq=50)
+    max_iter=50000,
+    save_freq=250,
+    print_freq=100)
 
 SOURCE_ARGS = dict(
     batch_size=50,
     refresh_prob=0.1,
-    cache_size=100)
+    cache_size=500)
 
 GRAPH_NAME = "classifier-V%03d" % VOCAB
 
