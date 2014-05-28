@@ -38,27 +38,26 @@ if [ -z "$1" ]; then
     exit 0
 fi
 
-echo "Updating audio file list."
-python ${SRC}/common/collect_files.py \
+# -- CQT --
+if [ "$1" == "cqt" ] || [ "$1" == "all" ]; then
+    echo "Updating audio file list."
+    python ${SRC}/common/collect_files.py \
 ${AUDIO} \
 "*.mp3" \
 ${AUDIO_FILES}
 
-# -- CQT --
-if [ "$1" == "cqt" ] || [ "$1" == "all" ]; then
     echo "Computing CQTs..."
     python ${SRC}/common/audio_files_to_cqt_arrays.py \
 ${AUDIO_FILES} \
 ${CQTS} \
 --cqt_params=${CQT_PARAMS}
-exit 0
-fi
 
-echo "Updating CQT file list."
-python ${SRC}/common/collect_files.py \
+    echo "Updating CQT file list."
+    python ${SRC}/common/collect_files.py \
 ${CQTS} \
 "*.npy" \
 ${CQT_FILES}
+fi
 
 
 # -- LCN --
@@ -69,14 +68,13 @@ ${CQT_FILES} \
 ${LCN_DIM0} \
 ${LCN_DIM1} \
 ${LCNCQTS}
-exit 0
-fi
 
-echo "Updating LCN-CQT numpy file list."
-python ${SRC}/common/collect_files.py \
+    echo "Updating LCN-CQT numpy file list."
+    python ${SRC}/common/collect_files.py \
 ${LCNCQTS} \
 "*.npy" \
 ${LCNCQT_FILES}
+fi
 
 
 # -- Stratification --
@@ -87,7 +85,6 @@ ${AUDIO_FILES} \
 ${NUM_FOLDS} \
 ${VALID_RATIO} \
 ${SPLIT_FILE}
-exit 0
 fi
 
 # -- Labs --
@@ -96,7 +93,6 @@ if [ "$1" == "labs" ] || [ "$1" == "all" ]; then
     python ${SRC}/chords/collect_labfiles.py \
 ${LABS} \
 ${REFERENCE_FILE}
-exit 0
 fi
 
 # -- Optimus --
@@ -111,5 +107,4 @@ ${LCNCQTS} \
 ${CQT_PARAMS} \
 ${LABS} \
 ${OPTFILES}
-exit 0
 fi
