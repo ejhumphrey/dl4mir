@@ -3,20 +3,11 @@ import argparse
 import optimus
 from os import path
 from ejhumphrey.dl4mir.chords import transformers as T
+from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
 TIME_DIM = 5
 VOCAB = 157
 LEARNING_RATE = 0.002
-
-DRIVER_ARGS = dict(
-    max_iter=50000,
-    save_freq=250,
-    print_freq=100)
-
-SOURCE_ARGS = dict(
-    batch_size=50,
-    refresh_prob=0.1,
-    cache_size=500)
 
 GRAPH_NAME = "classifier-V%03d" % VOCAB
 

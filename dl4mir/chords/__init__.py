@@ -31,3 +31,13 @@ def index_to_chord_label(index, vocab):
     if index == vocab - 1:
         return "N"
     return "%s:%s" % (ROOTS[index % 12], QUALITIES[157][int(index) / 12])
+
+DRIVER_ARGS = dict(
+    max_iter=100000,
+    save_freq=250,
+    print_freq=100)
+
+SOURCE_ARGS = dict(
+    batch_size=50,
+    refresh_prob=0.1,
+    cache_size=500)

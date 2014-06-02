@@ -5,7 +5,7 @@ from os import path
 from ejhumphrey.dl4mir.chords import transformers as T
 from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
-TIME_DIM = 80
+TIME_DIM = 10
 VOCAB = 157
 LEARNING_RATE = 0.002
 
@@ -31,22 +31,20 @@ def main(args):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(12, 1, 13, 19),
-        pool_shape=(2, 3),
+        weight_shape=(12, 1, 5, 19),
+        pool_shape=(1, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(16, None, 11, 15),
-        pool_shape=(2, 1),
+        weight_shape=(16, None, 5, 15),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(20, None, 9, 15),
-        pool_shape=(4, 1),
+        weight_shape=(20, None, 2, 15),
         act_type='relu')
 
     layer3 = optimus.Affine(

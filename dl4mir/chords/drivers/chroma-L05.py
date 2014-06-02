@@ -3,13 +3,13 @@ import argparse
 import optimus
 from os import path
 from ejhumphrey.dl4mir.chords import transformers as T
+
 from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
-TIME_DIM = 80
-VOCAB = 157
+TIME_DIM = 5
 LEARNING_RATE = 0.002
 
-GRAPH_NAME = "classifier-V%03d" % VOCAB
+GRAPH_NAME = "chroma"
 
 
 def main(args):
@@ -18,10 +18,9 @@ def main(args):
         name='cqt',
         shape=(None, 1, TIME_DIM, 252))
 
-    chord_idx = optimus.Input(
-        name='chord_idx',
-        shape=(None,),
-        dtype='int32')
+    target_chroma = optimus.Input(
+        name='target_chroma',
+        shape=(None, 12),)
 
     learning_rate = optimus.Input(
         name='learning_rate',
@@ -31,41 +30,33 @@ def main(args):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(12, 1, 13, 19),
-        pool_shape=(2, 3),
+        weight_shape=(12, 1, 3, 19),
+        pool_shape=(1, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(16, None, 11, 15),
-        pool_shape=(2, 1),
+        weight_shape=(16, None, 3, 15),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(20, None, 9, 15),
-        pool_shape=(4, 1),
+        weight_shape=(20, None, 1, 15),
         act_type='relu')
 
     layer3 = optimus.Affine(
         name='layer3',
         input_shape=layer2.output.shape,
-        output_shape=(None, 512,),
-        act_type='relu')
+        output_shape=(None, 12,),
+        act_type='sigmoid')
 
-    chord_classifier = optimus.Softmax(
-        name='chord_classifier',
-        input_shape=layer3.output.shape,
-        n_out=VOCAB,
-        act_type='linear')
-
-    all_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
+    all_nodes = [layer0, layer1, layer2, layer3]
 
     # 1.1 Create Losses
-    chord_nll = optimus.NegativeLogLikelihood(
-        name="chord_nll")
+    chroma_xentropy = optimus.CrossEntropy(
+        name="chroma_xentropy")
 
     # 2. Define Edges
     trainer_edges = optimus.ConnectionManager([
@@ -73,9 +64,8 @@ def main(args):
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, chord_classifier.input),
-        (chord_classifier.output, chord_nll.likelihood),
-        (chord_idx, chord_nll.target_idx)])
+        (layer3.output, chroma_xentropy.prediction),
+        (target_chroma, chroma_xentropy.target)])
 
     update_manager = optimus.ConnectionManager([
         (learning_rate, layer0.weights),
@@ -85,46 +75,46 @@ def main(args):
         (learning_rate, layer2.weights),
         (learning_rate, layer2.bias),
         (learning_rate, layer3.weights),
-        (learning_rate, layer3.bias),
-        (learning_rate, chord_classifier.weights),
-        (learning_rate, chord_classifier.bias)])
+        (learning_rate, layer3.bias)])
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx, learning_rate],
+        inputs=[input_data, target_chroma, learning_rate],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll],
+        losses=[chroma_xentropy],
         updates=update_manager.connections)
 
-    optimus.random_init(chord_classifier.weights)
+    optimus.random_init(layer0.weights)
+    optimus.random_init(layer1.weights)
+    optimus.random_init(layer2.weights)
+    optimus.random_init(layer3.weights)
 
     validator = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx],
+        inputs=[input_data, target_chroma],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll])
+        losses=[chroma_xentropy])
 
-    posterior = optimus.Output(
-        name='posterior')
+    chroma_out = optimus.Output(
+        name='chroma')
 
     predictor_edges = optimus.ConnectionManager([
         (input_data, layer0.input),
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, chord_classifier.input),
-        (chord_classifier.output, posterior)])
+        (layer3.output, chroma_out)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
         inputs=[input_data],
         nodes=all_nodes,
         connections=predictor_edges.connections,
-        outputs=[posterior])
+        outputs=[chroma_out])
 
     # 3. Create Data
     source = optimus.Queue(
@@ -132,7 +122,7 @@ def main(args):
         transformers=[
             T.chord_sample(input_data.shape[2]),
             T.pitch_shift(8),
-            T.map_to_index(VOCAB)],
+            T.map_to_chroma],
         **SOURCE_ARGS)
 
     driver = optimus.Driver(
