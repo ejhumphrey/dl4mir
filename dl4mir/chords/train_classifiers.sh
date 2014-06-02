@@ -14,7 +14,7 @@ CONFIGS=${BASEDIR}/configs
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
-TRIAL_NAME="test123"
+TRIAL_NAME="deleteme"
 VALIDATOR_NAME="validator"
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
@@ -31,17 +31,18 @@ fi
 if [ "$1" == "all" ]
 then
     echo "Setting all known drivers..."
-    DRIVER="classifier-L05-V157 "\
-# "classifier-L10-V157 "\
-# "classifier-L20-V157 "\
-# "classifier-L40-V157 "\
+    DRIVER="chroma-L05 "\
+"tonnetz-L05 "\
+"classifier-L05-V157 "\
+"classifier-L10-V157 "\
+"classifier-L20-V157 "\
+"classifier-L40-V157 "\
 "classifier-L80-V157"
-    exit 0
 else
     DRIVER="$1"
 fi
 
-if [ "$2" == "all"] || [ -z "$2" ];
+if [ "$2" == "all" ] || [ -z "$2" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
