@@ -46,11 +46,33 @@ def pitch_shift(max_pitch_shift=12, bins_per_pitch=3):
 def map_to_chroma(entity):
     chroma = C.rotate_bitmap_to_root(entity.semitones.value,
                                      entity.root.value)
-    return optimus.Entity(cqt=entity.cqt.value, chroma=chroma)
+    return optimus.Entity(cqt=entity.cqt.value, target_chroma=chroma)
 
 
 def map_to_tonnetz(entity):
-    raise NotImplementedError("Write me!")
+
+    fifths_theta = 2*np.pi*np.arange(12)/12.0
+    minthirds_theta = 2*np.pi*np.arange(12)/4.0
+    majthirds_theta = 2*np.pi*np.arange(12)/3.0
+
+    fifths_idx = (np.arange(12)*7) % 12
+    fifths_theta = fifths_theta[fifths_idx]
+
+    chroma = C.rotate_bitmap_to_root(entity.semitones.value,
+                                     entity.root.value)
+
+    target = np.zeros(6)
+    tvect = np.zeros(3, dtype=np.complex)
+    for p_idx in chroma.nonzero()[0]:
+        tvect[0] = np.exp(1j*fifths_theta[p_idx])
+        tvect[1] = np.exp(1j*minthirds_theta[p_idx])
+        tvect[2] = np.exp(1j*majthirds_theta[p_idx])
+
+        # tvect /= float(len(pcoll))
+        target[::2] = tvect.real
+        target[1::2] = tvect.imag
+
+    return optimus.Entity(cqt=entity.cqt.value, target_tonnetz=target)
 
 
 def map_to_index(vocabulary):
