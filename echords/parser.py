@@ -1,6 +1,5 @@
 import argparse
 import json
-import time
 import glob
 import numpy as np
 import pychords.guitar as G
@@ -9,10 +8,8 @@ import mir_eval
 import os.path as path
 import marl.fileutils as futils
 
-
 CHORD_KEY = "chords = new Array()"
 VARIATIONS = '.variations'
-NO_FRETS = ','.join(["X"] * 6)
 TAB_CHORDS = 'tab_chords'
 DISTANCE = 'distance'
 
@@ -29,6 +26,7 @@ def parse_chord_js(line):
 
 
 def load_echords(html_file):
+    """Strip out the chord javascript and return the chord glossary."""
     fh = open(html_file)
     for line in fh:
         if CHORD_KEY in line:
@@ -38,7 +36,7 @@ def load_echords(html_file):
 def align_echords_with_lab(html_file, lab_file):
     tab_data = load_echords(html_file)
     # Assume the tab doesn't include the no-chord.
-    tab_data[C.NO_CHORD] = [NO_FRETS]
+    tab_data[C.NO_CHORD] = [G.NO_CHORD]
     tab_chords = tab_data.keys()
     tab_frets = [G.decode(tab_data[l][0]) for l in tab_chords]
     chord_map = dict()
