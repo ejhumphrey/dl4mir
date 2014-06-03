@@ -9,9 +9,9 @@ QUALITIES = {
 }
 
 DRIVER_ARGS = dict(
-    max_iter=1000,
-    save_freq=200,
-    print_freq=50)
+    max_iter=100000,
+    save_freq=250,
+    print_freq=100)
 
 SOURCE_ARGS = dict(
     batch_size=50,
