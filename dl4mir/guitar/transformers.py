@@ -25,18 +25,18 @@ def pitch_shift(max_frets, bins_per_pitch=3):
         values = entity.values
         cqt = values.pop("cqt")
         frets = entity.fret_indexes.value
-        print "Base frets: %s" % frets
+        # print "Base frets: %s" % frets
         if not 0 in frets and not frets.mean() == -1:
             fret_min = frets[frets > 0].min()
             fret_max = max_frets - frets[frets > 0].max()
-            print "\tBounds: (-%d, %d)" % (fret_min, fret_max)
+            # print "\tBounds: (-%d, %d)" % (fret_min, fret_max)
             offset = np.ones(6, dtype=int)*np.greater(frets, 0)
             bin_shift = np.random.randint(low=-fret_min*bins_per_pitch,
                                           high=fret_max*bins_per_pitch)
-            print "\tBin shift: %d" % bin_shift
+            # print "\tBin shift: %d" % bin_shift
             cqt = circshift(cqt[0], 0, bin_shift)[np.newaxis, ...]
             frets += int(bin_shift / bins_per_pitch) * offset
-            print "\tFret shift: %d" % int(bin_shift / bins_per_pitch)
+            # print "\tFret shift: %d" % int(bin_shift / bins_per_pitch)
 
         return optimus.Entity(cqt=cqt, fret_indexes=frets)
     return fx
