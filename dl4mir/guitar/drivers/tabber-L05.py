@@ -55,7 +55,7 @@ def main(args):
     fretboard = optimus.MultiSoftmax(
         name='fretboard',
         input_shape=layer3.output.shape,
-        output_shape=[None, 6, ],
+        output_shape=(None, 6, FRET_DIM),
         act_type='linear')
 
     all_nodes = [layer0, layer1, layer2, layer3, fretboard]
