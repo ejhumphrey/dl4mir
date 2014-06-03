@@ -5,7 +5,7 @@ from os import path
 from ejhumphrey.dl4mir.guitar import transformers as T
 from ejhumphrey.dl4mir.guitar import SOURCE_ARGS, DRIVER_ARGS
 
-TIME_DIM = 40
+TIME_DIM = 80
 FRET_DIM = 12
 MAX_FRETS = FRET_DIM - 1
 LEARNING_RATE = 0.002
