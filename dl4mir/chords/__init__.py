@@ -14,8 +14,8 @@ _QINDEX = dict([(v, dict([(tuple(_chord.QUALITIES[q]), i)
                 for v in QUALITIES])
 
 
-def get_quality_index(semitomes, vocab):
-    return _QINDEX[vocab].get(tuple(semitomes), None)
+def get_quality_index(semitones, vocab):
+    return _QINDEX[vocab].get(tuple(semitones), None)
 
 
 def parts_to_index(root, semitones, vocab):
