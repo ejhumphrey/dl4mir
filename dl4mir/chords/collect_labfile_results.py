@@ -42,7 +42,7 @@ def align_estimation_to_reference(est_file, ref_file, num_classes=157):
     intervals, ref_labels, est_labels = mir_eval.util.merge_labeled_intervals(
         ref_intervals, ref_labels, est_intervals, est_labels)
 
-    indexes = [C.chord_label_to_index(l) for l in est_labels]
+    indexes = [C.chord_label_to_index(l, num_classes) for l in est_labels]
     for interval, label, idx in zip(intervals, ref_labels, indexes):
         if idx is None:
             raise ValueError(
@@ -50,7 +50,7 @@ def align_estimation_to_reference(est_file, ref_file, num_classes=157):
                 "\tfile: %s\ttime: %s" % (est_file, interval.tolist()))
         if not label in predictions:
             predictions[label] = np.zeros(num_classes, dtype=np.int).tolist()
-        predictions[label][idx] += np.abs(np.diff())
+        predictions[label][idx] += float(np.abs(np.diff(interval)))
 
     return predictions
 
