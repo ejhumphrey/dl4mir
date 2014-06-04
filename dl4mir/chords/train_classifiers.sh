@@ -8,9 +8,8 @@ SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
-OPTFILES=${BASEDIR}/optfiles
+OPTFILES=${BASEDIR}/chord_dsets
 
-CONFIGS=${BASEDIR}/configs
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 

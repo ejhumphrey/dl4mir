@@ -2,9 +2,8 @@
 #
 # Train a set of end-to-end classifiers and sweep over the checkpointed
 #    parameters to identify the early stopping point.
-
-BASEDIR=${SCRATCH}/dl4mir/chord_estimation
-SRC=${HOME}/src/ejhumphrey/dl4mir
+BASEDIR=/media/attic/dl4mir/chord_estimation
+SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${GUITAR_DSETS}/${FOLD}/${SPLIT}.hdf5
@@ -13,7 +12,7 @@ GUITAR_DSETS=${BASEDIR}/guitar_dsets
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
-TRIAL_NAME="no-reg"
+TRIAL_NAME="pshift_noreg"
 VALIDATOR_NAME="validator"
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
