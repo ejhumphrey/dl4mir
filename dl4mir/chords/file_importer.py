@@ -40,7 +40,10 @@ def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
     chord_labels = mir_eval.util.interpolate_intervals(
         intervals, labels, time_points, fill_value='N')
 
-    return optimus.Entity(cqt=data.astype(dtype), chord_labels=chord_labels)
+    return optimus.Entity(
+        cqt=data.astype(dtype),
+        chord_labels=chord_labels,
+        time_points=time_points)
 
 
 def data_to_file(keys, cqt_directory, cqt_params, lab_directory, file_handle,
