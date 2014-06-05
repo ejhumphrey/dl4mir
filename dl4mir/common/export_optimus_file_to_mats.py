@@ -22,9 +22,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Dump an Optimus File to Matlab .mat files.")
     parser.add_argument("input_file",
-                        metavar="input_directory", type=str,
-                        help="Path to a directory to scrape.")
+                        metavar="input_file", type=str,
+                        help="Path to a file to export.")
     parser.add_argument("output_directory",
-                        metavar="output_file", type=str,
+                        metavar="output_directory", type=str,
                         help="Directory to save output arrays.")
     main(parser.parse_args())
