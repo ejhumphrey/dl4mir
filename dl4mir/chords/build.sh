@@ -10,7 +10,7 @@ LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
 # Directory of optimus data files, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-OPTFILES=${BASEDIR}/optfiles
+DSETS=${BASEDIR}/chord_dsets
 
 AUDIO_FILES=${AUDIO}/filelist.txt
 CQT_FILES=${CQTS}/filelist.txt
@@ -33,7 +33,7 @@ if [ -z "$1" ]; then
     echo $'\tlcn - Applies LCN to the CQTs (assumes the exist)'
     echo $'\tlabs - Collects labfiles as a single JSON object'
     echo $'\tsplits - Builds the json metadata files'
-    echo $'\toptimus - Builds optimus files from the input data'
+    echo $'\tdsets - Builds optimus dataset files'
     echo $'\tall - Do everything, in order'
     exit 0
 fi
@@ -96,9 +96,9 @@ ${REFERENCE_FILE}
 fi
 
 # -- Optimus --
-if [ "$1" == "optimus" ] || [ "$1" == "all" ]; then
-    if [ -d ${OPTFILES} ]; then
-        rm -r ${OPTFILES}
+if [ "$1" == "dsets" ] || [ "$1" == "all" ]; then
+    if [ -d ${DSETS} ]; then
+        rm -r ${DSETS}
     fi
     echo "Building the Optimus files"
     python ${SRC}/chords/file_importer.py \
@@ -106,5 +106,5 @@ ${SPLIT_FILE} \
 ${LCNCQTS} \
 ${CQT_PARAMS} \
 ${LABS} \
-${OPTFILES}
+${DSETS}
 fi

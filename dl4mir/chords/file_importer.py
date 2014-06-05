@@ -36,9 +36,9 @@ def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
     data = np.load(cqt_file)
     intervals, labels = mir_eval.io.load_intervals(lab_file)
     framerate = float(cqt_params['framerate'])
-    time_points = np.arange(data.shape[TIME_AXIS]) / framerate
+    time_points = np.arange(data.shape[TIME_AXIS] + 1) / framerate
     chord_labels = mir_eval.util.interpolate_intervals(
-        intervals, labels, time_points, fill_value='N')
+        intervals, labels, time_points[:-1] + 0.1/framerate, fill_value='N')
 
     return optimus.Entity(
         cqt=data.astype(dtype),
