@@ -8,7 +8,7 @@ import json
 import time
 
 
-def beat_sync(entity, new_times, chord_codes=None):
+def beat_sync(entity, new_times):
     new_times = list(new_times)
     data = entity.values
     time_points = data.pop('time_points')
@@ -24,8 +24,6 @@ def beat_sync(entity, new_times, chord_codes=None):
         shape = data[key].shape
         if len(time_points) - 1 in shape:
             data[key] = data[key][idxs, ...]
-    if chord_codes:
-        data['chord_codes'] = chord_codes
 
     return optimus.Entity(time_points=new_times, **data)
 
@@ -36,13 +34,8 @@ def main(args):
     dout = optimus.File(args.output_file)
     beat_times = json.load(open(args.beat_times))
     total_count = len(dset)
-    chord_codes = dict()
-    if args.chord_codes:
-        chord_codes.update(json.load(open(args.chord_codes)))
-
     for idx, key in enumerate(dset.keys()):
-        dout.add(key, beat_sync(dset.get(key), beat_times[key],
-                                chord_codes.get(key, None)))
+        dout.add(key, beat_sync(dset.get(key), beat_times[key]))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
     dout.close()
@@ -60,8 +53,4 @@ if __name__ == "__main__":
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="Path to the output optimus file.")
-    parser.add_argument("--chord_codes",
-                        metavar="--chord_codes", type=str, default='',
-                        help="JSON file of TMC's lab segment data; "
-                        " keys must match.")
     main(parser.parse_args())

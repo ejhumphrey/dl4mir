@@ -53,15 +53,13 @@ do
             python ${SRC}/chords/beat_sync_entities.py \
 ${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}.hdf5 \
 ${METADATA}/beat_times.json \
-${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}-beatsync.hdf5 \
---chord_codes=${METADATA}/chord_codes.json
+${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}-beatsync.hdf5
 
             echo "Exporting ${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}-beatsync.hdf5"
-            python ${SRC}/common/export_optimus_file_to_mats.py \
+            python ${SRC}/chords/export_chroma_to_mats.py \
 ${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}-beatsync.hdf5 \
-${MATS}/${drv}/${idx}/${TRIAL_NAME}/${split}-beatsync
+${METADATA}/chord_codes.json \
+${MATS}/${drv}/${idx}/${TRIAL_NAME}
         done
     done
 done
-
-

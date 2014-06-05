@@ -1,0 +1,21 @@
+things to do
+x beat-synchronize an optimus file
+x beat-sync chroma to mats;
+x adjust to taemin's code:
+    time_points -> beats_in_time and endT
+    labseg
+    if band is 1, does chroma need to be 3D?
+    write out / load intermediary posteriors to provide an entry point
+x re-run taemin's system
+- tab training script is going to die (transform_data no longer exists)
+    fix once it fails
+    adapt script such that convolutional application can be run without training
+- re-run the chord classifiers; chroma, tonnetz, and autotab should be fine
+- compute class / quality distribution weights
+- wtf to do with Tonnetz..? run the GMM in python and pass posteriors?
+- score beat-sync versus fixed-frame features (can / should I do this?)
+- move
+    Taemin's code to bowery, should run successfully there
+    tmc_features/band-{1,4}
+    learned_features/...
+
