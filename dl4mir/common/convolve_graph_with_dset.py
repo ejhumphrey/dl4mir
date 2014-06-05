@@ -8,15 +8,17 @@ import marl.fileutils as futils
 import time
 
 
-def transform_cqt(entity, graph, chunk_size=250):
-    """Transform a cqt-based entity with a given network.
+def convolve(entity, graph, data_key='cqt', chunk_size=250):
+    """Convolve a given network over an entity.
 
     Parameters
     ----------
     entity: optimus.Entity
-        Observation to predict. Only required field is 'cqt'.
+        Observation to predict.
     graph: optimus.Graph
         Network for processing an entity.
+    data_key: str
+        Name of the field to use for the input.
     chunk_size: int, default=None
         Number of slices to transform in a given step. When None, parses one
         slice at a time.
@@ -27,12 +29,12 @@ def transform_cqt(entity, graph, chunk_size=250):
     """
     time_dim = graph.inputs.values()[0].shape[2]
     data = entity.values
-    cqt_stepper = optimus.array_stepper(
-        data.pop('cqt'), time_dim, axis=1, mode='same')
+    data_stepper = optimus.array_stepper(
+        data.pop(data_key), time_dim, axis=1, mode='same')
     results = dict([(k, list()) for k in graph.outputs])
     if chunk_size:
         chunk = []
-        for value in cqt_stepper:
+        for value in data_stepper:
             chunk.append(value)
             if len(chunk) == chunk_size:
                 for k, v in graph(np.array(chunk)).items():
@@ -42,7 +44,7 @@ def transform_cqt(entity, graph, chunk_size=250):
             for k, v in graph(np.array(chunk)).items():
                 results[k].append(v)
     else:
-        for value in cqt_stepper:
+        for value in data_stepper:
             for k, v in graph(value[np.newaxis, ...]).items():
                 results[k].append(v)
     for k in results:
@@ -62,10 +64,8 @@ def main(args):
     fout = optimus.File(args.output_file)
     total_count = len(fin.keys())
     for idx, key in enumerate(fin.keys()):
-        fout.add(key, transform_cqt(fin.get(key), transform))
+        fout.add(key, convolve(fin.get(key), transform, data_key='cqt'))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
-        # if idx == 10:
-        #     break
 
     fout.close()
 
