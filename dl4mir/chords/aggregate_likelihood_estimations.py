@@ -9,7 +9,7 @@ import marl.fileutils as futil
 import time
 
 
-def predict_entity(entity):
+def estimate_classes(entity):
     """
 
     Parameters
@@ -21,32 +21,32 @@ def predict_entity(entity):
 
     Returns
     -------
-    predictions: dict
+    estimations: dict
         Chord labels and dense count vectors.
     """
     num_classes = entity.posterior.value.shape[1]
-    predictions = dict()
+    estimations = dict()
     for label, idx in zip(entity.chord_labels.value,
                           entity.posterior.value.argmax(axis=1)):
-        if not label in predictions:
-            predictions[label] = np.zeros(num_classes, dtype=np.int).tolist()
-        predictions[label][idx] += 1
+        if not label in estimations:
+            estimations[label] = np.zeros(num_classes, dtype=np.int).tolist()
+        estimations[label][idx] += 1
 
-    return predictions
+    return estimations
 
 
 def main(args):
-    predictions = dict()
+    estimations = dict()
     split = futil.filebase(args.posterior_file)
     dset = optimus.File(args.posterior_file)
     for idx, key in enumerate(dset.keys()):
-        predictions[split][key] = predict_entity(dset.get(key))
+        estimations[split][key] = estimate_classes(dset.get(key))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx,
                                         len(dset), key)
 
-    futil.create_directory(os.path.split(args.output_file)[0])
-    with open(args.output_file, 'w') as fp:
-        json.dump(predictions, fp, indent=2)
+    futil.create_directory(os.path.split(args.estimation_file)[0])
+    with open(args.estimation_file, 'w') as fp:
+        json.dump(estimations, fp, indent=2)
 
 
 if __name__ == "__main__":
@@ -57,7 +57,7 @@ if __name__ == "__main__":
                         metavar="posterior_file", type=str,
                         help="Path to an optimus file of chord posteriors.")
     # Outputs
-    parser.add_argument("output_file",
-                        metavar="output_file", type=str,
+    parser.add_argument("estimation_file",
+                        metavar="estimation_file", type=str,
                         help="Path for the lab-file style output as JSON.")
     main(parser.parse_args())
