@@ -36,13 +36,11 @@ def estimate_classes(entity):
 
 
 def main(args):
-    estimations = dict()
-    split = futil.filebase(args.posterior_file)
     dset = optimus.File(args.posterior_file)
+    estimations = dict()
     for idx, key in enumerate(dset.keys()):
-        estimations[split][key] = estimate_classes(dset.get(key))
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx,
-                                        len(dset), key)
+        estimations[key] = estimate_classes(dset.get(key))
+        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
     with open(args.estimation_file, 'w') as fp:

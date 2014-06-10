@@ -5,6 +5,8 @@ import json
 import numpy as np
 import mir_eval.chord as chord_eval
 from ejhumphrey.dl4mir import chords as C
+import sklearn.metrics as metrics
+import warnings
 
 
 def rotate(posterior, root):
@@ -14,54 +16,133 @@ def rotate(posterior, root):
 
 
 def collapse_estimations(estimations):
+    """Accumulate a set of track-wise estimations to a flattened set.
+
+    Parameters
+    ----------
+    estimations: dict
+        Dict of track keys, pointing to another dict of chord labels and
+        class counts.
+
+    Returns
+    -------
+    results: dict
+        Dict of chord labels and corresponding class counts.
+    """
+
     total = dict()
     for key in estimations:
         for label, counts in estimations[key].items():
+            # N:maj are cropping up right now...?
+            if label.startswith("N"):
+                label = "N"
             if not label in total:
                 total[label] = np.zeros_like(np.array(counts))
             total[label] += np.array(counts)
     return total
 
 
-def chord_recall(split):
-    acc = np.zeros([157, 157])
-    for label, counts in split.items():
-        idx = C.chord_label_to_index(label, 157)
+def confusion_matrix(results, num_classes,
+                     label_to_index=C.chord_label_to_index):
+    """
+
+    Confusion matrix is actual x estimations.
+
+    """
+    classifications = np.zeros([num_classes, num_classes])
+    for label, counts in results.items():
+        idx = label_to_index(label, num_classes)
         if idx is None:
             continue
-        acc[idx, :] += counts
-    return acc
+        classifications[idx, :] += counts
+    return classifications
 
 
-def average_chord_quality_accuracy(estimations):
-    acqa = np.zeros([14, 157])
-    ignored_total = 0
-    results = collapse_estimations(estimations)
+def quality_confusion_matrix(results):
+    num_classes = 157
+    qual_conf = np.zeros([num_classes, num_classes])
     for label, counts in results.items():
-        try:
-            root, semitones, bass = chord_eval.encode(label)
-        except:
-            print label
-            continue
-        qidx = 13 if label == 'N' else C.get_quality_index(semitones, 157)
+        root, semitones, bass = chord_eval.encode(label)
+        qidx = 13 if label == 'N' else C.get_quality_index(semitones,
+                                                           num_classes)
         if qidx is None:
-            ignored_total += np.sum(counts)
             continue
-        acqa[qidx, :] += rotate(counts, root) if qidx != 13 else counts
-    acqa_norm = acqa / acqa.astype(float).sum(axis=1).reshape(14, 1)
-    return acqa, acqa_norm, ignored_total
+        qual_conf[qidx*12, :] += rotate(counts,
+                                        root) if qidx != 13 else counts
+    return qual_conf
+
+
+def print_confusions(quality_confusions, top_k=5):
+    if quality_confusions.shape[0] == 157:
+        quality_confusions = quality_confusions[::12, :]
+
+    for idx, row in enumerate(quality_confusions):
+        row /= float(row.sum())
+        line = "%7s (%7.4f) ||" % (C.index_to_chord_label(idx*12, 157),
+                                   row[idx*12]*100)
+        sidx = row.argsort()[::-1]
+        k = 0
+        count = 0
+        while count < top_k:
+            if sidx[k] != idx*12:
+                line += " %7s (%7.4f) |" % \
+                    (C.index_to_chord_label(sidx[k], 157), row[sidx[k]]*100)
+                count += 1
+            k += 1
+        print line
+
+
+def compute_scores(estimations):
+    results = collapse_estimations(estimations)
+    # confusions = confusion_matrix(results, 157)
+    quality_confusions = quality_confusion_matrix(results)
+    # chord_true, chord_est = confusions_to_comparisons(confusions)
+    quality_true, quality_est = confusions_to_comparisons(quality_confusions)
+
+    with warnings.catch_warnings():
+        labels = range(157)
+        warnings.simplefilter("ignore")
+
+        qual_precision_weighted = metrics.precision_score(
+            quality_true, quality_est, labels=labels, average='weighted')
+        qual_precision_ave = np.mean(metrics.precision_score(
+            quality_true, quality_est, labels=labels, average=None)[::12])
+
+        qual_recall_weighted = metrics.recall_score(
+            quality_true, quality_est, labels=labels, average='weighted')
+        qual_recall_ave = np.mean(metrics.recall_score(
+            quality_true, quality_est, labels=labels, average=None)[::12])
+
+        qual_f1_weighted = metrics.f1_score(
+            quality_true, quality_est, labels=labels, average='weighted')
+        qual_f1_ave = np.mean(metrics.f1_score(
+            quality_true, quality_est, labels=labels, average=None)[::12])
+
+    stat_line = "  Precision: %0.4f\t Recall: %0.4f\tf1: %0.4f"
+    print "Weighted: " + stat_line % (100*qual_precision_weighted,
+                                      100*qual_recall_weighted,
+                                      100*qual_f1_weighted)
+
+    print "Averaged: " + stat_line % (100*qual_precision_ave,
+                                      100*qual_recall_ave,
+                                      100*qual_f1_ave)
+    print "-"*60
+    print_confusions(quality_confusions, 5)
+
+
+def confusions_to_comparisons(conf_mat):
+    y_true, y_pred = [], []
+    conf_mat = np.round(conf_mat).astype(int)
+    for i in range(conf_mat.shape[0]):
+        for j in range(conf_mat.shape[1]):
+            count = conf_mat[i, j]
+            y_true.append(i + np.zeros(count, dtype=int))
+            y_pred.append(j + np.zeros(count, dtype=int))
+    return np.concatenate(y_true), np.concatenate(y_pred)
 
 
 def main(args):
-    estimations = json.load(open(args.estimation_file))
-    acqa, acqa_norm, ignored = average_chord_quality_accuracy(estimations)
-    acqa_ave = np.mean([acqa_norm[n, n*12]
-                        for n in range(13)] + [acqa_norm[-1, -1]])
-    print "ACQA: %0.4f" % (acqa_ave * 100)
-    wcsr_num = np.sum([acqa[n, n*12] for n in range(13)] + [acqa[-1, -1]])
-    print "WCSR: %0.4f" % (wcsr_num / float(np.sum(acqa)) * 100)
-    print "WCSR+: %0.4f" % (wcsr_num / float(ignored + np.sum(acqa)) * 100)
-
+    compute_scores(json.load(open(args.estimation_file)))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
