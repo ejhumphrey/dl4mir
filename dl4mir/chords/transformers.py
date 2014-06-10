@@ -11,16 +11,30 @@ def chord_sample(length):
     """Slices the CQT of an entity and encodes the chord label in its
     (root, semitones, bass) triple.
     """
-    def fx(entity):
-        start_idx = np.random.randint(entity.cqt.value.shape[1] - length)
-        mid_idx = start_idx + length / 2
+    def fx(entity, mid_idx=None):
+        if mid_idx is None:
+            start_idx = np.random.randint(entity.cqt.value.shape[1] - length)
+            mid_idx = start_idx + length / 2
+        else:
+            start_idx = mid_idx - length / 2
+        end_idx = start_idx + length
         chord_label = entity.chord_labels.value[mid_idx]
         # Fucking billboard...
         if chord_label == 'X':
             return None
         root, semitones, bass = C.encode(chord_label)
+        full_cqt = entity.cqt.value
+        cqt = np.zeros([full_cqt.shape[0], length, full_cqt.shape[2]])
+        if start_idx < 0:
+            start_idx = np.abs(start_idx)
+            cqt[:, start_idx:, :] = full_cqt[:, :end_idx, :]
+        elif end_idx > full_cqt.shape[1]:
+            end_idx = full_cqt.shape[1] - start_idx
+            cqt[:, :end_idx, :] = full_cqt[:, start_idx:, :]
+        else:
+            cqt[:, :, :] = full_cqt[:, start_idx:end_idx, :]
         return optimus.Entity(
-            cqt=entity.cqt.value[:, start_idx:start_idx + length, :],
+            cqt=cqt,
             root=root,
             semitones=semitones,
             bass=bass)
@@ -86,3 +100,50 @@ def map_to_index(vocabulary):
             return None
         return optimus.Entity(cqt=entity.cqt.value, chord_idx=chord_idx)
     return fx
+
+
+def map_to_quality_index(vocabulary):
+    """
+    vocabulary: int
+    """
+    def fx(entity):
+        chord_idx = parts_to_index(
+            entity.root.value, entity.semitones.value, vocabulary)
+        if chord_idx is None:
+            return None
+        return optimus.Entity(cqt=entity.cqt.value, quality_idx=chord_idx/12)
+    return fx
+
+
+class QualityObserver(object):
+
+    def __init__(self, prior=None, min_weight=None, max_weight=None,
+                 init_weight=1.0):
+        self.weights = dict()
+        self.counts = dict()
+        self.init_weight = init_weight
+        self.min_weight = min_weight
+        self.max_weight = max_weight
+
+    def __call__(self, entity):
+        quality_idx = int(entity.chord_idx.value / 12)
+        weight = self.weights.get(quality_idx, self.init_weight)
+        self.update_counts(quality_idx)
+        return optimus.Entity(quality_weight=weight, **entity.values)
+
+    def update_counts(self, quality_idx):
+        if not quality_idx in self.counts:
+            self.counts[quality_idx] = 0
+        self.counts[quality_idx] += 1
+        self.__normalize__()
+
+    def __normalize__(self):
+        total_count = float(np.sum(self.counts.values()))
+        weights = dict([(k, total_count/c) for k, c in self.counts.items()])
+        ave_weight = float(np.mean(weights.values()))
+        self.weights = dict([(k, w/ave_weight) for k, w in weights.items()])
+        for k, w in self.weights.items():
+            if not self.min_weight is None:
+                self.weights[k] = max([self.min_weight, w])
+            if not self.max_weight is None:
+                self.weights[k] = min([self.min_weight, w])
