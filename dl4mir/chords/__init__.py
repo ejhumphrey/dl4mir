@@ -28,6 +28,8 @@ def parts_to_index(root, semitones, vocab):
 def chord_label_to_index(label, vocab):
     if label == "N":
         return vocab - 1
+    if label == 'X':
+        return None
     root, semitones, bass = _chord.encode(label)
     return parts_to_index(root, semitones, vocab)
 
@@ -40,9 +42,9 @@ def index_to_chord_label(index, vocab):
 DRIVER_ARGS = dict(
     max_iter=100000,
     save_freq=250,
-    print_freq=100)
+    print_freq=50)
 
 SOURCE_ARGS = dict(
     batch_size=50,
     refresh_prob=0.1,
-    cache_size=500)
+    cache_size=700)
