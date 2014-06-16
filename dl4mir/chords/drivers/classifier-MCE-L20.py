@@ -7,7 +7,7 @@ from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.002
+LEARNING_RATE = 0.02
 
 # Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB
@@ -32,20 +32,20 @@ def main(args):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(16, 1, 9, 19),
+        weight_shape=(12, 1, 9, 19),
         pool_shape=(1, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(20, None, 7, 15),
+        weight_shape=(16, None, 7, 15),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(24, None, 6, 15),
+        weight_shape=(20, None, 6, 15),
         act_type='relu')
 
     layer3 = optimus.Affine(
@@ -63,8 +63,8 @@ def main(args):
     all_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
 
     # 1.1 Create Losses
-    chord_nll = optimus.NegativeLogLikelihood(
-        name="chord_nll")
+    chord_mce = optimus.ClassificationError(
+        name="chord_mce")
 
     # 2. Define Edges
     trainer_edges = optimus.ConnectionManager([
@@ -73,8 +73,8 @@ def main(args):
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
         (layer3.output, chord_classifier.input),
-        (chord_classifier.output, chord_nll.likelihood),
-        (chord_idx, chord_nll.target_idx)])
+        (chord_classifier.output, chord_mce.likelihood),
+        (chord_idx, chord_mce.target_idx)])
 
     update_manager = optimus.ConnectionManager([
         (learning_rate, layer0.weights),
@@ -94,10 +94,11 @@ def main(args):
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll],
+        losses=[chord_mce],
         updates=update_manager.connections)
 
     optimus.random_init(chord_classifier.weights)
+    optimus.random_init(chord_classifier.bias, std=0.1)
 
     validator = optimus.Graph(
         name=GRAPH_NAME,
@@ -105,7 +106,7 @@ def main(args):
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll])
+        losses=[chord_mce])
 
     posterior = optimus.Output(
         name='posterior')

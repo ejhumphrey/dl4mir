@@ -7,7 +7,8 @@ from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.002
+LEARNING_RATE = 0.1
+MARGIN = 1.0
 
 # Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB
@@ -23,6 +24,10 @@ def main(args):
         name='chord_idx',
         shape=(None,),
         dtype='int32')
+
+    margin = optimus.Input(
+        name='margin',
+        shape=None)
 
     learning_rate = optimus.Input(
         name='learning_rate',
@@ -63,8 +68,11 @@ def main(args):
     all_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
 
     # 1.1 Create Losses
-    chord_nll = optimus.NegativeLogLikelihood(
+    chord_nll = optimus.LikelihoodMargin(
         name="chord_nll")
+
+    posterior = optimus.Output(
+        name='posterior')
 
     # 2. Define Edges
     trainer_edges = optimus.ConnectionManager([
@@ -74,7 +82,8 @@ def main(args):
         (layer2.output, layer3.input),
         (layer3.output, chord_classifier.input),
         (chord_classifier.output, chord_nll.likelihood),
-        (chord_idx, chord_nll.target_idx)])
+        (chord_idx, chord_nll.target_idx),
+        (margin, chord_nll.margin)])
 
     update_manager = optimus.ConnectionManager([
         (learning_rate, layer0.weights),
@@ -90,7 +99,7 @@ def main(args):
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx, learning_rate],
+        inputs=[input_data, chord_idx, margin, learning_rate],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
@@ -98,17 +107,15 @@ def main(args):
         updates=update_manager.connections)
 
     optimus.random_init(chord_classifier.weights)
+    optimus.random_init(chord_classifier.bias)
 
     validator = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx],
+        inputs=[input_data, chord_idx, margin],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
         losses=[chord_nll])
-
-    posterior = optimus.Output(
-        name='posterior')
 
     predictor_edges = optimus.ConnectionManager([
         (input_data, layer0.input),
@@ -139,7 +146,9 @@ def main(args):
         name=args.trial_name,
         output_directory=args.model_directory)
 
-    hyperparams = {learning_rate.name: LEARNING_RATE}
+    hyperparams = {
+        learning_rate.name: LEARNING_RATE,
+        margin.name: MARGIN}
 
     driver.fit(source, hyperparams=hyperparams, **DRIVER_ARGS)
 
