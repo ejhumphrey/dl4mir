@@ -46,11 +46,10 @@ def pitch_shift(max_pitch_shift=12, bins_per_pitch=3):
     def fx(entity):
         values = entity.values
         cqt, root = values.pop("cqt"), values.pop("root")
-        max_bin_shift = max_pitch_shift * bins_per_pitch
-        bin_shift = np.random.randint(low=-max_bin_shift,
-                                      high=max_bin_shift+1)
+        pitch_shift = np.random.randint(low=-max_pitch_shift,
+                                        high=max_pitch_shift+1)
+        bin_shift = pitch_shift*bins_per_pitch
         cqt = circshift(cqt[0], 0, bin_shift)[np.newaxis, ...]
-        pitch_shift = int(bin_shift / bins_per_pitch)
         if root >= 0:
             root = transpose_chord_index(root, pitch_shift)
         return optimus.Entity(cqt=cqt, root=root, **values)
