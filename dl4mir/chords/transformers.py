@@ -47,7 +47,7 @@ def pitch_shift(max_pitch_shift=12, bins_per_pitch=3):
         values = entity.values
         cqt, root = values.pop("cqt"), values.pop("root")
         pitch_shift = np.random.randint(low=-max_pitch_shift,
-                                        high=max_pitch_shift+1)
+                                        high=max_pitch_shift)
         bin_shift = pitch_shift*bins_per_pitch
         cqt = circshift(cqt[0], 0, bin_shift)[np.newaxis, ...]
         if root >= 0:
