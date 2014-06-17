@@ -7,7 +7,7 @@ from ejhumphrey.dl4mir.chords import SOURCE_ARGS, DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.01
 MARGIN = 1.0
 
 # Other code depends on this.
@@ -37,20 +37,20 @@ def main(args):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(16, 1, 9, 19),
+        weight_shape=(12, 1, 9, 19),
         pool_shape=(1, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(20, None, 7, 15),
+        weight_shape=(16, None, 7, 15),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(24, None, 6, 15),
+        weight_shape=(20, None, 6, 15),
         act_type='relu')
 
     layer3 = optimus.Affine(
