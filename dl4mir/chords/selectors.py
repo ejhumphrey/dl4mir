@@ -55,19 +55,31 @@ class BaseSelector(object):
 
 class ChordSelector(BaseSelector):
 
-    def __init__(self, obj, mapper, length, prior=None, index=None):
+    def __init__(self, obj, length, mapper=None, prior=None, index=None):
         """Create a uniform entity selector.
 
         Parameters
         ----------
         obj: dict-like object
-            Must have a
+            Must have a keys() method.
+        length: Size of cqt sample to extract.
+            Chord sampler must live inside the selector...
         mapper: func, or callable obj
             Consumes an entity, returns a hashable type (str, int)
+        prior: array_like, shape=(num_classes,)
+            Sampling prior for the selector. Must match the number of unique
+            classes returned by 'mapper', or contained in 'index'. Defaults to
+            uniform.
+        index: dict
+            Object contained the class-wise whereabouts of labeled data in the
+            source object. Can be provided as an alternative to the mapper for
+            efficiency concerns.
         """
+        assert mapper or index, "Either mapper or index must be provided."
         # Maintain a handle just in case
         self._obj = obj
         self._keys = obj.keys()
+
         if index is None:
             index = index_chord_entities(obj, mapper)
         self.index = index
