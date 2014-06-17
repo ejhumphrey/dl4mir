@@ -13,7 +13,6 @@ OPTFILES=${BASEDIR}/chord_dsets
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
-TRIAL_NAME="deleteme"
 VALIDATOR_NAME="validator"
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
@@ -49,52 +48,75 @@ else
     FOLD_IDXS=$2
 fi
 
-# Train networks
-for drv in ${DRIVER}
-do
-    for idx in ${FOLD_IDXS}
+if [ -z "$3" ]
+then
+    TRIAL_NAME="deleteme"
+else
+    TRIAL_NAME=$3
+fi
+
+if [ -z "$4" ]
+then
+    PHASE="all"
+else
+    PHASE="$4"
+fi
+
+# Fit networks
+if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
+then
+    for drv in ${DRIVER}
     do
-        python ${SRC}/chords/drivers/${drv}.py \
+        for idx in ${FOLD_IDXS}
+        do
+            python ${SRC}/chords/drivers/${drv}.py \
 ${OPTFILES}/${idx}/train.hdf5 \
-${MODELS}/${drv}/${idx} \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx} \
 ${TRIAL_NAME} \
 ${VALIDATOR_NAME}.json \
 ${TRANSFORM_NAME}.json
-    done
-done
-
-# Model Selection
-for drv in ${DRIVER}
-do
-    for idx in ${FOLD_IDXS}
-    do
-        echo "Collecting parameters."
-        python ${SRC}/common/collect_files.py \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME} \
-"*.npz" \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST}
-
-        python ${SRC}/chords/select_params.py \
-${OPTFILES}/${idx}/valid.hdf5 \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${VALIDATOR_NAME}.json \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST} \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz
-    done
-done
-
-# Transform data
-for drv in ${DRIVER}
-do
-    for idx in ${FOLD_IDXS}
-    do
-        for split in valid train test
-        do
-            echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
-            python ${SRC}/chords/transform_data.py \
-${OPTFILES}/${idx}/${split}.hdf5 \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}.hdf5
         done
     done
-done
+fi
+
+# Model Selection
+if [ $PHASE == "all" ] || [ $PHASE == "select" ];
+then
+    for drv in ${DRIVER}
+    do
+        for idx in ${FOLD_IDXS}
+        do
+            echo "Collecting parameters."
+            python ${SRC}/common/collect_files.py \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/ \
+"*.npz" \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
+
+            python ${SRC}/chords/select_params.py \
+${OPTFILES}/${idx}/valid.hdf5 \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${VALIDATOR_NAME}.json \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz
+        done
+    done
+fi
+
+# Transform data
+if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
+then
+    for drv in ${DRIVER}
+    do
+        for idx in ${FOLD_IDXS}
+        do
+            for split in test # valid train
+            do
+                echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
+                python ${SRC}/common/convolve_graph_with_dset.py \
+${OPTFILES}/${idx}/${split}.hdf5 \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${drv}/${TRIAL_NAME}/${idx}/${split}.hdf5
+            done
+        done
+    done
+fi
