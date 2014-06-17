@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import marl.fileutils as futils
 import optimus
-from os.path import split
+from os import path
 from ejhumphrey.dl4mir.chords import transformers as T
 import shutil
 
@@ -12,6 +12,7 @@ SOURCE_ARGS = dict(
     refresh_prob=0.,
     cache_size=500)
 NUM_OBS = 100
+MARGIN = 1.0
 
 LABEL_MAPS = {
     "tonnetz": T.map_to_tonnetz,
@@ -25,7 +26,10 @@ LABEL_MAPS = {
 def average_loss(source, predictor):
     param_loss = 0.0
     for n in range(NUM_OBS):
-        param_loss += predictor(**source.next())[optimus.Graph.TOTAL_LOSS]
+        data = source.next()
+        if 'margin' in predictor.inputs:
+            data.update(margin=MARGIN)
+        param_loss += predictor(**data)[optimus.Graph.TOTAL_LOSS]
     return param_loss / float(NUM_OBS)
 
 
@@ -33,12 +37,18 @@ def find_best_param_file(param_files, validator, source):
     best_loss = np.inf
     best_params = ''
     for pf in param_files:
+        try:
+            param_data = np.load(pf)
+        # What was the error? and why did this happen?
+        except:
+            print "Warning: Opening '%s' failed." % pf
+            continue
         validator.param_values = np.load(pf)
         param_loss = average_loss(source, validator)
         if param_loss < best_loss:
             best_loss = param_loss
             best_params = pf
-            print "New best: %0.4f @ %s" % (best_loss, split(pf)[-1])
+            print "New best: %0.4f @ %s" % (best_loss, path.split(pf)[-1])
     return best_params
 
 
