@@ -5,7 +5,7 @@ import json
 from marl import fileutils as futils
 import mir_eval
 import numpy as np
-import optimus
+import biggie
 from os import path
 import time
 
@@ -33,17 +33,12 @@ def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
     dtype: type
         Data type to load the requested numpy file.
     """
-    data = np.load(cqt_file)
+    entity = biggie.Entity(**np.load(cqt_file))
     intervals, labels = mir_eval.io.load_intervals(lab_file)
-    framerate = float(cqt_params['framerate'])
-    time_points = np.arange(data.shape[TIME_AXIS] + 1) / framerate
-    chord_labels = mir_eval.util.interpolate_intervals(
-        intervals, labels, time_points[:-1] + 0.1/framerate, fill_value='N')
-
-    return optimus.Entity(
-        cqt=data.astype(dtype),
-        chord_labels=chord_labels,
-        time_points=time_points)
+    entity.chord_labels = mir_eval.util.interpolate_intervals(
+        intervals, labels, entity.time_points.value, fill_value='N')
+    entity.cqt = entity.cqt.value.astype(dtype)
+    return entity
 
 
 def data_to_file(keys, cqt_directory, cqt_params, lab_directory, file_handle,
@@ -66,7 +61,7 @@ def data_to_file(keys, cqt_directory, cqt_params, lab_directory, file_handle,
     """
     total_count = len(keys)
     for idx, key in enumerate(keys):
-        cqt_file = path.join(cqt_directory, "%s.npy" % key)
+        cqt_file = path.join(cqt_directory, "%s.npz" % key)
         lab_file = path.join(lab_directory, "%s.lab" % key)
         file_handle.add(
             key, item_parser(cqt_file, lab_file, cqt_params, dtype))
@@ -84,7 +79,7 @@ def main(args):
             futils.create_directory(path.split(output_file)[0])
             if args.verbose:
                 print "[%s] Creating: %s" % (time.asctime(), output_file)
-            fhandle = optimus.File(output_file)
+            fhandle = biggie.Stash(output_file)
             data_to_file(
                 data_splits[fold][split], args.cqt_directory,
                 cqt_params, args.lab_directory, fhandle, create_entity)
@@ -98,13 +93,13 @@ if __name__ == "__main__":
                         help="Path to splits of the data as JSON.")
     parser.add_argument("cqt_directory",
                         metavar="cqt_directory", type=str,
-                        help="Directory containing CQT numpy files.")
+                        help="Directory containing CQT npz files.")
     parser.add_argument("cqt_params",
                         metavar="cqt_params", type=str,
                         help="Parameters used to compute the CQTs.")
     parser.add_argument("lab_directory",
-                        metavar="cqt_directory", type=str,
-                        help="Directory containing CQT numpy files.")
+                        metavar="lab_directory", type=str,
+                        help="Directory containing chord lab files.")
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Base directory for the output files.")

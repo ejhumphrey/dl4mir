@@ -25,7 +25,7 @@ fh.close()
 
 This script writes the output files under the given output directory:
 
-  "/some/audio/file.mp3" maps to "${output_dir}/file.npy"
+  "/some/audio/file.mp3" maps to "${output_dir}/file.npz"
 
 Sample Call:
 $ python marl/scripts/audio_files_to_cqt_arrays.py \
@@ -44,7 +44,7 @@ from marl.audio.transforms import cqt
 from marl import fileutils as F
 
 NUM_CPUS = None  # Use None for system max.
-NPY = ".npy"
+EXT = ".npz"
 DEFAULT_PARAMS = dict(
     filepath=None, q=1.0, freq_min=27.5, octaves=7, bins_per_octave=36,
     samplerate=11025.0, channels=1, bytedepth=2, framerate=20.0,
@@ -66,10 +66,8 @@ def audio_file_to_cqt(file_pair):
     """
     kwargs = dict(**DEFAULT_PARAMS)
     kwargs.update(filepath=file_pair.first)
-    # CQT Transform returns (time, pitch, channels), but we need
-    #    (channels, time, pitch). Correct this here and forget about it.
-    X = cqt(**kwargs).transpose([2, 0, 1])
-    np.save(file_pair.second, X)
+    time_points, cqt_spectra = cqt(**kwargs)
+    np.savez(file_pair.second, time_points=time_points, cqt=cqt_spectra)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
 
 
@@ -82,7 +80,7 @@ def main(args):
     output_dir = F.create_directory(args.output_directory)
     pool.map_async(
         func=audio_file_to_cqt,
-        iterable=F.map_path_file_to_dir(args.textlist_file, output_dir, NPY))
+        iterable=F.map_path_file_to_dir(args.textlist_file, output_dir, EXT))
     pool.close()
     pool.join()
 

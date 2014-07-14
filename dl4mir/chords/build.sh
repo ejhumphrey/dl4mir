@@ -4,13 +4,13 @@ SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
 
 # Flat directory of all audio
 AUDIO=${BASEDIR}/audio
-CQTS=${BASEDIR}/cqts
-LCNCQTS=${BASEDIR}/lcn_cqts
+CQTS=${BASEDIR}/features/cqts
+LCNCQTS=${BASEDIR}/features/lcn_cqts
 LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
 # Directory of optimus data files, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-DSETS=${BASEDIR}/chord_dsets
+DSETS=${BASEDIR}/biggie/chords
 
 AUDIO_FILES=${AUDIO}/filelist.txt
 CQT_FILES=${CQTS}/filelist.txt
@@ -27,13 +27,13 @@ REFERENCE_FILE=${META}/reference_chords.json
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "build.sh {clean|cqt|lcn|labs|splits|optimus|all}"
+    echo "build.sh {clean|cqt|lcn|labs|splits|biggie|all}"
     echo $'\tclean - Cleans the directory structure'
     echo $'\tcqt - Builds the CQTs'
     echo $'\tlcn - Applies LCN to the CQTs (assumes the exist)'
     echo $'\tlabs - Collects labfiles as a single JSON object'
     echo $'\tsplits - Builds the json metadata files'
-    echo $'\tdsets - Builds optimus dataset files'
+    echo $'\tbiggie - Builds biggie dataset files'
     echo $'\tall - Do everything, in order'
     exit 0
 fi
@@ -52,16 +52,17 @@ ${AUDIO_FILES} \
 ${CQTS} \
 --cqt_params=${CQT_PARAMS}
 
-    echo "Updating CQT file list."
-    python ${SRC}/common/collect_files.py \
-${CQTS} \
-"*.npy" \
-${CQT_FILES}
 fi
 
 
 # -- LCN --
 if [ "$1" == "lcn" ] || [ "$1" == "all" ]; then
+    echo "Updating CQT file list."
+    python ${SRC}/common/collect_files.py \
+${CQTS} \
+"*.npz" \
+${CQT_FILES}
+
     echo "Computing LCN over CQTs..."
     python ${SRC}/common/apply_lcn_to_arrays.py \
 ${CQT_FILES} \
@@ -69,11 +70,6 @@ ${LCN_DIM0} \
 ${LCN_DIM1} \
 ${LCNCQTS}
 
-    echo "Updating LCN-CQT numpy file list."
-    python ${SRC}/common/collect_files.py \
-${LCNCQTS} \
-"*.npy" \
-${LCNCQT_FILES}
 fi
 
 
@@ -95,12 +91,18 @@ ${LABS} \
 ${REFERENCE_FILE}
 fi
 
-# -- Optimus --
-if [ "$1" == "dsets" ] || [ "$1" == "all" ]; then
+# -- Biggie Files --
+if [ "$1" == "biggie" ] || [ "$1" == "all" ]; then
     if [ -d ${DSETS} ]; then
         rm -r ${DSETS}
     fi
-    echo "Building the Optimus files"
+    echo "Updating LCN-CQT numpy file list."
+    python ${SRC}/common/collect_files.py \
+${LCNCQTS} \
+"*.npz" \
+${LCNCQT_FILES}
+
+    echo "Building the Biggie files"
     python ${SRC}/chords/file_importer.py \
 ${SPLIT_FILE} \
 ${LCNCQTS} \

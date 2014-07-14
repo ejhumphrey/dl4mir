@@ -21,6 +21,7 @@ NUM_CPUS = None  # Use None for system max.
 
 # Global dict
 transform = dict()
+EXT = ".npz"
 
 
 def lcn(X, kernel):
@@ -68,7 +69,7 @@ def create_kernel(dim0, dim1):
     transform["kernel"] = kernel / kernel.sum()
 
 
-def apply_lcn(file_pair):
+def apply_lcn(file_pair, key='cqt'):
     """Compute the CQT for a input/output file Pair.
 
     Parameters
@@ -80,15 +81,15 @@ def apply_lcn(file_pair):
     -------
     Nothing, but the output file is written in this call.
     """
-    data = np.load(file_pair.first)
-    if data.ndim == 2:
-        Z = lcn(data, transform["kernel"])
-    elif data.ndim == 3:
-        Z = np.array([lcn(x, transform["kernel"]) for x in data])
+    data = dict(**np.load(file_pair.first))
+    if data[key].ndim == 2:
+        data[key] = lcn(data[key], transform["kernel"])
+    elif data[key].ndim == 3:
+        data[key] = np.array([lcn(x, transform["kernel"]) for x in data[key]])
     else:
-        raise ValueError("No idea what to do with a %d-dim array." % data.ndim)
+        raise ValueError("Cannot transform a %d-dim array." % data[key].ndim)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
-    np.save(file_pair.second, Z)
+    np.savez(file_pair.second, **data)
 
 
 def main(args):
@@ -102,7 +103,7 @@ def main(args):
     pool.map_async(
         func=apply_lcn,
         iterable=futils.map_path_file_to_dir(
-            args.textlist_file, output_dir, '.npy'))
+            args.textlist_file, output_dir, EXT))
     pool.close()
     pool.join()
 
