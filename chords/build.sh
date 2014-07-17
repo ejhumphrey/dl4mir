@@ -106,7 +106,6 @@ ${LCNCQT_FILES}
     python ${SRC}/chords/file_importer.py \
 ${SPLIT_FILE} \
 ${LCNCQTS} \
-${CQT_PARAMS} \
 ${LABS} \
 ${DSETS}
 fi

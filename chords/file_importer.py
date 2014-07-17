@@ -11,29 +11,26 @@ import time
 
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
-# TODO: Get rid of this in the future.
-TIME_AXIS = 1
 
 
-def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
-    """Create an entity from the given item.
-
-    This function exists primarily as an example, and is quite boring. However,
-    it expects that each item dictionary has two keys:
-        - numpy_file: str
-            A valid numpy file on disk
-        - label: obj
-            This can be any numpy-able datatype, such as scalars, lists,
-            strings, or numpy arrays. Dictionaries and None are unsupported.
+def create_chord_entity(npz_file, lab_file, dtype=np.float32):
+    """Create an entity from the given files.
 
     Parameters
     ----------
-    item: dict
-        Contains values for 'numpy_file' and 'label'.
+    npz_file: str
+        Path to a 'npz' archive, containing at least a value for 'cqt'.
+    lab_file: str
+        Path to a corresponding lab-file.
     dtype: type
-        Data type to load the requested numpy file.
+        Data type for the cqt array.
+
+    Returns
+    -------
+    entity: biggie.Entity
+        Populated chord entity, with {cqt, chord_labels, *time_points}.
     """
-    entity = biggie.Entity(**np.load(cqt_file))
+    entity = biggie.Entity(**np.load(npz_file))
     intervals, labels = mir_eval.io.load_intervals(lab_file)
     entity.chord_labels = mir_eval.util.interpolate_intervals(
         intervals, labels, entity.time_points.value, fill_value='N')
@@ -41,37 +38,35 @@ def create_entity(cqt_file, lab_file, cqt_params, dtype=np.float32):
     return entity
 
 
-def data_to_file(keys, cqt_directory, cqt_params, lab_directory, file_handle,
-                 item_parser, dtype=np.float32):
-    """Load a label dictionary into an optimus file.
+def populate_stash(keys, cqt_directory, lab_directory, stash,
+                   dtype=np.float32):
+    """Populate a Stash with chord data.
 
     Parameters
     ----------
-    keys: dict of dicts
-        A collection of file_pairs to load, where the keys of ``file_pairs``
-        will become the keys in the file, and the corresponding values are
-        sufficient information to load data into an Entity.
-    file_handle: optimus.File
-        Open for writing data.
-    config: dict
-        Dictionary containing configuration parameters for this script.
-    item_parser: function
-        Function that consumes a dictionary of information and returns an
-        optimus.Entity. Must take ``dtype`` as an argument.
+    keys: list
+        Collection of fileset keys, of which a npz- and lab-file exist.
+    cqt_directory: str
+        Base path for CQT npz-files.
+    lab_directory: str
+        Base path for chord lab-files.
+    stash: biggie.Stash
+        Stash for writing entities to disk.
+    dtype: type
+        Data type for the cqt array.
     """
     total_count = len(keys)
     for idx, key in enumerate(keys):
         cqt_file = path.join(cqt_directory, "%s.npz" % key)
         lab_file = path.join(lab_directory, "%s.lab" % key)
-        file_handle.add(
-            key, item_parser(cqt_file, lab_file, cqt_params, dtype))
+        stash.add(key, create_chord_entity(cqt_file, lab_file, dtype))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
 
 def main(args):
     """Main routine for importing data."""
     data_splits = json.load(open(args.split_file))
-    cqt_params = json.load(open(args.cqt_params))
+
     output_file_fmt = path.join(args.output_directory, FILE_FMT)
     for fold in data_splits:
         for split in data_splits[fold]:
@@ -79,10 +74,10 @@ def main(args):
             futils.create_directory(path.split(output_file)[0])
             if args.verbose:
                 print "[%s] Creating: %s" % (time.asctime(), output_file)
-            fhandle = biggie.Stash(output_file)
-            data_to_file(
+            stash = biggie.Stash(output_file)
+            populate_stash(
                 data_splits[fold][split], args.cqt_directory,
-                cqt_params, args.lab_directory, fhandle, create_entity)
+                args.lab_directory, stash, create_chord_entity)
 
 
 if __name__ == "__main__":
@@ -94,9 +89,6 @@ if __name__ == "__main__":
     parser.add_argument("cqt_directory",
                         metavar="cqt_directory", type=str,
                         help="Directory containing CQT npz files.")
-    parser.add_argument("cqt_params",
-                        metavar="cqt_params", type=str,
-                        help="Parameters used to compute the CQTs.")
     parser.add_argument("lab_directory",
                         metavar="lab_directory", type=str,
                         help="Directory containing chord lab files.")
