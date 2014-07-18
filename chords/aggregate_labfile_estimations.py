@@ -7,7 +7,7 @@ import glob
 import mir_eval
 import os
 import marl.fileutils as futil
-import ejhumphrey.dl4mir.chords as C
+from dl4mir.chords import labels
 
 
 def align_estimation_to_reference(est_file, ref_file, num_classes=157):
@@ -42,7 +42,8 @@ def align_estimation_to_reference(est_file, ref_file, num_classes=157):
     intervals, ref_labels, est_labels = mir_eval.util.merge_labeled_intervals(
         ref_intervals, ref_labels, est_intervals, est_labels)
 
-    indexes = [C.chord_label_to_index(l, num_classes) for l in est_labels]
+    indexes = [labels.chord_label_to_class_index(l, num_classes)
+               for l in est_labels]
     for interval, label, idx in zip(intervals, ref_labels, indexes):
         if idx is None:
             raise ValueError(
