@@ -103,7 +103,7 @@ def create_chord_stream(stash, win_length):
     return pescador.mux(entity_pool, None, 50)
 
 
-def create_uniform_quality_stream(stash, win_length):
+def create_uniform_quality_stream(stash, win_length, pool_size=50):
     """Return a stream of chord samples, with uniform quality presentation."""
     partition_labels = util.partition(stash, quality_map)
     quality_pool = []
@@ -116,5 +116,5 @@ def create_uniform_quality_stream(stash, win_length):
         stream = pescador.mux(entity_pool, None, 25)
         quality_pool.append(pescador.Streamer(stream))
 
-    return pescador.mux(
-        quality_pool, n_samples=None, k=20, lam=None, with_replacement=False)
+    return pescador.mux(quality_pool, n_samples=None, k=pool_size,
+                        lam=None, with_replacement=False)
