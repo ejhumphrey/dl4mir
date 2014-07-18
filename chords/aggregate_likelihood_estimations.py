@@ -1,9 +1,9 @@
-"""Apply a graph convolutionally to datapoints in an optimus file."""
+"""Apply a graph convolutionally to datapoints in an biggie file."""
 
 import argparse
 import numpy as np
 import json
-import optimus
+import biggie
 import os
 import marl.fileutils as futil
 import time
@@ -36,7 +36,7 @@ def estimate_classes(entity):
 
 
 def main(args):
-    dset = optimus.File(args.posterior_file)
+    dset = biggie.Stash(args.posterior_file)
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
         estimations[key] = estimate_classes(dset.get(key))

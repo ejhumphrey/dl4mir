@@ -4,7 +4,7 @@ import argparse
 import json
 import numpy as np
 import mir_eval.chord as chord_eval
-from ejhumphrey.dl4mir import chords as C
+from dl4mir.chords import labels
 import sklearn.metrics as metrics
 import warnings
 
@@ -43,7 +43,7 @@ def collapse_estimations(estimations):
 
 
 def confusion_matrix(results, num_classes,
-                     label_to_index=C.chord_label_to_index):
+                     label_to_index=labels.chord_label_to_index):
     """
 
     Confusion matrix is actual x estimations.
@@ -63,8 +63,8 @@ def quality_confusion_matrix(results):
     qual_conf = np.zeros([num_classes, num_classes])
     for label, counts in results.items():
         root, semitones, bass = chord_eval.encode(label)
-        qidx = 13 if label == 'N' else C.get_quality_index(semitones,
-                                                           num_classes)
+        qidx = 13 if label == 'N' else labels.get_quality_index(semitones,
+                                                                num_classes)
         if qidx is None:
             continue
         qual_conf[qidx*12, :] += rotate(counts,
@@ -78,7 +78,7 @@ def print_confusions(quality_confusions, top_k=5):
 
     for idx, row in enumerate(quality_confusions):
         row /= float(row.sum())
-        line = "%7s (%7.4f) ||" % (C.index_to_chord_label(idx*12, 157),
+        line = "%7s (%7.4f) ||" % (labels.index_to_chord_label(idx*12, 157),
                                    row[idx*12]*100)
         sidx = row.argsort()[::-1]
         k = 0
@@ -86,7 +86,8 @@ def print_confusions(quality_confusions, top_k=5):
         while count < top_k:
             if sidx[k] != idx*12:
                 line += " %7s (%7.4f) |" % \
-                    (C.index_to_chord_label(sidx[k], 157), row[sidx[k]]*100)
+                    (labels.index_to_chord_label(sidx[k], 157),
+                     row[sidx[k]]*100)
                 count += 1
             k += 1
         print line

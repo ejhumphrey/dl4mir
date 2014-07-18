@@ -1,10 +1,10 @@
-"""Utility to dump an optimus file to a flat collection of Matlab files."""
+"""Utility to dump a biggie Stash to a flat collection of Matlab files."""
 import argparse
 import marl.fileutils as futils
 import numpy as np
 from os import path
 import json
-import optimus
+import biggie
 import scipy.io.matlab as MLAB
 import time
 
@@ -28,7 +28,7 @@ def entity_to_mdict(entity):
 
 
 def main(args):
-    dset = optimus.File(args.input_file)
+    dset = biggie.File(args.input_file)
     labseg = json.load(open(args.labseg))
     out_dir = futils.create_directory(args.output_directory)
     total_count = len(dset)
@@ -42,7 +42,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Dump an Optimus File to Matlab .mat files.")
+        description="Dump an biggie Stash to Matlab .mat files.")
     parser.add_argument("input_file",
                         metavar="input_file", type=str,
                         help="Path to a file to export.")

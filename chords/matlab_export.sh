@@ -4,7 +4,7 @@
 #    parameters to identify the early stopping point.
 
 BASEDIR=/media/attic/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
+SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 METADATA=${BASEDIR}/metadata

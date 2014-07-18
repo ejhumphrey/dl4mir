@@ -1,9 +1,9 @@
-"""Utility to dump an optimus file to a flat collection of Matlab files."""
+"""Utility to dump an Biggie Stash to a flat collection of Matlab files."""
 import argparse
 import marl.fileutils as futils
 import numpy as np
 from os import path
-import optimus
+import biggie
 import json
 import time
 
@@ -25,13 +25,13 @@ def beat_sync(entity, new_times):
         if len(time_points) - 1 in shape:
             data[key] = data[key][idxs, ...]
 
-    return optimus.Entity(time_points=new_times, **data)
+    return biggie.Entity(time_points=new_times, **data)
 
 
 def main(args):
-    dset = optimus.File(args.input_file)
+    dset = biggie.Stash(args.input_file)
     futils.create_directory(path.split(args.output_file)[0])
-    dout = optimus.File(args.output_file)
+    dout = biggie.Stash(args.output_file)
     beat_times = json.load(open(args.beat_times))
     total_count = len(dset)
     for idx, key in enumerate(dset.keys()):
@@ -46,11 +46,11 @@ if __name__ == "__main__":
         description="Beat-synchronize a dataset of entities.")
     parser.add_argument("input_file",
                         metavar="input_file", type=str,
-                        help="Path to the input optimus file.")
+                        help="Path to the input biggie file.")
     parser.add_argument("beat_times",
                         metavar="beat_times", type=str,
                         help="JSON file of new times; keys must match.")
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
-                        help="Path to the output optimus file.")
+                        help="Path to the output biggie file.")
     main(parser.parse_args())

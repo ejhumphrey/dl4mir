@@ -4,11 +4,11 @@
 #    parameters to identify the early stopping point.
 
 BASEDIR=/media/attic/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
+SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
-OPTFILES=${BASEDIR}/chord_dsets
+OPTFILES=${BASEDIR}/biggie/chord_dsets
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs

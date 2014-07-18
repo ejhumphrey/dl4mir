@@ -1,20 +1,21 @@
-"""Apply a graph convolutionally to datapoints in an optimus file."""
+"""Apply a graph convolutionally to datapoints in a Biggie Stash."""
 
 import argparse
 import numpy as np
 import mir_eval.chord as chord_eval
-from ejhumphrey.dl4mir import chords as C
-import optimus
+import biggie
 import os
 import marl.fileutils as futil
 import time
 from scipy.spatial.distance import cdist
 
+from dl4mir.chords import labels
+
 
 def generate_templates(vocab=157):
     chord_labels = []
-    for qual in C.QUALITIES[vocab]:
-        for root in C.ROOTS:
+    for qual in labels.QUALITIES[vocab]:
+        for root in labels.ROOTS:
             chord_labels.append("%s:%s" % (root, qual))
     chord_labels.append("N")
     templates = np.zeros([vocab, 12])
@@ -44,14 +45,14 @@ def classify_chroma(entity, templates):
     posterior = 1.0 - cdist(data.pop("chroma"), templates, 'cosine')
     scalar = posterior.sum(axis=1)[:, np.newaxis]
     scalar[scalar == 0] = 1.0
-    return optimus.Entity(posterior=posterior/scalar, **data)
+    return biggie.Entity(posterior=posterior/scalar, **data)
 
 
 def main(args):
-    chromas = optimus.File(args.chroma_file)
+    chromas = biggie.File(args.chroma_file)
     templates = generate_templates(157)
     futil.create_directory(os.path.split(args.posterior_file)[0])
-    posteriors = optimus.File(args.posterior_file)
+    posteriors = biggie.File(args.posterior_file)
     for idx, key in enumerate(chromas.keys()):
         posteriors.add(key, classify_chroma(chromas.get(key), templates))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx,
@@ -65,9 +66,9 @@ if __name__ == "__main__":
     # Inputs
     parser.add_argument("chroma_file",
                         metavar="chroma_file", type=str,
-                        help="Optimus file of chroma features.")
+                        help="Biggie Stash of chroma features.")
     # Outputs
     parser.add_argument("posterior_file",
                         metavar="posterior_file", type=str,
-                        help="Optimus file of resulting likelihoods.")
+                        help="Biggie Stash of resulting likelihoods.")
     main(parser.parse_args())

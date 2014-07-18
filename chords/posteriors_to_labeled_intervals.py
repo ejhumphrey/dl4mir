@@ -1,16 +1,16 @@
-"""Apply a graph convolutionally to datapoints in an optimus file."""
+"""Apply a graph convolutionally to datapoints in a biggie Stash."""
 
 import argparse
 from itertools import groupby
 import json
-import marl.chords.utils as cutils
+from marl.chords.utils import viterbi_alg
 from scipy import signal
-import optimus
+import biggie
 import os
 import marl.fileutils as futils
 import time
 
-from ejhumphrey.dl4mir.chords import index_to_chord_label
+from dl4mir.chords.labels import index_to_chord_label
 
 
 def encode(l):
@@ -49,7 +49,7 @@ def predict_posterior(posterior, viterbi_penalty=0, medfilt=0):
         posterior = signal.medfilt(posterior, [medfilt, 1])
 
     if viterbi_penalty > 0:
-        indexes = cutils.viterbi_alg(posterior, rho=viterbi_penalty)
+        indexes = viterbi_alg(posterior, rho=viterbi_penalty)
     else:
         indexes = posterior.argmax(axis=1)
 
@@ -58,7 +58,7 @@ def predict_posterior(posterior, viterbi_penalty=0, medfilt=0):
 
 
 def main(args):
-    dset = optimus.File(args.posterior_file)
+    dset = biggie.Stash(args.posterior_file)
     futils.create_directory(os.path.split(args.output_file)[0])
     if os.path.exists(args.output_file):
         os.remove(args.output_file)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # Inputs
     parser.add_argument("posterior_file",
                         metavar="posterior_file", type=str,
-                        help="Path to an optimus file of chord posteriors.")
+                        help="Path to an biggie stash of chord posteriors.")
     parser.add_argument("viterbi_penalty",
                         metavar="viterbi_penalty", type=float,
                         help="Penalty for the viterbi algorithm (skip if 0).")

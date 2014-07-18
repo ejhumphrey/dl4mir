@@ -1,6 +1,6 @@
 #!/bin/bash
 BASEDIR=/Volumes/megatron/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
+SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Flat directory of all audio
 AUDIO=${BASEDIR}/audio
@@ -8,7 +8,7 @@ CQTS=${BASEDIR}/features/cqts
 LCNCQTS=${BASEDIR}/features/lcn_cqts
 LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
-# Directory of optimus data files, divided by index and split, like
+# Directory of biggie Stashes, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
 DSETS=${BASEDIR}/biggie/chords
 
