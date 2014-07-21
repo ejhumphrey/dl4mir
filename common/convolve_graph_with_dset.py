@@ -3,13 +3,17 @@
 import argparse
 import numpy as np
 import optimus
+import biggie
 import os
 import marl.fileutils as futils
+import pescador
 import time
 
 
 def convolve(entity, graph, data_key='cqt', chunk_size=250):
     """Convolve a given network over an entity.
+
+    TODO: Use pescador.
 
     Parameters
     ----------
@@ -28,7 +32,7 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
     new_entity
     """
     time_dim = graph.inputs.values()[0].shape[2]
-    data = entity.values
+    data = entity.values()
     data_stepper = optimus.array_stepper(
         data.pop(data_key), time_dim, axis=1, mode='same')
     results = dict([(k, list()) for k in graph.outputs])
@@ -50,24 +54,25 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
     for k in results:
         results[k] = np.concatenate(results[k], axis=0)
     data.update(results)
-    return optimus.Entity(**data)
+    return biggie.Entity(**data)
 
 
 def main(args):
     transform = optimus.load(args.transform_file, args.param_file)
 
-    fin = optimus.File(args.data_file)
+    in_stash = biggie.Stash(args.data_file)
     futils.create_directory(os.path.split(args.output_file)[0])
     if os.path.exists(args.output_file):
         os.remove(args.output_file)
 
-    fout = optimus.File(args.output_file)
-    total_count = len(fin.keys())
-    for idx, key in enumerate(fin.keys()):
-        fout.add(key, convolve(fin.get(key), transform, data_key='cqt'))
+    out_stash = biggie.Stash(args.output_file)
+    total_count = len(in_stash.keys())
+    for idx, key in enumerate(in_stash.keys()):
+        out_stash.add(
+            key, convolve(in_stash.get(key), transform, data_key='cqt'))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
-    fout.close()
+    out_stash.close()
 
 
 if __name__ == "__main__":
