@@ -108,7 +108,7 @@ then
     do
         for idx in ${FOLD_IDXS}
         do
-            for split in test # valid train
+            for split in valid train test
             do
                 echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
                 python ${SRC}/common/convolve_graph_with_dset.py \
