@@ -62,10 +62,13 @@ def chord_label_to_class_index(label, vocab_dim=157):
 
 def chord_label_to_quality_index(label, vocab_dim=157):
     """Map a chord label to its quality index, or None if undefined."""
+    singleton = False
     if isinstance(label, str):
         label = [label]
+        singleton = True
     root, semitones, bass = _chord.encode_many(label)
-    return np.array([semitones_index(s, vocab_dim) for s in semitones])
+    quality_idx = [semitones_index(s, vocab_dim) for s in semitones]
+    return quality_idx[0] if singleton else quality_idx
 
 
 def get_quality_index(semitones, vocab_dim):
