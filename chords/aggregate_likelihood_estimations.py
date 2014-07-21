@@ -36,6 +36,7 @@ def estimate_classes(entity):
 
 
 def main(args):
+    print args.posterior_file
     dset = biggie.Stash(args.posterior_file)
     estimations = dict()
     for idx, key in enumerate(dset.keys()):

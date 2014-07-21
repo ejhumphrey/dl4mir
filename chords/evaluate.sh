@@ -1,101 +1,77 @@
 #!/bin/bash
-BASEDIR=~/dl4mir_test/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
+#
+# Run the evaluation pipeline over a set of posteriors.
+
+BASEDIR=/media/attic/dl4mir/chord_estimation
+SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Flat directory of all audio
 LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
-# Directory of optimus data files, divided by index and split, like
-#   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-OPTFILES=${BASEDIR}/optfiles
-
-PARAM_FILES=${AUDIO}/filelist.txt
-CQT_FILES=${CQTS}/filelist.txt
-CQT_PARAMS=${META}/cqt_params.json
-
-LCNCQT_FILES=${LCNCQTS}/filelist.txt
-LCN_DIM0=11
-LCN_DIM1=45
-
+# Directory of biggie datasets, divided by index and split, like
+#   ${DSETS}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
+DSETS=${BASEDIR}/biggie/chord_dsets
+OUTPUTS=${BASEDIR}/outputs
+ESTIMATIONS=${BASEDIR}/estimations
+RESULTS=${BASEDIR}/results
 NUM_FOLDS=5
-VALID_RATIO=0.15
+
 SPLIT_FILE=${META}/data_splits.json
 
-if [ -z "$1" ]; then
+if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
-    echo "build.sh {clean|cqt|lcn|splits|optimus|all}"
-    echo $'\tclean - Cleans the directory structure'
-    echo $'\tcqt - Builds the CQTs'
-    echo $'\tlcn - Applies LCN to the CQTs (assumes the exist)'
-    echo $'\tsplits - Builds the json metadata files'
-    echo $'\toptimus - Builds optimus files from the input data'
+    echo "evaluate.sh driver trial_name {fold|all} {aggregate|score|all}"
+    echo $'\taggregate - Collects output classes over posteriors'
+    echo $'\tscore - Scores flattened predictions'
     echo $'\tall - Do everything, in order'
     exit 0
 fi
 
-echo "Updating audio file list."
-python ${SRC}/common/collect_files.py \
-${AUDIO} \
-"*.mp3" \
-${AUDIO_FILES}
+DRIVER=$1
+TRIAL_NAME=$2
 
-# -- Parameter Selection --
-if [ "$1" == "cqt" ] || [ "$1" == "all" ]; then
-    echo "Computing CQTs..."
+if [ -z "$3" ];
+then
+    echo "Setting all folds"
+    FOLD_IDXS=$(seq 0 4)
+else
+    FOLD_IDXS=$3
+fi
 
-    SPLIT=train
-    for (( idx=0; idx< 1; idx++ ))
+if [ -z "$4" ]
+then
+    MODE="all"
+else
+    MODE="$4"
+fi
+
+
+# -- Aggregate transformed outputs --
+if [ $MODE == "all" ] || [ $MODE == "aggregate" ];
+then
+    for idx in ${FOLD_IDXS}
     do
-        for drv in DRIVER
+        for split in train valid test
         do
-            python ${SRC}/chords/drivers/${DRIVER}.py \
-${OPTFILES}/${idx}/${SPLIT}.hdf5 \
-${MODELS}/${DRIVER}/${idx} \
-${TRIAL_NAME} \
-${TRANSFORM_NAME}
+            echo $DRIVER
+            echo $TRIAL_NAME
+            python ${SRC}/chords/aggregate_likelihood_estimations.py \
+${OUTPUTS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.hdf5 \
+${ESTIMATIONS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.json
         done
     done
 fi
 
-echo "Updating CQT file list."
-python ${SRC}/common/collect_files.py \
-${CQTS} \
-"*.npy" \
-${CQT_FILES}
-
-
-# -- LCN --
-if [ "$1" == "lcn" ] || [ "$1" == "all" ]; then
-    echo "Computing LCN over CQTs..."
-    python ${SRC}/common/apply_lcn_to_arrays.py \
-${CQT_FILES} \
-${LCN_DIM0} \
-${LCN_DIM1} \
-${LCNCQTS}
-exit 0
+# -- Score results --
+if [ $MODE == "all" ] || [ $MODE == "score" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        for split in train valid test
+        do
+            python ${SRC}/chords/score_estimations.py \
+${ESTIMATIONS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.json \
+${RESULTS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.txt
+        done
+    done
 fi
-
-echo "Updating LCN-CQT numpy file list."
-python ${SRC}/common/collect_files.py \
-${LCNCQTS} \
-"*.npy" \
-${LCNCQT_FILES}
-
-
-# -- Predict & Score --
-MEDFILT=0
-for PENALTY in 0 5 10 20
-do
-    python {$SRC}/chords/posteriors_to_labeled_intervals.py \
-{$OUTPUTS}/${DRIVER}/${FOLD}/${NAME}/${SPLIT}.hdf5 \
-${PENALTY} \
-${MEDFILT} \
-${META}/cqt_params.json \
-${PREDICTIONS}/${DRIVER}/${FOLD}/${NAME}/${SPLIT}-V${PENALTY}-M${MEDFILT}.json
-
-    python ${SRC}/chords/score_estimations.py \
-${PREDICTIONS}/${DRIVER}/${FOLD}/${NAME}/${SPLIT}-V${PENALTY}-M${MEDFILT}.json \
-${META}/reference_chords.json \
-${RESULTS}/${DRIVER}/${FOLD}/${NAME}/${SPLIT}-V${PENALTY}-M${MEDFILT}.json
-done
-

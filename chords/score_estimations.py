@@ -3,7 +3,9 @@
 import argparse
 import json
 import numpy as np
+import os
 import mir_eval.chord as chord_eval
+import marl.fileutils as futil
 from dl4mir.chords import labels
 import sklearn.metrics as metrics
 import warnings
@@ -43,7 +45,7 @@ def collapse_estimations(estimations):
 
 
 def confusion_matrix(results, num_classes,
-                     label_to_index=labels.chord_label_to_index):
+                     label_to_index=labels.chord_label_to_class_index):
     """
 
     Confusion matrix is actual x estimations.
@@ -72,10 +74,11 @@ def quality_confusion_matrix(results):
     return qual_conf
 
 
-def print_confusions(quality_confusions, top_k=5):
+def compute_confusions(quality_confusions, top_k=5):
     if quality_confusions.shape[0] == 157:
         quality_confusions = quality_confusions[::12, :]
 
+    outputs = []
     for idx, row in enumerate(quality_confusions):
         row /= float(row.sum())
         line = "%7s (%7.4f) ||" % (labels.index_to_chord_label(idx*12, 157),
@@ -90,7 +93,9 @@ def print_confusions(quality_confusions, top_k=5):
                      row[sidx[k]]*100)
                 count += 1
             k += 1
-        print line
+        # print line
+        outputs.append(line)
+    return "\n".join(outputs)
 
 
 def compute_scores(estimations):
@@ -99,7 +104,7 @@ def compute_scores(estimations):
     quality_confusions = quality_confusion_matrix(results)
     # chord_true, chord_est = confusions_to_comparisons(confusions)
     quality_true, quality_est = confusions_to_comparisons(quality_confusions)
-
+    output = []
     with warnings.catch_warnings():
         labels = range(157)
         warnings.simplefilter("ignore")
@@ -120,15 +125,17 @@ def compute_scores(estimations):
             quality_true, quality_est, labels=labels, average=None)[::12])
 
     stat_line = "  Precision: %0.4f\t Recall: %0.4f\tf1: %0.4f"
-    print "Weighted: " + stat_line % (100*qual_precision_weighted,
-                                      100*qual_recall_weighted,
-                                      100*qual_f1_weighted)
+    res1 = "Weighted: " + stat_line % (100*qual_precision_weighted,
+                                       100*qual_recall_weighted,
+                                       100*qual_f1_weighted)
 
-    print "Averaged: " + stat_line % (100*qual_precision_ave,
-                                      100*qual_recall_ave,
-                                      100*qual_f1_ave)
-    print "-"*60
-    print_confusions(quality_confusions, 5)
+    res2 = "Averaged: " + stat_line % (100*qual_precision_ave,
+                                       100*qual_recall_ave,
+                                       100*qual_f1_ave)
+    res3 = "-"*60
+    outputs = [res3, res1, res2, res3]
+    outputs.append(compute_confusions(quality_confusions, 5))
+    return "\n".join(outputs)
 
 
 def confusions_to_comparisons(conf_mat):
@@ -143,7 +150,15 @@ def confusions_to_comparisons(conf_mat):
 
 
 def main(args):
-    compute_scores(json.load(open(args.estimation_file)))
+    if not os.path.exists(args.estimation_file):
+        print "File does not exist: %" % args.estimation_file
+        return
+    stats = compute_scores(json.load(open(args.estimation_file)))
+
+    futil.create_directory(os.path.split(args.stats_file)[0])
+    with open(args.stats_file, 'w') as fp:
+        fp.write(stats)
+    print "\n\n%s\n%s"  % (args.estimation_file, stats)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
@@ -153,7 +168,7 @@ if __name__ == "__main__":
                         metavar="estimation_file", type=str,
                         help="Path to a JSON file of estimations.")
     # Outputs
-    # parser.add_argument("output_file",
-    #                     metavar="output_file", type=str,
-    #                     help="Path for the lab-file style output as JSON.")
+    parser.add_argument("stats_file",
+                        metavar="stats_file", type=str,
+                        help="Path for the resulting statistics as plaintext.")
     main(parser.parse_args())
