@@ -2,25 +2,25 @@ import argparse
 import numpy as np
 import marl.fileutils as futils
 import optimus
+import biggie
+
 from os import path
-from ejhumphrey.dl4mir.chords import transformers as T
 import shutil
 
+import dl4mir.chords.data as D
+import dl4mir.chords.pipefxs as FX
+import dl4mir.common.streams as S
 
-SOURCE_ARGS = dict(
-    batch_size=100,
-    refresh_prob=0.,
-    cache_size=500)
 NUM_OBS = 100
 MARGIN = 1.0
 
-LABEL_MAPS = {
-    "tonnetz": T.map_to_tonnetz,
-    "chroma": T.map_to_chroma,
-    "classifier-V025": T.map_to_index(25),
-    "classifier-V061": T.map_to_index(61),
-    "classifier-V157": T.map_to_index(157),
-}
+# LABEL_MAPS = {
+#     "tonnetz": T.map_to_tonnetz,
+#     "chroma": T.map_to_chroma,
+#     "classifier-V025": T.map_to_index(25),
+#     "classifier-V061": T.map_to_index(61),
+#     "classifier-V157": T.map_to_index(157),
+# }
 
 
 def average_loss(source, predictor):
@@ -38,7 +38,7 @@ def find_best_param_file(param_files, validator, source):
     best_params = ''
     for pf in param_files:
         try:
-            param_data = np.load(pf)
+            np.load(pf)
         # What was the error? and why did this happen?
         except:
             print "Warning: Opening '%s' failed." % pf
@@ -55,17 +55,16 @@ def find_best_param_file(param_files, validator, source):
 def main(args):
     validator = optimus.load(args.validator_file)
     time_dim = validator.inputs.values()[0].shape[2]
-
-    source = optimus.Queue(
-        optimus.File(args.data_file),
-        transformers=[
-            T.chord_sample(time_dim),
-            LABEL_MAPS[validator.name]],
-        **SOURCE_ARGS)
+    # vocab_dim = LABELvalidator.name
+    stash = biggie.Stash(args.data_file)
+    stream = S.minibatch(
+        D.create_chord_stream(stash, time_dim),
+        batch_size=100,
+        functions=[FX.map_to_chord_index(157)])
 
     best_params = find_best_param_file(
         param_files=futils.load_textlist(args.param_textlist),
-        source=source,
+        source=stream,
         validator=validator)
 
     shutil.copyfile(best_params, args.param_file)
