@@ -42,21 +42,26 @@ def semitone_to_pitch_class(semitone):
 
 
 def semitones_index(semitones, vocab_dim=157):
-    """Return the index of the semitone bitvector, or NaN if undefined."""
-    return _QINDEX[vocab_dim].get(tuple(semitones), np.nan)
+    """Return the index of the semitone bitvector, or None if undefined."""
+    return _QINDEX[vocab_dim].get(tuple(semitones), None)
 
 
 def chord_label_to_class_index(label, vocab_dim=157):
-    """Map a chord label to its class index, or NaN if undefined."""
+    """Map a chord label to its class index, or None if undefined."""
     N_quality_idx = (vocab_dim - 1) / 12
     singleton = False
     if isinstance(label, str):
         label = [label]
         singleton = True
     root, semitones, bass = _chord.encode_many(label)
-    quality_idx = np.array([semitones_index(s, vocab_dim) for s in semitones])
-    class_idx = root + quality_idx * 12
-    class_idx[N_quality_idx == quality_idx] = vocab_dim - 1
+    quality_idx = [semitones_index(s, vocab_dim) for s in semitones]
+    class_idx = []
+    for r, q in zip(root, quality_idx):
+        if N_quality_idx == q:
+            class_idx.append(vocab_dim - 1)
+        else:
+            class_idx.append(None if None in [q, r] else r + q * 12)
+    # class_idx[N_quality_idx == quality_idx] = vocab_dim - 1
     return class_idx[0] if singleton else class_idx
 
 
