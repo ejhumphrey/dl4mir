@@ -151,7 +151,7 @@ def confusions_to_comparisons(conf_mat):
 
 def main(args):
     if not os.path.exists(args.estimation_file):
-        print "File does not exist: %" % args.estimation_file
+        print "File does not exist: %s" % args.estimation_file
         return
     stats = compute_scores(json.load(open(args.estimation_file)))
 

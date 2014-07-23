@@ -37,6 +37,9 @@ def estimate_classes(entity):
 
 def main(args):
     print args.posterior_file
+    if not os.path.exists(args.posterior_file):
+        print "File does not exist: %s" % args.posterior_file
+        return
     dset = biggie.Stash(args.posterior_file)
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
