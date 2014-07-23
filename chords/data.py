@@ -1,9 +1,11 @@
 import numpy as np
+import itertools
 
 import biggie
 import pescador
 
 from dl4mir.chords import labels
+import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
 
 
@@ -86,26 +88,31 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
         count += 1
 
 
-def quality_map(entity):
+def quality_map(entity, vocab_dim=157):
     """Map an entity's chord_labels to quality indexes; for partitioning."""
     chord_labels = entity.chord_labels.value
     unique_labels = np.unique(chord_labels)
     unique_idxs = labels.chord_label_to_quality_index(unique_labels)
     labels_to_index = dict([(l, i) for l, i in zip(unique_labels,
                                                    unique_idxs)])
-    return np.array([labels_to_index[l] for l in chord_labels])
+    return np.array([labels_to_index[l] for l in chord_labels], dtype=object)
 
 
-def create_chord_stream(stash, win_length):
+def create_chord_stream(stash, win_length, vocab_dim):
     """Return an unconstrained stream of chord samples."""
     entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
                    for key in stash.keys()]
-    return pescador.mux(entity_pool, None, 50)
+    stream = pescador.mux(entity_pool, None, 50)
+    return FX.map_to_chord_index(stream, vocab_dim)
 
 
-def create_uniform_quality_stream(stash, win_length, pool_size=50):
+def create_uniform_quality_stream(stash, win_length, partition_labels=None,
+                                  pool_size=50, vocab_dim=157,
+                                  pitch_shift=True):
     """Return a stream of chord samples, with uniform quality presentation."""
-    partition_labels = util.partition(stash, quality_map)
+    if partition_labels is None:
+        partition_labels = util.partition(stash, quality_map)
+
     quality_pool = []
     for qual_idx in range(14):
         quality_subindex = util.index_partition_arrays(
@@ -116,5 +123,46 @@ def create_uniform_quality_stream(stash, win_length, pool_size=50):
         stream = pescador.mux(entity_pool, None, 25)
         quality_pool.append(pescador.Streamer(stream))
 
-    return pescador.mux(quality_pool, n_samples=None, k=pool_size,
-                        lam=None, with_replacement=False)
+    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
+                          lam=None, with_replacement=False)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
+    return FX.map_to_chord_index(stream, vocab_dim)
+
+
+def create_contrastive_quality_stream(stash, win_length,
+                                      partition_labels=None, pool_size=50,
+                                      vocab_dim=157, pitch_shift=True):
+    """Return a stream of chord samples, with uniform quality presentation."""
+    if partition_labels is None:
+        partition_labels = util.partition(stash, quality_map)
+
+    quality_streams = []
+    for qual_idx in range(14):
+        quality_subindex = util.index_partition_arrays(
+            partition_labels, [qual_idx])
+        entity_pool = [pescador.Streamer(chord_sampler, key, stash,
+                                         win_length, quality_subindex)
+                       for key in quality_subindex.keys()]
+        qstream = pescador.mux(entity_pool, None, 25)
+        if pitch_shift:
+            qstream = FX.pitch_shift(qstream)
+        quality_streams.append(qstream)
+
+    quality_streams = np.array(quality_streams)
+    binary_pool = []
+    for qual_idx in range(14):
+        neg_mask = np.ones(14, dtype=bool)
+        neg_mask[qual_idx] = False
+        quality_pool = [pescador.Streamer(x)
+                        for x in quality_streams[neg_mask]]
+        neg_stream = pescador.mux(quality_pool, n_samples=None,
+                                  k=len(quality_pool), lam=None,
+                                  with_replacement=False)
+        pair_stream = itertools.izip(quality_streams[qual_idx], neg_stream)
+        binary_pool.append(pescador.Streamer(pair_stream))
+
+    cstream = pescador.mux(binary_pool, n_samples=None, k=len(binary_pool),
+                           lam=None, with_replacement=False)
+    return FX.unpack_contrastive_pairs(cstream, vocab_dim)
