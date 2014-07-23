@@ -20,22 +20,10 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "train.sh {driver|all} {[0-4]|*all}"
+    echo "train.sh {driver} {[0-4]|*all}"
     echo $'\tdriver - Name of the training driver.'
     echo $'\tfold# - Number of the training fold, default=all.'
     exit 0
-fi
-
-if [ "$1" == "all" ]
-then
-    echo "Setting all known drivers..."
-    DRIVER="chroma-L05 "\
-"tonnetz-L05 "\
-"classifier-L05-V157 "\
-"classifier-L10-V157 "\
-"classifier-L20-V157 "\
-"classifier-L40-V157 "\
-"classifier-L80-V157"
 else
     DRIVER="$1"
 fi
