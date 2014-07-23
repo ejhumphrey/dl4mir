@@ -22,7 +22,7 @@ def inarray(ar1, ar2):
     ar1 = np.asarray(ar1)
     out = np.zeros(ar1.shape, dtype=bool)
     for val in np.asarray(ar2).flatten():
-        out |= ar1 == val
+        out |= np.equal(ar1, val)
     return out
 
 
