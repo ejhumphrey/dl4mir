@@ -71,3 +71,38 @@ def index_partition_arrays(partition_labels, label_set):
         if in_array.sum():
             index[key] = np.arange(len(in_array), dtype=int)[in_array]
     return index
+
+
+def boundary_pool(x_in, index_edges, pool_func='mean'):
+    """Pool the values of an array, bounded by a set of edges.
+
+    Parameters
+    ----------
+    x_in : np.ndarray, shape=(n_points, ...)
+        Array to pool.
+    index_edges : array_like, shape=(n_edges,)
+        Boundary indices for pooling the array.
+    pool_func : str
+        Name of pooling function to use; one of {`mean`, `median`, `max`}.
+
+    Returns
+    -------
+    z_out : np.ndarray, shape=(n_edges-1, ...)
+        Pooled output array.
+    """
+    fxs = dict(mean=np.mean, max=np.max, median=np.median)
+    assert pool_func in fxs, \
+        "Function '%s' unsupported. Expected one of {%s}" % (pool_func,
+                                                             fxs.keys())
+    pool = fxs[pool_func]
+    num_points = len(index_edges) - 1
+    z_out = np.zeros([num_points, x_in.shape[1]])
+    for idx, delta in enumerate(np.diff(index_edges)):
+        if delta > 0:
+            z = pool(x_in[index_edges[idx]:index_edges[idx + 1]], axis=0)
+        elif delta == 0:
+            z = x_in[index_edges[idx]]
+        else:
+            raise ValueError("`index_edges` must be monotonically increasing.")
+        z_out[idx] = z
+    return z_out
