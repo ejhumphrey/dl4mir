@@ -106,3 +106,100 @@ def boundary_pool(x_in, index_edges, pool_func='mean'):
             raise ValueError("`index_edges` must be monotonically increasing.")
         z_out[idx] = z
     return z_out
+
+
+def normalize(x, axis=None):
+    """Normalize the values of an ndarray to sum to 1 along the given axis.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input multidimensional array to normalize.
+    axis : int, default=None
+        Axis to normalize along, otherwise performed over the full array.
+
+    Returns
+    -------
+    z : np.ndarray, shape=x.shape
+        Normalized array.
+    scalar : float
+        Scale factor to normalize the input.
+    """
+    if not axis is None:
+        shape = list(x.shape)
+        shape[axis] = 1
+        scalar = x.astype(float).sum(axis=axis).reshape(shape)
+        scalar[scalar == 0] = 1.0
+    else:
+        scalar = x.sum()
+        scalar = 1 if scalar == 0 else scalar
+    return x / scalar, scalar
+
+
+def viterbi(posterior, transition_matrix, prior=None, penalty=0):
+    """Find the optimal Viterbi path through a posteriorgram.
+
+    Ported closely from Tae Min Cho's MATLAB implementation.
+
+    Parameters
+    ----------
+    posterior: np.ndarray, shape=(num_obs, num_states)
+        Matrix of observations (events, time steps, etc) by the number of
+        states (classes, categories, etc).
+    transition_matrix: np.ndarray
+        Transition matrix for the viterbi algorithm.
+    prior: np.ndarray, default=None (uniform)
+        Probability distribution over the states.
+    penalty: scalar, default=0
+        Scalar penalty to down-weight off-diagonal states.
+
+    Returns
+    -------
+    path: np.ndarray, shape=(num_obs,)
+        Optimal state indices through the posterior.
+    """
+    SCALED = True
+
+    def log(x):
+        """Logarithm with built-in epsilon offset."""
+        return np.log(x + np.power(2.0, -10.0))
+
+    num_obs, num_states = posterior.shape
+
+    # Normalize the posterior.
+    posterior = normalize(posterior, axis=1)[0]
+
+    # Apply the off-axis penalty.
+    offset = np.ones([num_states]*2, dtype=float)
+    offset -= np.eye(num_states, dtype=np.float)
+    penalty = offset * np.exp(penalty) + np.eye(num_states, dtype=np.float)
+    transition_matrix = penalty * transition_matrix
+
+    # Create a uniform prior if one isn't provided.
+    prior = np.ones(num_states) / float(num_states) if prior is None else prior
+
+    # Algorithm initialization
+    delta = np.zeros_like(posterior)
+    psi = np.zeros_like(posterior)
+    scale_factors = np.zeros(num_obs)
+    path = np.zeros(num_obs, dtype=int)
+
+    idx = 0
+    delta[idx, :] = prior * posterior[idx, :]
+    if SCALED:
+        delta[idx, :], scalar = normalize(delta[idx, :])
+        scale_factors[idx] = 1. / scalar
+
+    for idx in range(1, num_obs):
+        for state in range(num_states):
+            res = delta[idx - 1, :] * transition_matrix[state, :]
+            delta[idx, state], psi[idx, state] = np.max(res), np.argmax(res)
+            delta[idx, state] *= posterior[idx, state]
+        if SCALED:
+            delta[idx, :], scalar = normalize(delta[idx, :])
+            scale_factors[idx] = 1. / scalar
+
+    path[-1] = np.argmax(delta[-1, :])
+    for idx in range(num_obs - 2, -1, -1):
+        path[idx] = psi[idx + 1, path[idx + 1]]
+    return path
