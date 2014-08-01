@@ -136,7 +136,7 @@ def normalize(x, axis=None):
     return x / scalar, scalar
 
 
-def viterbi(posterior, transition_matrix, prior=None, penalty=0):
+def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
     """Find the optimal Viterbi path through a posteriorgram.
 
     Ported closely from Tae Min Cho's MATLAB implementation.
@@ -152,14 +152,16 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0):
         Probability distribution over the states.
     penalty: scalar, default=0
         Scalar penalty to down-weight off-diagonal states.
+    scaled : bool, default=True
+        Scale transition probabilities between steps in the algorithm.
+        Note: Hard-coded to True in TMC's implementation; it's probably a bad
+        idea to change this.
 
     Returns
     -------
     path: np.ndarray, shape=(num_obs,)
         Optimal state indices through the posterior.
     """
-    SCALED = True
-
     def log(x):
         """Logarithm with built-in epsilon offset."""
         return np.log(x + np.power(2.0, -10.0))
@@ -181,23 +183,20 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0):
     # Algorithm initialization
     delta = np.zeros_like(posterior)
     psi = np.zeros_like(posterior)
-    scale_factors = np.zeros(num_obs)
     path = np.zeros(num_obs, dtype=int)
 
     idx = 0
     delta[idx, :] = prior * posterior[idx, :]
-    if SCALED:
-        delta[idx, :], scalar = normalize(delta[idx, :])
-        scale_factors[idx] = 1. / scalar
+    if scaled:
+        delta[idx, :] = normalize(delta[idx, :])[0]
 
     for idx in range(1, num_obs):
         for state in range(num_states):
             res = delta[idx - 1, :] * transition_matrix[state, :]
             delta[idx, state], psi[idx, state] = np.max(res), np.argmax(res)
             delta[idx, state] *= posterior[idx, state]
-        if SCALED:
-            delta[idx, :], scalar = normalize(delta[idx, :])
-            scale_factors[idx] = 1. / scalar
+        if scaled:
+            delta[idx, :] = normalize(delta[idx, :])[0]
 
     path[-1] = np.argmax(delta[-1, :])
     for idx in range(num_obs - 2, -1, -1):
