@@ -122,8 +122,6 @@ def normalize(x, axis=None):
     -------
     z : np.ndarray, shape=x.shape
         Normalized array.
-    scalar : float
-        Scale factor to normalize the input.
     """
     if not axis is None:
         shape = list(x.shape)
@@ -133,7 +131,7 @@ def normalize(x, axis=None):
     else:
         scalar = x.sum()
         scalar = 1 if scalar == 0 else scalar
-    return x / scalar, scalar
+    return x / scalar
 
 
 def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
@@ -145,11 +143,15 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
     ----------
     posterior: np.ndarray, shape=(num_obs, num_states)
         Matrix of observations (events, time steps, etc) by the number of
-        states (classes, categories, etc).
-    transition_matrix: np.ndarray
-        Transition matrix for the viterbi algorithm.
+        states (classes, categories, etc), e.g.
+          posterior[t, i] = Pr(y(t) | Q(t) = i)
+    transition_matrix: np.ndarray, shape=(num_states, num_states)
+        Transition matrix for the viterbi algorithm. For clarity, each row
+        corresponds to the probability of transitioning to the next state, e.g.
+          transition_matrix[i, j] = Pr(Q(t + 1) = j | Q(t) = i)
     prior: np.ndarray, default=None (uniform)
-        Probability distribution over the states.
+        Probability distribution over the states, e.g.
+          prior[i] = Pr(Q(0) = i)
     penalty: scalar, default=0
         Scalar penalty to down-weight off-diagonal states.
     scaled : bool, default=True
@@ -166,10 +168,13 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
         """Logarithm with built-in epsilon offset."""
         return np.log(x + np.power(2.0, -10.0))
 
+    # Infer dimensions.
     num_obs, num_states = posterior.shape
 
+    # Define the scaling function
+    scaler = normalize if scaled else lambda x: x
     # Normalize the posterior.
-    posterior = normalize(posterior, axis=1)[0]
+    posterior = normalize(posterior, axis=1)
 
     # Apply the off-axis penalty.
     offset = np.ones([num_states]*2, dtype=float)
@@ -186,17 +191,12 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
     path = np.zeros(num_obs, dtype=int)
 
     idx = 0
-    delta[idx, :] = prior * posterior[idx, :]
-    if scaled:
-        delta[idx, :] = normalize(delta[idx, :])[0]
+    delta[idx, :] = scaler(prior * posterior[idx, :])
 
     for idx in range(1, num_obs):
-        for state in range(num_states):
-            res = delta[idx - 1, :] * transition_matrix[state, :]
-            delta[idx, state], psi[idx, state] = np.max(res), np.argmax(res)
-            delta[idx, state] *= posterior[idx, state]
-        if scaled:
-            delta[idx, :] = normalize(delta[idx, :])[0]
+        res = delta[idx - 1, :].reshape(1, num_states) * transition_matrix
+        delta[idx, :] = scaler(np.max(res, axis=1) * posterior[idx, :])
+        psi[idx, :] = np.argmax(res, axis=1)
 
     path[-1] = np.argmax(delta[-1, :])
     for idx in range(num_obs - 2, -1, -1):
