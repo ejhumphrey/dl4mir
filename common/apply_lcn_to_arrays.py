@@ -52,6 +52,30 @@ def lcn(X, kernel):
     return V / S2
 
 
+def hwr(x):
+    return 0.5 * (x + np.abs(x))
+
+
+def mm_lcn(X, kernel=None, rho=0):
+    if kernel is None:
+        dim0, dim1 = 15, 37
+        dim0_weights = np.hamming(dim0 * 2 + 1)[:dim0]
+        dim1_weights = np.hamming(dim1)
+        kernel = dim0_weights[:, np.newaxis] * dim1_weights[np.newaxis, :]
+
+    kernel /= kernel.sum()
+    Xh = convolve2d(X, kernel, mode='same', boundary='symm')
+    V = hwr(X - Xh)
+    S = np.sqrt(
+        convolve2d(np.power(V, 2.0), kernel, mode='same', boundary='symm'))
+    S2 = np.zeros(S.shape) + S.mean()
+    S2[S > S.mean()] = S[S > S.mean()]
+    if S2.sum() == 0.0:
+        S2 += 1.0
+    return V / S2**rho
+
+
+
 def create_kernel(dim0, dim1):
     """
     Parameters
