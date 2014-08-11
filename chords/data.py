@@ -88,6 +88,48 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
         count += 1
 
 
+def chord_stepper(key, stash, win_length=20, index=None):
+    """Generator for stepping windowed chord observations from an entity.
+
+    Parameters
+    ----------
+    key : str
+        Key for the entity of interest; must be consistent across both `stash`
+        and `index`, when the latter is provided.
+    stash : dict_like
+        Dict or biggie.Stash of chord entities.
+    win_length: int
+        Length of centered observation window for the CQT.
+
+    Yields
+    ------
+    sample: biggie.Entity with fields {cqt, chord_label}
+        The windowed chord observation.
+    """
+    entity = stash.get(key)
+    num_samples = len(entity.chord_labels.value)
+    if index is None:
+        index = {key: np.arange(num_samples)}
+
+    valid_samples = index.get(key, [])
+    idx = 0
+    count = 0
+    while count < len(valid_samples):
+        yield slice_chord_entity(entity, win_length, valid_samples[idx])
+        idx += 1
+        count += 1
+
+
+def chord_map(entity, vocab_dim=157):
+    """Map an entity's chord_labels to quality indexes; for partitioning."""
+    chord_labels = entity.chord_labels.value
+    unique_labels = np.unique(chord_labels)
+    unique_idxs = labels.chord_label_to_class_index(unique_labels)
+    labels_to_index = dict([(l, i) for l, i in zip(unique_labels,
+                                                   unique_idxs)])
+    return np.array([labels_to_index[l] for l in chord_labels], dtype=object)
+
+
 def quality_map(entity, vocab_dim=157):
     """Map an entity's chord_labels to quality indexes; for partitioning."""
     chord_labels = entity.chord_labels.value
@@ -98,11 +140,31 @@ def quality_map(entity, vocab_dim=157):
     return np.array([labels_to_index[l] for l in chord_labels], dtype=object)
 
 
-def create_chord_stream(stash, win_length, vocab_dim):
+def create_chord_stream(stash, win_length, pool_size=50, vocab_dim=157,
+                        pitch_shift=True):
     """Return an unconstrained stream of chord samples."""
     entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
                    for key in stash.keys()]
-    stream = pescador.mux(entity_pool, None, 50)
+    stream = pescador.mux(entity_pool, None, pool_size, lam=25)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
+    return FX.map_to_chord_index(stream, vocab_dim)
+
+
+def create_stash_stream(stash, win_length, pool_size=50, vocab_dim=157,
+                        pitch_shift=False):
+    """Stream the contents of a stash."""
+    partition_labels = util.partition(stash, quality_map)
+    quality_index = util.index_partition_arrays(partition_labels, range(14))
+
+    entity_pool = [pescador.Streamer(chord_stepper, key,
+                                     stash, win_length, quality_index)
+                   for key in stash.keys()]
+    stream = pescador.mux(entity_pool, None, pool_size)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
     return FX.map_to_chord_index(stream, vocab_dim)
 
 
@@ -120,7 +182,7 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
         entity_pool = [pescador.Streamer(chord_sampler, key, stash,
                                          win_length, quality_subindex)
                        for key in quality_subindex.keys()]
-        stream = pescador.mux(entity_pool, None, 25)
+        stream = pescador.mux(entity_pool, n_samples=None, k=25, lam=20)
         quality_pool.append(pescador.Streamer(stream))
 
     stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
@@ -129,6 +191,55 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
         stream = FX.pitch_shift(stream)
 
     return FX.map_to_chord_index(stream, vocab_dim)
+
+
+def uniform_quality_chroma_stream(stash, win_length, partition_labels=None,
+                                  pool_size=50, pitch_shift=True):
+    """Return a stream of chord samples, with uniform quality presentation."""
+    if partition_labels is None:
+        partition_labels = util.partition(stash, quality_map)
+
+    quality_pool = []
+    for qual_idx in range(14):
+        quality_subindex = util.index_partition_arrays(
+            partition_labels, [qual_idx])
+        entity_pool = [pescador.Streamer(chord_sampler, key, stash,
+                                         win_length, quality_subindex)
+                       for key in quality_subindex.keys()]
+        stream = pescador.mux(entity_pool, n_samples=None, k=25, lam=20)
+        quality_pool.append(pescador.Streamer(stream))
+
+    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
+                          lam=None, with_replacement=False)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
+    return FX.map_to_chroma(stream)
+
+
+def create_uniform_factored_stream(stash, win_length, partition_labels=None,
+                                   pool_size=50, vocab_dim=157,
+                                   pitch_shift=True):
+    """Return a stream of chord samples, with uniform quality presentation."""
+    if partition_labels is None:
+        partition_labels = util.partition(stash, quality_map)
+
+    quality_pool = []
+    for qual_idx in range(13):
+        quality_subindex = util.index_partition_arrays(
+            partition_labels, [qual_idx])
+        entity_pool = [pescador.Streamer(chord_sampler, key, stash,
+                                         win_length, quality_subindex)
+                       for key in quality_subindex.keys()]
+        stream = pescador.mux(entity_pool, n_samples=None, k=25, lam=20)
+        quality_pool.append(pescador.Streamer(stream))
+
+    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
+                          lam=None, with_replacement=False)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
+    return FX.map_to_joint_index(stream, vocab_dim)
 
 
 def create_contrastive_quality_stream(stash, win_length,
@@ -166,3 +277,23 @@ def create_contrastive_quality_stream(stash, win_length,
     cstream = pescador.mux(binary_pool, n_samples=None, k=len(binary_pool),
                            lam=None, with_replacement=False)
     return FX.unpack_contrastive_pairs(cstream, vocab_dim)
+
+
+def chroma_stepper(key, stash, index=None):
+    entity = stash.get(key)
+    num_samples = len(entity.chord_labels.value)
+    if index is None:
+        index = {key: np.arange(num_samples)}
+
+    valid_samples = index.get(key, [])
+    idx = 0
+    count = 0
+    while count < len(valid_samples):
+        n = valid_samples[idx]
+        if n >= entity.chroma.value.shape[0]:
+            print "Out of range! %s" % key
+            break
+        yield biggie.Entity(chroma=entity.chroma.value[n],
+                            chord_label=entity.chord_labels.value[n])
+        idx += 1
+        count += 1
