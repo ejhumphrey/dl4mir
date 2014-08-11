@@ -54,6 +54,20 @@ def map_to_chord_index(stream, vocab_dim):
                                                            chord_idx=chord_idx)
 
 
+def map_to_chroma(stream):
+    """
+    vocab_dim: int
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
+        chroma = labels.chord_label_to_chroma(chord_label)
+        yield biggie.Entity(cqt=cqt, target_chroma=chroma.squeeze())
+
+
 def map_to_chord_quality_index(stream, vocab_dim):
     """
     vocab_dim: int
@@ -68,6 +82,46 @@ def map_to_chord_quality_index(stream, vocab_dim):
         yield None if qual_idx is None else biggie.Entity(cqt=cqt,
                                                           quality_idx=qual_idx)
 
+
+def map_to_joint_index(stream, vocab_dim):
+    """
+    vocab_dim: int
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
+        chord_idx = labels.chord_label_to_class_index(chord_label, vocab_dim)
+        if chord_idx is None:
+            yield None
+            continue
+        if chord_idx == vocab_dim - 1:
+            root_idx = 13
+        else:
+            root_idx = chord_idx % 12
+        quality_idx = int(chord_idx) / 12
+
+        yield biggie.Entity(cqt=cqt,
+                            root_idx=root_idx,
+                            quality_idx=quality_idx)
+
+
+def rotate_chroma_to_root(stream, target_root):
+    """Apply a circular shift to the CQT, and rotate the root."""
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        chroma = entity.chroma.value.reshape(1, 12)
+        chord_label = str(entity.chord_label.value)
+        chord_idx = labels.chord_label_to_class_index(chord_label, 157)
+        shift = target_root - chord_idx % 12
+        # print chord_idx, shift, chord_label
+        yield circshift(chroma, 0, shift).flatten()
+
+
 def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
     """
     vocab_dim: int
@@ -79,8 +133,10 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
         pos_entity, neg_entity = pair
         pos_chord_label = str(pos_entity.chord_label.value)
         neg_chord_label = str(neg_entity.chord_label.value)
-        pos_chord_idx = labels.chord_label_to_class_index(pos_chord_label, vocab_dim)
-        neg_chord_idx = labels.chord_label_to_class_index(neg_chord_label, vocab_dim)
+        pos_chord_idx = labels.chord_label_to_class_index(pos_chord_label,
+                                                          vocab_dim)
+        neg_chord_idx = labels.chord_label_to_class_index(neg_chord_label,
+                                                          vocab_dim)
         if np.random.binomial(1, rotate_prob):
             shift = (pos_chord_idx - neg_chord_idx) % 12
             neg_entity = _pitch_shift(neg_entity, shift, 3)
