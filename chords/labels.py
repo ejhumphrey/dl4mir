@@ -1,4 +1,6 @@
-import mir_eval.chord as _chord
+import mir_eval
+import json
+import os
 import numpy as np
 
 ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
@@ -11,17 +13,17 @@ QUALITIES = {
           'sus2', 'dim7', 'hdim7', ''],
 }
 
-_QINDEX = dict([(v, dict([(tuple(_chord.QUALITIES[q]), i)
+_QINDEX = dict([(v, dict([(tuple(mir_eval.chord.QUALITIES[q]), i)
                           for i, q in enumerate(QUALITIES[v])]))
                 for v in QUALITIES])
 
 NO_CHORD = "N"
 SKIP_CHORD = "X"
 
-encode = _chord.encode
-split = _chord.split
-join = _chord.join
-pitch_class_to_semitone = _chord.pitch_class_to_semitone
+encode = mir_eval.chord.encode
+split = mir_eval.chord.split
+join = mir_eval.chord.join
+pitch_class_to_semitone = mir_eval.chord.pitch_class_to_semitone
 
 
 def semitone_to_pitch_class(semitone):
@@ -53,7 +55,7 @@ def chord_label_to_class_index(label, vocab_dim=157):
     if isinstance(label, str):
         label = [label]
         singleton = True
-    root, semitones, bass = _chord.encode_many(label)
+    root, semitones, bass = mir_eval.chord.encode_many(label)
     quality_idx = [semitones_index(s, vocab_dim) for s in semitones]
     class_idx = []
     for r, q in zip(root, quality_idx):
@@ -71,7 +73,7 @@ def chord_label_to_quality_index(label, vocab_dim=157):
     if isinstance(label, str):
         label = [label]
         singleton = True
-    root, semitones, bass = _chord.encode_many(label)
+    root, semitones, bass = mir_eval.chord.encode_many(label)
     quality_idx = [semitones_index(s, vocab_dim) for s in semitones]
     return quality_idx[0] if singleton else quality_idx
 
@@ -92,8 +94,8 @@ def chord_label_to_chroma(label):
     if isinstance(label, str):
         label = [label]
 
-    root, semitones, bass = _chord.encode_many(label)
-    chroma = np.array([_chord.rotate_bitmap_to_root(s, r)
+    root, semitones, bass = mir_eval.chord.encode_many(label)
+    chroma = np.array([mir_eval.chord.rotate_bitmap_to_root(s, r)
                        for s, r in zip(semitones, root)])
 
     return chroma.flatten() if flatten else chroma
@@ -106,3 +108,19 @@ def chord_label_to_tonnetz(label):
 def decode(root, semitones, bass):
     root_name = semitone_to_pitch_class(root)
 
+
+def _load_json_labeled_intervals(label_file):
+    data = json.load(open(label_file , 'r'))
+    return np.asarray(data['intervals']), data['labels']
+
+
+LOADERS = {
+    "lab": mir_eval.io.load_labeled_intervals,
+    "txt": mir_eval.io.load_labeled_intervals,
+    "json": _load_json_labeled_intervals
+    }
+
+def load_labeled_intervals(label_file):
+    ext = os.path.splitext(label_file)[-1].strip(".")
+    assert ext in LOADERS, "Unsupported extension: %s" % ext
+    return LOADERS[ext](label_file)
