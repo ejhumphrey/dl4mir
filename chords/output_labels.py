@@ -1,6 +1,7 @@
 """Apply a graph convolutionally to datapoints in a biggie Stash."""
 
 import argparse
+import numpy as np
 from itertools import groupby
 import json
 from marl.chords.utils import viterbi_alg
@@ -47,6 +48,7 @@ def predict_posterior(posterior, viterbi_penalty=0, medfilt=0):
 
     if medfilt > 0:
         posterior = signal.medfilt(posterior, [medfilt, 1])
+        posterior /= posterior.sum(axis=1)[:, np.newaxis]
 
     if viterbi_penalty > 0:
         indexes = viterbi_alg(posterior, rho=viterbi_penalty)
@@ -57,25 +59,29 @@ def predict_posterior(posterior, viterbi_penalty=0, medfilt=0):
     return [index_to_chord_label(idx, vocab) for idx in indexes]
 
 
+def posterior_to_labeled_intervals(posterior, framerate=20.0,
+                                   viterbi_penalty=0.0, medfilt=0):
+    labels = predict_posterior(posterior, viterbi_penalty, medfilt)
+    return compress_samples_to_intervals(labels, framerate)
+
+
 def main(args):
     dset = biggie.Stash(args.posterior_file)
-    futils.create_directory(os.path.split(args.output_file)[0])
-    if os.path.exists(args.output_file):
-        os.remove(args.output_file)
+    output_dir = futils.create_directory(args.output_directory)
+
     framerate = json.load(open(args.cqt_params))['framerate']
     total_count = len(dset.keys())
     results = dict()
     for idx, key in enumerate(dset.keys()):
-        labels = predict_posterior(
+        intervals, labels = posterior_to_labeled_intervals(
             dset.get(key).posterior.value,
+            framerate=framerate,
             viterbi_penalty=args.viterbi_penalty,
             medfilt=args.medfilt)
-        intervals, labels = compress_samples_to_intervals(labels, framerate)
-        results[key] = dict(intervals=intervals, labels=labels)
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
-
-    with open(args.output_file, 'w') as fp:
-        json.dump(results, fp, indent=2)
+        output_file = os.path.join(output_dir, "%s.json" % key)
+        with open(output_file, 'w') as fp:
+            json.dump(dict(intervals=intervals, labels=labels), fp, indent=2)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
@@ -94,7 +100,7 @@ if __name__ == "__main__":
                         metavar="cqt_params", type=str,
                         help="JSON file containing parameters of the cqt.")
     # Outputs
-    parser.add_argument("output_file",
-                        metavar="output_file", type=str,
-                        help="Path for the lab-file style output as JSON.")
+    parser.add_argument("output_directory",
+                        metavar="output_directory", type=str,
+                        help="Path for labeled intervals as JSON.")
     main(parser.parse_args())
