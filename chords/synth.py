@@ -129,7 +129,7 @@ def sequence_signals(signals, intervals, samplerate, env_args=None):
     return output_buffer
 
 
-def random_chord(instrument_set, notes, samplerate=44100):
+def random_chord(instrument_set, notes, samplerate=44100, normalize=False):
     """
     Parameters
     ----------
@@ -141,43 +141,27 @@ def random_chord(instrument_set, notes, samplerate=44100):
         Samplerate for the signal.
     """
     filenames = [random.choice(instrument_set[n]) for n in notes]
-    return load_signals(filenames, samplerate)
+    signals = load_many(filenames, samplerate, normalize)
+    return combine(signals)
 
 
-def random_chord_sequence(start_times, duration, instrument_set, chord_set,
-                          samplerate=44100):
-    start_times = np.asarray(start_times)
-    durations = np.diff(start_times).tolist()
-    durations += [np.mean(durations)]
-    end_times = start_times + np.array(durations)
-
+def random_chord_sequence(intervals, instrument_set, chord_set,
+                          samplerate=44100, env_args=None):
     signals = []
     chord_labels = []
-    for _ in range(len(start_times)):
+    for _ in range(len(intervals)):
         chord_labels += [random.choice(chord_set.keys())]
         notes = random.choice(chord_set[chord_labels[-1]])
         signals += [random_chord(instrument_set, notes, samplerate)]
 
-    y_out = np.zeros(int(duration * samplerate))
-    x_n = sequence_signals(signals, start_times, durations, samplerate)
-    y_out[:len(x_n)] += x_n
-    chord_labels.insert(0, 'N')
-    chord_labels.append("N")
-    start_times = np.array([0.0] + start_times.tolist() + [end_times[-1]])
-    end_times = np.array([start_times[0]] + end_times.tolist() + [duration])
-    return y_out, np.array([start_times, end_times]).T, chord_labels
+    y_out = sequence_signals(signals, intervals, samplerate, env_args)
+    return y_out, chord_labels
 
 
-def random_voice_sequence(voice_files, start_times, duration, samplerate):
-    signals = []
-    for _ in start_times:
-        vf = random.choice(voice_files)
-        x_n = marl.audio.read(vf, samplerate, channels=1)[0]
-        signals.append(x_n.squeeze())
-    durations = np.diff(start_times).tolist()
-    durations += [duration - start_times[-1]]
-    y_n = sequence_signals(signals, start_times, durations, samplerate)
-    return y_n / np.abs(y_n).max()
+def random_audio_sequence(audio_files, intervals, samplerate, env_args):
+    files = [random.choice(audio_files) for _ in range(len(intervals))]
+    signals = load_many(files, samplerate, channels=1)
+    return sequence_signals(signals, intervals, samplerate, env_args)
 
 
 # Mixing weights ...
@@ -194,12 +178,36 @@ def random_signal(drum_set, instrument_set, chord_set,
             voice_times.append(t)
 
     y_n, intervals, chord_labels = random_chord_sequence(
-        chord_times, duration, instrument_set, chord_set, samplerate=fs)
-    v_n = random_voice_sequence(
-        voice_files, voice_times, duration, samplerate=fs)
+        intervals, instrument_set, chord_set, samplerate=fs)
+    v_n = random_audio_sequence(voice_files, intervals, samplerate=fs)
     y_n = y_n + v_n + x_n.squeeze()
     y_n /= np.abs(y_n).max()
     return y_n, intervals, chord_labels
+
+
+def start_times_to_intervals(start_times, end_duration=None):
+    """Convert a set of start times to adjacent, non-overlapping intervals.
+
+    Parameters
+    ----------
+    start_times : array_like
+        Set of start times; must be increasing.
+    end_duration : scalar>0, default=None
+        Desired duration for the final interval; if None, the mean difference
+        of the start times is used.
+
+    Returns
+    -------
+    intervals : np.ndarray, shape=(len(start_times), 2)
+        Start and end times of the intervals.
+    """
+    durations = np.abs(np.diff(start_times))
+    if end_duration is None:
+        end_duration = durations.mean()
+    intervals = []
+    for t, d in zip(start_times, durations):
+        intervals += [(t, t+d)]
+    return np.asarray(intervals + [(start_times[-1], end_duration)])
 
 
 if __name__ == "__main__":
@@ -217,16 +225,7 @@ if __name__ == "__main__":
                         help="Path to a JSON file of .")
 
     # Outputs
-    parser.add_argument("model_directory",
-                        metavar="model_directory", type=str,
+    parser.add_argument("output_directory",
+                        metavar="output_directory", type=str,
                         help="Path to save the training results.")
-    parser.add_argument("trial_name",
-                        metavar="trial_name", type=str,
-                        help="Unique name for this training run.")
-    parser.add_argument("validator_file",
-                        metavar="validator_file", type=str,
-                        help="Name for the resulting validator graph.")
-    parser.add_argument("predictor_file",
-                        metavar="predictor_file", type=str,
-                        help="Name for the resulting predictor graph.")
-    main(parser.parse_args())
+    # main(parser.parse_args())
