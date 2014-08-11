@@ -4,11 +4,40 @@ import argparse
 import json
 import numpy as np
 import os
-import mir_eval.chord as chord_eval
+import mir_eval
 import marl.fileutils as futil
-from dl4mir.chords import labels
 import sklearn.metrics as metrics
+import scipy.signal as signal
 import warnings
+
+from dl4mir.chords import labels
+
+
+def evaluate_posterior(entity, medfilt=0):
+    posterior, chord_labels = entity.posterior.value, entity.chord_labels.value
+    vocab_dim = posterior.shape[1]
+    chord_idxs = labels.chord_label_to_class_index(chord_labels, vocab_dim)
+    if medfilt > 0:
+        posterior = signal.medfilt(posterior, [medfilt,1])
+        posterior /= posterior.sum(axis=1)[:, np.newaxis]
+    pred_idxs = posterior.argmax(axis=1)
+    L = min([len(pred_idxs), len(chord_idxs)])
+    return np.equal(pred_idxs[:L], chord_idxs[:L]).sum(), L
+
+
+def load_chord_index_pair(reference_file, estimated_file, vocab_dim=157):
+    ref_intervals, ref_labels = labels.load_labeled_intervals(reference_file)
+    est_intervals, est_labels = labels.load_labeled_intervals(estimated_file)
+
+    (intervals,
+     ref_labels,
+     est_labels) = mir_eval.chord.align_labeled_intervals(
+        ref_intervals, ref_labels, est_intervals, est_labels, 'fit-to-ref')
+
+    ref_idxs = labels.chord_label_to_class_index(ref_labels, vocab_dim)
+    est_idxs = labels.chord_label_to_class_index(est_labels, vocab_dim)
+
+    return np.abs(np.diff(intervals, axis=1)).flatten(), ref_idxs, est_idxs
 
 
 def rotate(posterior, root):
@@ -64,7 +93,7 @@ def quality_confusion_matrix(results):
     num_classes = 157
     qual_conf = np.zeros([num_classes, num_classes])
     for label, counts in results.items():
-        root, semitones, bass = chord_eval.encode(label)
+        root, semitones, bass = mir_eval.chord.encode(label)
         qidx = 13 if label == 'N' else labels.get_quality_index(semitones,
                                                                 num_classes)
         if qidx is None:
@@ -132,7 +161,7 @@ def compute_scores(estimations):
     res2 = "Averaged: " + stat_line % (100*qual_precision_ave,
                                        100*qual_recall_ave,
                                        100*qual_f1_ave)
-    res3 = "-"*60
+    res3 = "-"*72
     outputs = [res3, res1, res2, res3]
     outputs.append(compute_confusions(quality_confusions, 5))
     return "\n".join(outputs)
