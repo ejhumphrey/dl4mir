@@ -4,33 +4,60 @@ import marl
 import random
 
 
-def random_chord(instrument_set, notes, samplerate=44100):
-    """
+def normalize(x_n):
+    return x_n / np.abs(x_n).max()
+
+
+def load_many(filenames, samplerate, channels=1, normalize=False):
+    """Load several audio signals into a list.
+
     Parameters
     ----------
-    instrument_set : dict
-        Note numbers pointing to a list of relevant files.
-    notes : array_like
-        Set of note numbers to choose from.
+    filenames : list
+        Audio filepaths to load
     samplerate : scalar
-        Samplerate for the signal.
+        Samplerate of the given signals.
+    channels : int, default=1
+        Number of channels for the signals.
+    normalize : bool, default=True
+        If True, scale each signal by its absolute-maximum value.
+
+    Returns
+    -------
+    signals : list
+        The loaded signals; each with shape=(num_samples, num_channels)
     """
-    filenames = [random.choice(instrument_set[n]) for n in notes]
-    return load_signals(filenames, samplerate)
-
-
-def load_signals(filenames, samplerate, normalize=False):
     signals = []
     for f in filenames:
-        x_n, fs = marl.audio.read(f, samplerate=samplerate, channels=1)
-        signals.append(x_n.squeeze())
+        x_n, fs = marl.audio.read(f, samplerate=samplerate, channels=channels)
+        if normalize:
+            x_n = normalize(x_n)
+        signals.append(x_n)
+    return signals
 
-    y_out = np.zeros(max([len(x_n) for x_n in signals]))
+
+def combine(signals, num_samples=None):
+    """Sum a set of signals.
+
+    Parameters
+    ----------
+    signals : list of np.ndarrays
+        The input signals to combine.
+    num_samples : int, default None
+        Maximum
+
+    Returns
+    -------
+    y_out : np.ndarray
+        The eveloped output signal.
+    """
+    if num_samples is None:
+        num_samples = max([len(x_n) for x_n in signals])
+
+    y_out = np.zeros([num_samples, x_n.shape[1]])
     for x_n in signals:
         y_out[:len(x_n)] += x_n
 
-    if normalize:
-        y_out /= np.abs(y_out).max()
     return y_out
 
 
@@ -68,40 +95,53 @@ def envelope(x_n, samplerate, attack=0.01, decay=0.005, release=0.05,
     release_env = np.linspace(sustain_level, 0, int(release * samplerate))
     env = np.concatenate([attack_env, decay_env, sustain_env, release_env])
     L = min([len(x_n), len(env)])
-    return x_n[:L] * env[:L]
+    return x_n[:L] * env[:L][:, np.newaxis]
 
 
-def align_signals(signals, start_times, durations, samplerate):
-    """Place a set of signals into a buffer.
+def sequence_signals(signals, intervals, samplerate, env_args=None):
+    """Window and place a set of signals into a buffer.
 
     Parameters
     ----------
     signals : list of np.ndarrays
         Audio signals to place in time.
-    start_times : list of scalars
-        Start times for the given signals.
-    durations : list of scalars
-        Time durations for the given signals.
+    intervals : np.ndarray
+        Start and end times for each signal.
     samplerate : scalar
         Samplerate of the given signals.
 
     Returns
     -------
     y_out : np.ndarray
-        The summed output signal.
+        The combined output signal.
     """
-    assert len(start_times) == len(durations) == len(signals)
-    start_times = np.asarray(start_times)
-    durations = np.asarray(durations)
-    output_buffer = np.zeros(int(samplerate * (start_times + durations).max()))
-    for start, dur, x_n in zip(start_times, durations, signals):
+    assert len(intervals) == len(signals)
+    env_args = dict() if env_args is None else env_args
+    durations = np.abs(np.diff(intervals, axis=1))
+    output_buffer = np.zeros(int(samplerate * intervals.max()))
+    for start, dur, x_n in zip(intervals[:, 0], durations, signals):
         num_samples = int(dur * samplerate)
-        x_n = envelope(x_n[:num_samples], samplerate)
+        x_n = envelope(x_n[:num_samples], samplerate, **env_args)
         idx = int(start * samplerate)
         x_len = min([num_samples, len(x_n)])
         output_buffer[idx:idx + x_len] += x_n
 
     return output_buffer
+
+
+def random_chord(instrument_set, notes, samplerate=44100):
+    """
+    Parameters
+    ----------
+    instrument_set : dict
+        Note numbers pointing to a list of relevant files.
+    notes : array_like
+        Set of note numbers to choose from.
+    samplerate : scalar
+        Samplerate for the signal.
+    """
+    filenames = [random.choice(instrument_set[n]) for n in notes]
+    return load_signals(filenames, samplerate)
 
 
 def random_chord_sequence(start_times, duration, instrument_set, chord_set,
@@ -119,19 +159,7 @@ def random_chord_sequence(start_times, duration, instrument_set, chord_set,
         signals += [random_chord(instrument_set, notes, samplerate)]
 
     y_out = np.zeros(int(duration * samplerate))
-    x_n = align_signals(signals, start_times, durations, samplerate)
-    y_out[:len(x_n)] += x_n
-    chord_labels.insert(0, 'N')
-    chord_labels.append("N")
-    start_times = np.array([0.0] + start_times.tolist() + [end_times[-1]])
-    end_times = np.array([start_times[0]] + end_times.tolist() + [duration])
-    return y_out, np.array([start_times, end_times]).T, chord_labels
-
-
-def sequence_signals(signals, intervals, samplerate=44100):
-    duration = intervals[-1, -1]
-    y_out = np.zeros(int(duration * samplerate))
-    x_n = align_signals(signals, start_times, durations, samplerate)
+    x_n = sequence_signals(signals, start_times, durations, samplerate)
     y_out[:len(x_n)] += x_n
     chord_labels.insert(0, 'N')
     chord_labels.append("N")
@@ -148,7 +176,7 @@ def random_voice_sequence(voice_files, start_times, duration, samplerate):
         signals.append(x_n.squeeze())
     durations = np.diff(start_times).tolist()
     durations += [duration - start_times[-1]]
-    y_n = align_signals(signals, start_times, durations, samplerate)
+    y_n = sequence_signals(signals, start_times, durations, samplerate)
     return y_n / np.abs(y_n).max()
 
 
@@ -172,8 +200,6 @@ def random_signal(drum_set, instrument_set, chord_set,
     y_n = y_n + v_n + x_n.squeeze()
     y_n /= np.abs(y_n).max()
     return y_n, intervals, chord_labels
-
-
 
 
 if __name__ == "__main__":
