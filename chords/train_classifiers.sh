@@ -8,7 +8,7 @@ SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
-OPTFILES=${BASEDIR}/biggie/chord_dsets
+OPTFILES=${BASEDIR}/biggie/chords
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
@@ -96,7 +96,7 @@ then
     do
         for idx in ${FOLD_IDXS}
         do
-            for split in valid train test
+            for split in valid test train
             do
                 echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
                 python ${SRC}/common/convolve_graph_with_dset.py \
