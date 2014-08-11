@@ -4,6 +4,7 @@ import argparse
 import json
 from marl import fileutils as futils
 import mir_eval
+import dl4mir.chords.labels as L
 import numpy as np
 import biggie
 from os import path
@@ -31,7 +32,7 @@ def create_chord_entity(npz_file, lab_file, dtype=np.float32):
         Populated chord entity, with {cqt, chord_labels, *time_points}.
     """
     entity = biggie.Entity(**np.load(npz_file))
-    intervals, labels = mir_eval.io.load_intervals(lab_file)
+    intervals, labels = L.load_labeled_intervals(lab_file)
     entity.chord_labels = mir_eval.util.interpolate_intervals(
         intervals, labels, entity.time_points.value, fill_value='N')
     entity.cqt = entity.cqt.value.astype(dtype)
@@ -77,7 +78,7 @@ def main(args):
             stash = biggie.Stash(output_file)
             populate_stash(
                 data_splits[fold][split], args.cqt_directory,
-                args.lab_directory, stash, create_chord_entity)
+                args.lab_directory, stash, np.float32)
 
 
 if __name__ == "__main__":
