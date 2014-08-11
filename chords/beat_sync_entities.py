@@ -1,4 +1,4 @@
-"""Utility to dump an Biggie Stash to a flat collection of Matlab files."""
+"""Utility to resample the time axis of Entities in a Biggie Stash."""
 import argparse
 import marl.fileutils as futils
 import numpy as np
@@ -7,25 +7,39 @@ import biggie
 import json
 import time
 
+import dl4mir.common.util as util
 
-def beat_sync(entity, new_times):
+
+def find_closest_idx(x, y):
+    return np.array([np.abs(x - v).argmin() for v in y])
+
+
+def beat_sync(entity, new_times, new_labels=None, mode='median'):
     new_times = list(new_times)
-    data = entity.values
+    data = entity.values()
     time_points = data.pop('time_points')
-    if not time_points[0] in new_times:
-        new_times.insert(0, time_points[0])
-    if not time_points[-1] in new_times:
-        new_times.append(time_points[-1])
-    new_times.sort()
+    chord_labels = data.pop('chord_labels')
 
-    idxs = np.array([(t > time_points).astype(int).argmin() - 1
-                     for t in new_times[:-1]])
+    idxs = find_closest_idx(time_points, new_times).tolist()
+    if new_labels is None:
+        chord_labels = chord_labels[idxs]
+        # print "Best guess label interpolation! You should provide labels."
+    else:
+        chord_labels = np.asarray(new_labels)
+
+    if idxs[0] != 0:
+        idxs.insert(0, 0)
+    if idxs[-1] != len(time_points) - 1:
+        idxs.append(len(time_points) - 1)
+
     for key in data:
-        shape = data[key].shape
-        if len(time_points) - 1 in shape:
-            data[key] = data[key][idxs, ...]
+        if len(time_points) in [len(data[key]), len(data[key]) - 1]:
+            data[key] = util.boundary_pool(data[key], idxs, pool_func=mode)
 
-    return biggie.Entity(time_points=new_times, **data)
+    return biggie.Entity(time_points=new_times,
+                         chord_labels=chord_labels,
+                         endT=time_points[-1],
+                         **data)
 
 
 def main(args):
