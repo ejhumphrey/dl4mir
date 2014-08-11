@@ -98,7 +98,8 @@ def envelope(x_n, samplerate, attack=0.01, decay=0.005, release=0.05,
     return x_n[:L] * env[:L][:, np.newaxis]
 
 
-def sequence_signals(signals, intervals, samplerate, env_args=None):
+def sequence_signals(signals, intervals, samplerate=44100,
+                     duration=None, env_args=None):
     """Window and place a set of signals into a buffer.
 
     Parameters
@@ -109,6 +110,11 @@ def sequence_signals(signals, intervals, samplerate, env_args=None):
         Start and end times for each signal.
     samplerate : scalar
         Samplerate of the given signals.
+    duration : scalar, default=None
+        Total duration, must be >= intervals.max(); otherwise, defaults to
+        intervals.max().
+    env_args: dict
+        Keyword arguments for the evelope function.
 
     Returns
     -------
@@ -118,7 +124,12 @@ def sequence_signals(signals, intervals, samplerate, env_args=None):
     assert len(intervals) == len(signals)
     env_args = dict() if env_args is None else env_args
     durations = np.abs(np.diff(intervals, axis=1))
-    output_buffer = np.zeros(int(samplerate * intervals.max()))
+    if duration is None:
+        duration = intervals.max()
+    else:
+        assert duration >= intervals.max()
+    num_samples = int(samplerate * duration)
+    output_buffer = np.zeros([num_samples, signals[0].shape[1]])
     for start, dur, x_n in zip(intervals[:, 0], durations, signals):
         num_samples = int(dur * samplerate)
         x_n = envelope(x_n[:num_samples], samplerate, **env_args)
@@ -158,7 +169,8 @@ def random_chord_sequence(intervals, instrument_set, chord_set,
     return y_out, chord_labels
 
 
-def random_audio_sequence(audio_files, intervals, samplerate, env_args):
+def random_audio_sequence(audio_files, intervals,
+                          samplerate=44100, env_args=None):
     files = [random.choice(audio_files) for _ in range(len(intervals))]
     signals = load_many(files, samplerate, channels=1)
     return sequence_signals(signals, intervals, samplerate, env_args)
