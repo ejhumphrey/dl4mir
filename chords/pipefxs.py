@@ -122,6 +122,19 @@ def rotate_chroma_to_root(stream, target_root):
         yield circshift(chroma, 0, shift).flatten()
 
 
+def rotate_chord_to_root(stream, target_root):
+    """Apply a circular shift to the CQT, and rotate the root."""
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        chord_label = str(entity.chord_label.value)
+        chord_idx = labels.chord_label_to_class_index(chord_label, 157)
+        shift = target_root - chord_idx % 12
+        # print chord_idx, shift, chord_label
+        yield _pitch_shift(entity, shift, 3)
+
+
 def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
     """
     vocab_dim: int
