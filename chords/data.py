@@ -8,6 +8,13 @@ from dl4mir.chords import labels
 import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
 
+import scipy.cluster.vq as VQ
+from sklearn.decomposition import PCA
+import time
+
+import marl.fileutils as futil
+import os
+
 
 def slice_chord_entity(entity, length, idx=None):
     """Return a windowed slice of a chord Entity.
@@ -170,13 +177,17 @@ def create_stash_stream(stash, win_length, pool_size=50, vocab_dim=157,
 
 def create_uniform_quality_stream(stash, win_length, partition_labels=None,
                                   pool_size=50, vocab_dim=157,
-                                  pitch_shift=True):
+                                  pitch_shift=True, valid_idx=None):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:
         partition_labels = util.partition(stash, quality_map)
 
-    quality_pool = []
-    for qual_idx in range(14):
+    if valid_idx is None:
+        valid_idx = range(14)
+
+    quality_pool, weights = [], []
+    for qual_idx in valid_idx:
+        weights.append(1 if qual_idx == 13 else 12)
         quality_subindex = util.index_partition_arrays(
             partition_labels, [qual_idx])
         entity_pool = [pescador.Streamer(chord_sampler, key, stash,
@@ -185,8 +196,9 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
         stream = pescador.mux(entity_pool, n_samples=None, k=25, lam=20)
         quality_pool.append(pescador.Streamer(stream))
 
-    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
-                          lam=None, with_replacement=False)
+    weights = np.array(weights, dtype=float) / np.sum(weights)
+    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size, lam=None,
+                          with_replacement=False, pool_weights=weights)
     if pitch_shift:
         stream = FX.pitch_shift(stream)
 
