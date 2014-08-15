@@ -10,7 +10,7 @@ from dl4mir.chords import DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.002
+LEARNING_RATE = 0.02
 
 # Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB
