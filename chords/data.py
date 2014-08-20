@@ -16,6 +16,37 @@ import marl.fileutils as futil
 import os
 
 
+def extract_tile(x_in, idx, length):
+    """Extract a padded tile from a matrix, along the first dimension.
+
+    Parameters
+    ----------
+    x_in : np.ndarray, ndim=2
+        2D Matrix to slice.
+    idx : int
+        Centered index for the resulting tile.
+    length : int
+        Total length for the output tile.
+
+    Returns
+    -------
+    z_out : np.ndarray, ndim=2
+        The extracted tile.
+    """
+    start_idx = idx - length / 2
+    end_idx = start_idx + length
+    tile = np.zeros([length, x_in.shape[1]])
+
+    if start_idx < 0:
+        tile[np.abs(start_idx):, :] = x_in[:end_idx, :]
+    elif end_idx > x_in.shape[0]:
+        end_idx = x_in.shape[0] - start_idx
+        tile[:end_idx, :] = x_in[start_idx:, :]
+    else:
+        tile[:, :] = x_in[start_idx:end_idx, :]
+    return tile
+
+
 def slice_chord_entity(entity, length, idx=None):
     """Return a windowed slice of a chord Entity.
 
@@ -34,21 +65,8 @@ def slice_chord_entity(entity, length, idx=None):
     sample: biggie.Entity with fields {cqt, chord_label}
         The windowed chord observation.
     """
-    cqt_shape = entity.cqt.value.shape
     idx = np.random.randint(cqt_shape[1]) if idx is None else idx
-    start_idx = idx - length / 2
-    end_idx = start_idx + length
-
-    cqt = np.zeros([cqt_shape[0], length, cqt_shape[2]])
-    if start_idx < 0:
-        start_idx = np.abs(start_idx)
-        cqt[:, start_idx:, :] = entity.cqt.value[:, :end_idx, :]
-    elif end_idx > cqt_shape[1]:
-        end_idx = cqt_shape[1] - start_idx
-        cqt[:, :end_idx, :] = entity.cqt.value[:, start_idx:, :]
-    else:
-        cqt[:, :, :] = entity.cqt.value[:, start_idx:end_idx, :]
-
+    cqt = np.array([extract_tile(x, idx) for x in entity.cqt.value])
     return biggie.Entity(cqt=cqt, chord_label=entity.chord_labels.value[idx])
 
 
@@ -199,6 +217,36 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
     weights = np.array(weights, dtype=float) / np.sum(weights)
     stream = pescador.mux(quality_pool, n_samples=None, k=pool_size, lam=None,
                           with_replacement=False, pool_weights=weights)
+    if pitch_shift:
+        stream = FX.pitch_shift(stream)
+
+    return FX.map_to_chord_index(stream, vocab_dim)
+
+
+def create_uniform_chord_stream(stash, win_length, partition_labels=None,
+                                vocab_dim=157, pitch_shift=True,
+                                working_size=4, valid_idx=None):
+    """Return a stream of chord samples, with uniform quality presentation."""
+    if partition_labels is None:
+        partition_labels = util.partition(stash, chord_map)
+
+    if valid_idx is None:
+        valid_idx = range(vocab_dim)
+
+    chord_pool = []
+    for chord_idx in valid_idx:
+        subindex = util.index_partition_arrays(partition_labels, [chord_idx])
+        entity_pool = [pescador.Streamer(chord_sampler, key, stash,
+                                         win_length, subindex)
+                       for key in subindex.keys()]
+        if len(entity_pool) == 0:
+            continue
+        stream = pescador.mux(
+            entity_pool, n_samples=None, k=working_size, lam=20)
+        chord_pool.append(pescador.Streamer(stream))
+
+    stream = pescador.mux(chord_pool, n_samples=None, k=vocab_dim, lam=None,
+                          with_replacement=False)
     if pitch_shift:
         stream = FX.pitch_shift(stream)
 
