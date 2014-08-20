@@ -140,24 +140,108 @@ def sequence_signals(signals, intervals, samplerate=44100,
     return output_buffer
 
 
-def random_chord(instrument_set, notes, samplerate=44100, normalize=False):
+def random_symbolic_chord_sequence(chord_set, num_chords):
     """
     Parameters
     ----------
-    instrument_set : dict
-        Note numbers pointing to a list of relevant files.
-    notes : array_like
-        Set of note numbers to choose from.
+    chord_set : dict
+        Chord labels pointing to different note number voicings.
+    num_chords : int
+        Number of chord voicings to sample.
+
+    Returns
+    -------
+    chord_labels : list
+        Chord label names for each chord.
+    note_numbers : list
+        List of midi note numbers to sound in each chord.
+    """
+    chord_labels = []
+    note_numbers = []
+    for _ in range(num_chords):
+        chord_labels += [random.choice(chord_set.keys())]
+        note_numbers += [random.choice(chord_set[chord_labels[-1]])]
+    return chord_labels, note_numbers
+
+
+def random_drum_signal(drum_set, duration=30, samplerate=44100, channels=1):
+    """
+    Parameters
+    ----------
+    drum_set : dict
+        Collection of drum clips and timing metadata. Requires the following
+        keys: ['audio_file', 'beat_times', 'duration']
+    duration : scalar
+        Desired length of the signal, in seconds.
     samplerate : scalar
         Samplerate for the signal.
+    channels : int
+        Number of channels.
+
+    Process
+    -------
+        apply random level / amplitude envelope (in log-space)
+
+    Returns
+    -------
+    drum_signal : np.ndarray, shape=(num_samples, num_channels)
+    beat_times : np.ndarray, ndim=1
     """
-    filenames = [random.choice(instrument_set[n]) for n in notes]
+    key = random.choice(drum_set.keys())
+    drum_data = drum_set[key]
+    base_duration = drum_data['duration']
+    num_repeats = max([np.round(duration / base_duration), 1])
+    signals = load_many([drum_data['audio_file']], samplerate=samplerate,
+                        channels=channels, normalize=True) * num_repeats
+    beat_times = [np.asarray(drum_data['beat_times']) + base_duration * n
+                  for n in num_repeats]
+    intervals = np.asarray([(n, n+base_duration) for n in num_repeats])
+    y_n = sequence_signals(signals, intervals, samplerate)
+    return y_n, np.concatenate(beat_times)
+
+
+def random_chord_signal(intervals, instrument_set, notes,
+                        samplerate=44100, normalize=False):
+    """
+    Parameters
+    ----------
+    intervals : np.ndarray
+        Start times for the chords.
+    instrument_set : dict
+        Note numbers pointing to a list of relevant files.
+    chord_set : dict
+        Chord labels pointing to a set of note-number voicings.
+    samplerate : scalar
+        Samplerate for the signal.
+    channels : int
+        Number of channels for the signal.
+
+    Process
+    -------
+        Generate a symbolic chord sequence -> labels, note_numbers
+        beat_times -> intervals
+            subsample / merge?
+        for each note_collection, pick instrument files
+        load signals for each collection
+            scale each signal
+        combine each chord
+        sequence chords to intervals
+        apply random level / amplitude envelope (in log-space)
+
+    Returns
+    -------
+    chord_signal : np.ndarray
+        Synthesized audio signal.
+    labels : list
+        List of string chord labels.
+    """
+
+    def random_vsl_files_for_notes(instrument_set, note_numbers):
+        return [random.choice(instrument_set[n]) for n in note_numbers]
+
     signals = load_many(filenames, samplerate, normalize)
     return combine(signals)
 
-
-def random_chord_sequence(intervals, instrument_set, chord_set,
-                          samplerate=44100, env_args=None):
     signals = []
     chord_labels = []
     for _ in range(len(intervals)):
@@ -169,6 +253,28 @@ def random_chord_sequence(intervals, instrument_set, chord_set,
     return y_out, chord_labels
 
 
+def random_noise_signal():
+    """Noise Signal
+
+    Parameters
+    ----------
+        intervals, audio_files
+
+    Process
+    -------
+        for each interval, random activation
+        load signals for each activation
+        scale signals
+        sequence to intervals
+        apply random level / amplitude envelope (in log-space)
+
+    Returns
+    -------
+    noise_signal
+    """
+    pass
+
+
 def random_audio_sequence(audio_files, intervals,
                           samplerate=44100, env_args=None):
     files = [random.choice(audio_files) for _ in range(len(intervals))]
@@ -177,7 +283,7 @@ def random_audio_sequence(audio_files, intervals,
 
 
 # Mixing weights ...
-def random_signal(drum_set, instrument_set, chord_set,
+def generate_signal(drum_file, instrument_set, chord_set,
                   voice_files):
     duration = timing_data['duration']
     x_n, fs = marl.audio.read(drum_file, samplerate=44100, channels=1)
