@@ -8,7 +8,7 @@ SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
-OPTFILES=${BASEDIR}/biggie/chords
+OPTFILES=${BASEDIR}/biggie/chords_hpss
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
@@ -20,9 +20,10 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ]; then
     echo "Usage:"
-    echo "train.sh {driver} {[0-4]|*all}"
+    echo "train.sh {driver} {[0-4]|*all} {fit|select|transform|*all} {bs}"
     echo $'\tdriver - Name of the training driver.'
     echo $'\tfold# - Number of the training fold, default=all.'
+    echo $'\tphase - Name of training phase, default=all.'
     exit 0
 else
     DRIVER="$1"
@@ -50,61 +51,61 @@ else
     PHASE="$4"
 fi
 
+if [ -z "$5" ]
+then
+    BS=""
+else
+    BS="_bs"
+fi
+
+TRIAL_NAME=${TRIAL_NAME}${BS}
+
 # Fit networks
 if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
 then
-    for drv in ${DRIVER}
+    for idx in ${FOLD_IDXS}
     do
-        for idx in ${FOLD_IDXS}
-        do
-            python ${SRC}/chords/drivers/${drv}.py \
-${OPTFILES}/${idx}/train.hdf5 \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx} \
+            python ${SRC}/chords/drivers/${DRIVER}.py \
+${OPTFILES}/${idx}/train${BS}.hdf5 \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx} \
 ${TRIAL_NAME} \
 ${VALIDATOR_NAME}.json \
 ${TRANSFORM_NAME}.json
-        done
     done
 fi
 
 # Model Selection
 if [ $PHASE == "all" ] || [ $PHASE == "select" ];
 then
-    for drv in ${DRIVER}
+    for idx in ${FOLD_IDXS}
     do
-        for idx in ${FOLD_IDXS}
-        do
-            echo "Collecting parameters."
-            python ${SRC}/common/collect_files.py \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/ \
+        echo "Collecting parameters."
+        python ${SRC}/common/collect_files.py \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/ \
 "*.npz" \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 
-            python ${SRC}/chords/select_params.py \
-${OPTFILES}/${idx}/valid.hdf5 \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${VALIDATOR_NAME}.json \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz
-        done
+        python ${SRC}/chords/select_params.py \
+${OPTFILES}/${idx}/valid${BS}.hdf5 \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${VALIDATOR_NAME}.json \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz
     done
 fi
 
 # Transform data
 if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
 then
-    for drv in ${DRIVER}
+    for idx in ${FOLD_IDXS}
     do
-        for idx in ${FOLD_IDXS}
+        for split in valid test train
         do
-            for split in valid test train
-            do
-                echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
-                python ${SRC}/common/convolve_graph_with_dset.py \
-${OPTFILES}/${idx}/${split}.hdf5 \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
-${MODELS}/${drv}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${drv}/${TRIAL_NAME}/${idx}/${split}.hdf5
-            done
+            echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
+            python ${SRC}/common/convolve_graph_with_dset.py \
+${OPTFILES}/${idx}/${split}${BS}.hdf5 \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}${BS}.hdf5
         done
     done
 fi
