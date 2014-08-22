@@ -66,7 +66,7 @@ def slice_chord_entity(entity, length, idx=None):
         The windowed chord observation.
     """
     idx = np.random.randint(cqt_shape[1]) if idx is None else idx
-    cqt = np.array([extract_tile(x, idx) for x in entity.cqt.value])
+    cqt = np.array([extract_tile(x, idx, length) for x in entity.cqt.value])
     return biggie.Entity(cqt=cqt, chord_label=entity.chord_labels.value[idx])
 
 
@@ -146,7 +146,7 @@ def chord_stepper(key, stash, win_length=20, index=None):
 
 
 def chord_map(entity, vocab_dim=157):
-    """Map an entity's chord_labels to quality indexes; for partitioning."""
+    """Map an entity's chord_labels to class indexes; for partitioning."""
     chord_labels = entity.chord_labels.value
     unique_labels = np.unique(chord_labels)
     unique_idxs = labels.chord_label_to_class_index(unique_labels)
