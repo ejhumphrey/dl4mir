@@ -1,4 +1,21 @@
 import numpy as np
+import scipy.stats
+
+
+def mode(*args, **kwargs):
+    return scipy.stats.mode(*args, **kwargs)[0]
+
+
+def mode2(x_in, axis):
+    value_to_idx = dict()
+    idx_to_value = dict()
+    for x in x_in:
+        if not x in value_to_idx:
+            idx = len(value_to_idx)
+            value_to_idx[x] = idx
+            idx_to_value[idx] = x
+    counts = np.bincount([value_to_idx[x] for x in x_in])
+    return idx_to_value[counts.argmax()]
 
 
 def inarray(ar1, ar2):
@@ -73,7 +90,7 @@ def index_partition_arrays(partition_labels, label_set):
     return index
 
 
-def boundary_pool(x_in, index_edges, pool_func='mean'):
+def boundary_pool(x_in, index_edges, axis=0, pool_func='mean'):
     """Pool the values of an array, bounded by a set of edges.
 
     Parameters
@@ -90,13 +107,18 @@ def boundary_pool(x_in, index_edges, pool_func='mean'):
     z_out : np.ndarray, shape=(n_edges-1, ...)
         Pooled output array.
     """
-    fxs = dict(mean=np.mean, max=np.max, median=np.median)
+    fxs = dict(mean=np.mean, max=np.max, median=np.median, mode=mode2)
     assert pool_func in fxs, \
         "Function '%s' unsupported. Expected one of {%s}" % (pool_func,
                                                              fxs.keys())
     pool = fxs[pool_func]
     num_points = len(index_edges) - 1
-    z_out = np.zeros([num_points, x_in.shape[1]])
+    axes_order = range(x_in.ndim)
+    axes_order.insert(0, axes_order.pop(axis))
+    axes_reorder = np.array(axes_order).argsort()
+    x_in = x_in.transpose(axes_order)
+
+    z_out = np.empty([num_points] + list(x_in.shape[1:]), dtype=x_in.dtype)
     for idx, delta in enumerate(np.diff(index_edges)):
         if delta > 0:
             z = pool(x_in[index_edges[idx]:index_edges[idx + 1]], axis=0)
@@ -104,8 +126,8 @@ def boundary_pool(x_in, index_edges, pool_func='mean'):
             z = x_in[index_edges[idx]]
         else:
             raise ValueError("`index_edges` must be monotonically increasing.")
-        z_out[idx] = z
-    return z_out
+        z_out[idx, ...] = z
+    return z_out.transpose(axes_reorder)
 
 
 def normalize(x, axis=None):
