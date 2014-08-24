@@ -8,8 +8,14 @@ import os
 import marl.fileutils as futil
 import time
 
+import dl4mir.common.util as util
 
-def estimate_classes(entity):
+
+def mle(posterior):
+    return posterior.argmax(axis=1)
+
+
+def estimate_classes(entity, prediction_fx=mle):
     """
 
     Parameters
@@ -26,8 +32,8 @@ def estimate_classes(entity):
     """
     num_classes = entity.posterior.value.shape[1]
     estimations = dict()
-    for label, idx in zip(entity.chord_labels.value,
-                          entity.posterior.value.argmax(axis=1)):
+    y_pred = prediction_fx(entity.posterior.value)
+    for label, idx in zip(entity.chord_labels.value, y_pred):
         if not label in estimations:
             estimations[label] = np.zeros(num_classes, dtype=np.int).tolist()
         estimations[label][idx] += 1
@@ -36,7 +42,6 @@ def estimate_classes(entity):
 
 
 def main(args):
-    print args.posterior_file
     if not os.path.exists(args.posterior_file):
         print "File does not exist: %s" % args.posterior_file
         return
