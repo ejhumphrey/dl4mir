@@ -21,20 +21,22 @@ def beat_sync(entity, new_times, new_labels=None, mode='median'):
     chord_labels = data.pop('chord_labels')
 
     idxs = find_closest_idx(time_points, new_times).tolist()
-    if new_labels is None:
-        chord_labels = chord_labels[idxs]
-        # print "Best guess label interpolation! You should provide labels."
-    else:
-        chord_labels = np.asarray(new_labels)
-
     if idxs[0] != 0:
         idxs.insert(0, 0)
     if idxs[-1] != len(time_points) - 1:
         idxs.append(len(time_points) - 1)
 
+    if new_labels is None:
+        chord_labels = util.boundary_pool(chord_labels, idxs, pool_func='mode')
+    else:
+        chord_labels = np.asarray(new_labels)
+
     for key in data:
-        if len(time_points) in [len(data[key]), len(data[key]) - 1]:
-            data[key] = util.boundary_pool(data[key], idxs, pool_func=mode)
+        data_shape = list(data[key].shape)
+        if len(time_points) in data_shape:
+            axis = data_shape.index(len(time_points))
+            data[key] = util.boundary_pool(data[key], idxs,
+                                           pool_func=mode, axis=axis)
 
     return biggie.Entity(time_points=new_times,
                          chord_labels=chord_labels,
