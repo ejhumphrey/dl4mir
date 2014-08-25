@@ -113,7 +113,34 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
         count += 1
 
 
-def chord_stepper(key, stash, win_length=20, index=None):
+def cqt_buffer(entity, win_length=20, valid_samples=None):
+    """Generator for stepping windowed chord observations from an entity.
+
+    Parameters
+    ----------
+    entity : biggie.Entity
+        CQT entity to step through
+    win_length: int
+        Length of centered observation window for the CQT.
+
+    Yields
+    ------
+    sample: biggie.Entity with fields {cqt, chord_label}
+        The windowed chord observation.
+    """
+    num_samples = len(entity.chord_labels.value)
+    if valid_samples is None:
+        valid_samples = np.arange(num_samples)
+
+    idx = 0
+    count = 0
+    while count < len(valid_samples):
+        yield slice_chord_entity(entity, win_length, valid_samples[idx])
+        idx += 1
+        count += 1
+
+
+def lazy_cqt_buffer(key, stash, win_length=20, index=None):
     """Generator for stepping windowed chord observations from an entity.
 
     Parameters
@@ -137,12 +164,8 @@ def chord_stepper(key, stash, win_length=20, index=None):
         index = {key: np.arange(num_samples)}
 
     valid_samples = index.get(key, [])
-    idx = 0
-    count = 0
-    while count < len(valid_samples):
-        yield slice_chord_entity(entity, win_length, valid_samples[idx])
-        idx += 1
-        count += 1
+    for x in cqt_buffer(entity, win_length, valid_samples):
+        yield x
 
 
 def chord_map(entity, vocab_dim=157):
