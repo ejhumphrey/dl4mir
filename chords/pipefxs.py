@@ -3,10 +3,11 @@ from dl4mir.chords import labels
 
 import biggie
 from marl.utils.matrix import circshift
+from marl.utils.matrix import translate
 from marl.chords.utils import transpose_chord_index
 
 
-def _pitch_shift(entity, pitch_shift, bins_per_pitch):
+def _pitch_circshift(entity, pitch_shift, bins_per_pitch):
     values = entity.values()
     cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
 
@@ -26,7 +27,27 @@ def _pitch_shift(entity, pitch_shift, bins_per_pitch):
     return biggie.Entity(cqt=cqt, chord_label=chord_label, **values)
 
 
-def pitch_shift(stream, max_pitch_shift=12, bins_per_pitch=3):
+def _pitch_shift(entity, pitch_shift, bins_per_pitch, fill_value=0.0):
+    values = entity.values()
+    cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
+
+    # Change the chord label if it has a harmonic root.
+    if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
+        root, quality, exts, bass = labels.split(chord_label)
+        root = (labels.pitch_class_to_semitone(root) + pitch_shift) % 12
+        new_root = labels.semitone_to_pitch_class(root)
+        new_label = labels.join(new_root, quality, exts, bass)
+        # print "Input %12s // Shift: %3s // Output %12s" % \
+        #     (chord_label, pitch_shift, new_label)
+        chord_label = new_label
+
+    # Always rotate the CQT.
+    bin_shift = pitch_shift*bins_per_pitch
+    cqt = translate(cqt[0], 0, bin_shift, fill_value)[np.newaxis, ...]
+    return biggie.Entity(cqt=cqt, chord_label=chord_label, **values)
+
+
+def pitch_shift(stream, max_pitch_shift=6, bins_per_pitch=3):
     """Apply a random circular shift to the CQT, and rotate the root."""
     for entity in stream:
         if entity is None:
@@ -158,3 +179,34 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
                             chord_idx=pos_chord_idx, is_chord=1)
         yield biggie.Entity(cqt=neg_entity.cqt.value,
                             chord_idx=pos_chord_idx, is_chord=0)
+
+
+def binomial_mask(stream, dropout=0.25):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        mask = np.random.binomial(1, 1.0 - dropout, entity.cqt.value.shape)
+        entity.cqt.value = entity.cqt.value * mask
+        yield entity
+
+
+def awgn(stream, mu=0.0, sigma=0.1):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        noise = np.random.normal(mu, sigma, entity.cqt.value.shape)
+        entity.cqt.value = entity.cqt.value + noise
+        yield entity
+
+
+def drop_frames(stream, dropout=0.1):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        mask = np.random.binomial(1, 1.0 - dropout, entity.cqt.value.shape[1])
+        mask[len(mask)/2] = 1.0
+        entity.cqt.value = entity.cqt.value * mask[np.newaxis, :, np.newaxis]
+        yield entity
