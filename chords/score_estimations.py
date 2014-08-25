@@ -64,9 +64,6 @@ def collapse_estimations(estimations):
     total = dict()
     for key in estimations:
         for label, counts in estimations[key].items():
-            # N:maj are cropping up right now...?
-            if label.startswith("N"):
-                label = "N"
             if not label in total:
                 total[label] = np.zeros_like(np.array(counts))
             total[label] += np.array(counts)
@@ -92,14 +89,14 @@ def confusion_matrix(results, num_classes,
 def quality_confusion_matrix(results):
     num_classes = 157
     qual_conf = np.zeros([num_classes, num_classes])
-    for label, counts in results.items():
-        root, semitones, bass = mir_eval.chord.encode(label)
-        qidx = 13 if label == 'N' else labels.get_quality_index(semitones,
-                                                                num_classes)
-        if qidx is None:
+    chord_idxs = labels.chord_label_to_class_index(results.keys(), num_classes)
+    for chord_idx, counts in zip(chord_idxs, results.values()):
+        if chord_idx is None:
             continue
-        qual_conf[qidx*12, :] += rotate(counts,
-                                        root) if qidx != 13 else counts
+        quality_idx = int(chord_idx) / 12
+        root = chord_idx % 12
+        counts = rotate(counts, root) if quality_idx != 13 else counts
+        qual_conf[quality_idx*12, :] += counts
     return qual_conf
 
 
