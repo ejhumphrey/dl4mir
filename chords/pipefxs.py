@@ -208,7 +208,7 @@ def binomial_mask(stream, max_dropout=0.25):
         if entity is None:
             yield entity
             continue
-        p = 1.0 - np.random.rand(0, max_dropout)
+        p = 1.0 - np.random.uniform(0, max_dropout)
         mask = np.random.binomial(1, p, entity.cqt.value.shape)
         entity.cqt.value = entity.cqt.value * mask
         yield entity
@@ -229,7 +229,7 @@ def drop_frames(stream, max_dropout=0.1):
         if entity is None:
             yield entity
             continue
-        p = 1.0 - np.random.rand(0, max_dropout)
+        p = 1.0 - np.random.uniform(0, max_dropout)
         mask = np.random.binomial(1, p, entity.cqt.value.shape[1])
         mask[len(mask)/2] = 1.0
         entity.cqt.value = entity.cqt.value * mask[np.newaxis, :, np.newaxis]
