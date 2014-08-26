@@ -189,7 +189,7 @@ def quality_map(entity, vocab_dim=157):
 
 
 def create_chord_stream(stash, win_length, pool_size=50, vocab_dim=157,
-                        pitch_shift=True):
+                        pitch_shift=False):
     """Return an unconstrained stream of chord samples."""
     entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
                    for key in stash.keys()]
@@ -247,7 +247,7 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
 
 
 def create_uniform_chord_stream(stash, win_length, partition_labels=None,
-                                vocab_dim=157, pitch_shift=True,
+                                vocab_dim=157, pitch_shift=6,
                                 working_size=4, valid_idx=None):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:
@@ -271,7 +271,7 @@ def create_uniform_chord_stream(stash, win_length, partition_labels=None,
     stream = pescador.mux(chord_pool, n_samples=None, k=vocab_dim, lam=None,
                           with_replacement=False)
     if pitch_shift:
-        stream = FX.pitch_shift(stream)
+        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_chord_index(stream, vocab_dim)
 
