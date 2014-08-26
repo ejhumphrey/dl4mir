@@ -3,9 +3,9 @@ import argparse
 import biggie
 import optimus
 from os import path
-import json
 
 import dl4mir.chords.data as D
+import dl4mir.chords.pipefxs as FX
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
 
@@ -157,13 +157,12 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
+    s = D.create_uniform_chord_stream(
+        stash, TIME_DIM, pitch_shift=6, vocab_dim=VOCAB, working_size=10)
     stream = S.minibatch(
-        D.create_uniform_chord_stream(
-            stash, TIME_DIM, pitch_shift=False, vocab_dim=VOCAB,
-            working_size=3),
+        FX.drop_frames(FX.awgn(s, 0.05), 0.1),
         batch_size=BATCH_SIZE)
 
-    print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
         graph=trainer,
         name=args.trial_name,
@@ -172,13 +171,14 @@ def main(args):
     hyperparams = {learning_rate.name: LEARNING_RATE,
                    dropout.name: DROPOUT}
 
-    driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
-
     validator_file = path.join(driver.output_directory, args.validator_file)
     optimus.save(validator, def_file=validator_file)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
+
+    print "Starting '%s'" % args.trial_name
+    driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
 if __name__ == "__main__":

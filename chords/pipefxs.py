@@ -6,6 +6,10 @@ from marl.utils.matrix import circshift
 from marl.utils.matrix import translate
 from marl.chords.utils import transpose_chord_index
 
+import dl4mir.common.util as util
+
+from scipy.spatial.distance import cdist
+
 
 def _pitch_circshift(entity, pitch_shift, bins_per_pitch):
     values = entity.values()
@@ -104,6 +108,24 @@ def map_to_chord_quality_index(stream, vocab_dim):
                                                           quality_idx=qual_idx)
 
 
+def chord_index_to_tonnetz_distance(stream, vocab_dim):
+    chord_labels = [labels.index_to_chord_label(n, vocab_dim)
+                    for n in range(vocab_dim)]
+    X = np.array([labels.chord_label_to_tonnetz(l) for l in chord_labels])
+    ssm = cdist(X.squeeze(), X.squeeze())
+    ssm -= ssm.max()
+    ssm *= -1
+    ssm[-1] = 1.0 / vocab_dim
+    ssm[-1, -1] = 1.0
+    ssm = util.normalize(ssm, axis=1)
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        yield biggie.Entity(cqt=entity.cqt.value,
+                            target=ssm[entity.chord_idx.value])
+
+
 def map_to_joint_index(stream, vocab_dim):
     """
     vocab_dim: int
@@ -181,12 +203,13 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
                             chord_idx=pos_chord_idx, is_chord=0)
 
 
-def binomial_mask(stream, dropout=0.25):
+def binomial_mask(stream, max_dropout=0.25):
     for entity in stream:
         if entity is None:
             yield entity
             continue
-        mask = np.random.binomial(1, 1.0 - dropout, entity.cqt.value.shape)
+        p = 1.0 - np.random.rand(0, max_dropout)
+        mask = np.random.binomial(1, p, entity.cqt.value.shape)
         entity.cqt.value = entity.cqt.value * mask
         yield entity
 
@@ -197,16 +220,17 @@ def awgn(stream, mu=0.0, sigma=0.1):
             yield entity
             continue
         noise = np.random.normal(mu, sigma, entity.cqt.value.shape)
-        entity.cqt.value = entity.cqt.value + noise
+        entity.cqt.value = entity.cqt.value + noise * np.random.normal(0, 0.25)
         yield entity
 
 
-def drop_frames(stream, dropout=0.1):
+def drop_frames(stream, max_dropout=0.1):
     for entity in stream:
         if entity is None:
             yield entity
             continue
-        mask = np.random.binomial(1, 1.0 - dropout, entity.cqt.value.shape[1])
+        p = 1.0 - np.random.rand(0, max_dropout)
+        mask = np.random.binomial(1, p, entity.cqt.value.shape[1])
         mask[len(mask)/2] = 1.0
         entity.cqt.value = entity.cqt.value * mask[np.newaxis, :, np.newaxis]
         yield entity
