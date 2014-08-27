@@ -113,17 +113,23 @@ def chord_index_to_tonnetz_distance(stream, vocab_dim):
                     for n in range(vocab_dim)]
     X = np.array([labels.chord_label_to_tonnetz(l) for l in chord_labels])
     ssm = cdist(X.squeeze(), X.squeeze())
-    ssm -= ssm.max()
-    ssm *= -1
-    ssm[-1] = 1.0 / vocab_dim
-    ssm[-1, -1] = 1.0
-    ssm = util.normalize(ssm, axis=1)
+    sn_distance = 1 - ssm / ssm.max()
     for entity in stream:
         if entity is None:
             yield entity
             continue
         yield biggie.Entity(cqt=entity.cqt.value,
-                            target=ssm[entity.chord_idx.value])
+                            target=sn_distance[entity.chord_idx.value])
+
+
+def chord_index_to_affinity_vectors(stream, vocab_dim):
+    affinity_vectors = labels.affinity_vectors(vocab_dim)
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        yield biggie.Entity(cqt=entity.cqt.value,
+                            target=affinity_vectors[entity.chord_idx.value])
 
 
 def map_to_joint_index(stream, vocab_dim):
@@ -233,4 +239,17 @@ def drop_frames(stream, max_dropout=0.1):
         mask = np.random.binomial(1, p, entity.cqt.value.shape[1])
         mask[len(mask)/2] = 1.0
         entity.cqt.value = entity.cqt.value * mask[np.newaxis, :, np.newaxis]
+        yield entity
+
+
+def wrap_cqt(stream, length=40, stride=36):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        assert entity.cqt.value.shape[0] == 1
+        cqt = entity.cqt.value[0]
+        num_tiles = int((cqt.shape[1] - (length-stride)) / float(stride))
+        entity.cqt.value = np.array([cqt[:, n*stride:n*stride + length]
+                                     for n in range(num_tiles)])
         yield entity
