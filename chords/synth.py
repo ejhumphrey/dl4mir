@@ -1,14 +1,23 @@
 import argparse
 import numpy as np
+import glob
+import json
+import os
 import marl
 import random
+import time
+import marl.fileutils as futil
 
+from multiprocessing import Pool
+
+
+NUM_CPUS = 12
 
 def normalize(x_n):
     return x_n / np.abs(x_n).max()
 
 
-def load_many(filenames, samplerate, channels=1, normalize=False):
+def load_many(filenames, samplerate, channels=1, normalize_signal=False):
     """Load several audio signals into a list.
 
     Parameters
@@ -30,7 +39,7 @@ def load_many(filenames, samplerate, channels=1, normalize=False):
     signals = []
     for f in filenames:
         x_n, fs = marl.audio.read(f, samplerate=samplerate, channels=channels)
-        if normalize:
+        if normalize_signal:
             x_n = normalize(x_n)
         signals.append(x_n)
     return signals
@@ -140,7 +149,7 @@ def sequence_signals(signals, intervals, samplerate=44100,
     return output_buffer
 
 
-def random_symbolic_chord_sequence(chord_set, num_chords):
+def random_symbolic_chord_sequence(chord_set, num_chords, repeat_prob=0.5):
     """
     Parameters
     ----------
@@ -158,9 +167,15 @@ def random_symbolic_chord_sequence(chord_set, num_chords):
     """
     chord_labels = []
     note_numbers = []
+    last_chord = random.choice(chord_set.keys())
     for _ in range(num_chords):
-        chord_labels += [random.choice(chord_set.keys())]
+        if np.random.binomial(1, p=repeat_prob):
+            label = last_chord
+        else:
+            label = random.choice(chord_set.keys())
+        chord_labels += [label]
         note_numbers += [random.choice(chord_set[chord_labels[-1]])]
+        last_chord = chord_labels[-1]
     return chord_labels, note_numbers
 
 
@@ -190,18 +205,19 @@ def random_drum_signal(drum_set, duration=30, samplerate=44100, channels=1):
     key = random.choice(drum_set.keys())
     drum_data = drum_set[key]
     base_duration = drum_data['duration']
-    num_repeats = max([np.round(duration / base_duration), 1])
+    num_repeats = int(max([np.round(duration / base_duration), 1]))
     signals = load_many([drum_data['audio_file']], samplerate=samplerate,
-                        channels=channels, normalize=True) * num_repeats
+                        channels=channels, normalize_signal=True) * num_repeats
     beat_times = [np.asarray(drum_data['beat_times']) + base_duration * n
-                  for n in num_repeats]
-    intervals = np.asarray([(n, n+base_duration) for n in num_repeats])
+                  for n in range(num_repeats)]
+    intervals = np.asarray([(n*base_duration, (n+1)*base_duration)
+                            for n in range(num_repeats)])
     y_n = sequence_signals(signals, intervals, samplerate)
     return y_n, np.concatenate(beat_times)
 
 
-def random_chord_signal(intervals, instrument_set, notes,
-                        samplerate=44100, normalize=False):
+def random_chord_signal(intervals, instrument_set, notes, amplitudes=None,
+                        samplerate=44100, env_args=None):
     """
     Parameters
     ----------
@@ -239,21 +255,22 @@ def random_chord_signal(intervals, instrument_set, notes,
     def random_vsl_files_for_notes(instrument_set, note_numbers):
         return [random.choice(instrument_set[n]) for n in note_numbers]
 
-    signals = load_many(filenames, samplerate, normalize)
-    return combine(signals)
+    # signals = load_many(filenames, samplerate, normalize)
+    # return combine(signals)
 
     signals = []
-    chord_labels = []
-    for _ in range(len(intervals)):
-        chord_labels += [random.choice(chord_set.keys())]
-        notes = random.choice(chord_set[chord_labels[-1]])
-        signals += [random_chord(instrument_set, notes, samplerate)]
+    amplitudes = np.ones(len(intervals)) if amplitudes is None else amplitudes
+    for nts, amp in zip(notes, amplitudes):
+        instrument_files = random_vsl_files_for_notes(instrument_set, nts)
+        note_signals = load_many(instrument_files, samplerate=samplerate,
+                                 channels=1, normalize_signal=True)
+        signals += [amp*combine(note_signals)]
 
-    y_out = sequence_signals(signals, intervals, samplerate, env_args)
-    return y_out, chord_labels
+    return sequence_signals(signals, intervals, samplerate, env_args)
 
 
-def random_noise_signal():
+def random_noise_signal(audio_files, intervals, amplitudes=None,
+                        samplerate=44100, env_args=None):
     """Noise Signal
 
     Parameters
@@ -272,35 +289,11 @@ def random_noise_signal():
     -------
     noise_signal
     """
-    pass
-
-
-def random_audio_sequence(audio_files, intervals,
-                          samplerate=44100, env_args=None):
     files = [random.choice(audio_files) for _ in range(len(intervals))]
-    signals = load_many(files, samplerate, channels=1)
-    return sequence_signals(signals, intervals, samplerate, env_args)
-
-
-# Mixing weights ...
-def generate_signal(drum_file, instrument_set, chord_set,
-                  voice_files):
-    duration = timing_data['duration']
-    x_n, fs = marl.audio.read(drum_file, samplerate=44100, channels=1)
-    chord_times = []
-    voice_times = []
-    for t in timing_data['beat_times'][1:-1]:
-        if np.random.binomial(1, p=0.5):
-            chord_times.append(t)
-        if np.random.binomial(1, p=0.5):
-            voice_times.append(t)
-
-    y_n, intervals, chord_labels = random_chord_sequence(
-        intervals, instrument_set, chord_set, samplerate=fs)
-    v_n = random_audio_sequence(voice_files, intervals, samplerate=fs)
-    y_n = y_n + v_n + x_n.squeeze()
-    y_n /= np.abs(y_n).max()
-    return y_n, intervals, chord_labels
+    signals = load_many(files, samplerate, channels=1, normalize_signal=True)
+    amplitudes = np.ones(len(intervals)) if amplitudes is None else amplitudes
+    return sequence_signals([a*x for a,x in zip(amplitudes, signals)],
+                            intervals, samplerate, env_args)
 
 
 def start_times_to_intervals(start_times, end_duration=None):
@@ -321,11 +314,83 @@ def start_times_to_intervals(start_times, end_duration=None):
     """
     durations = np.abs(np.diff(start_times))
     if end_duration is None:
-        end_duration = durations.mean()
+        end_duration = durations.mean() + start_times.max()
     intervals = []
     for t, d in zip(start_times, durations):
         intervals += [(t, t+d)]
     return np.asarray(intervals + [(start_times[-1], end_duration)])
+
+
+def make_one(drum_set, chord_set, instrument_set, noise_files, weights=None,
+             duration=30, samplerate=44100, min_beat_period=0.5):
+    drum_signal, beat_times = random_drum_signal(
+        drum_set, samplerate=samplerate, duration=duration)
+    if np.abs(np.diff(beat_times)).mean() < min_beat_period:
+        beat_times = beat_times[::2]
+    intervals = start_times_to_intervals(beat_times)
+
+    # -- Generate chords --
+    chord_labels, notes = random_symbolic_chord_sequence(
+        chord_set, len(intervals))
+    chord_signal = random_chord_signal(
+        intervals, instrument_set, notes, samplerate=samplerate)
+
+    # -- Generate noise --
+    # Subsample intervals
+    idx = np.random.binomial(1,.5, size=len(intervals)).astype(bool)
+    noise_signal = random_noise_signal(
+        noise_files, intervals[idx], samplerate=samplerate)
+
+    weights = np.ones(3) / 3.0 if weights is None else weights
+    signals = [drum_signal, chord_signal, noise_signal]
+    y_out = combine([w * x for w, x in zip(weights, signals)])
+    return y_out, chord_labels, intervals
+
+
+def render(n):
+    weights = [np.random.uniform(0.25, 1.0),
+               np.random.uniform(0.25, 0.5),
+               np.random.uniform(0.5, 0.75),]
+    try:
+        y_out, chord_labels, intervals = make_one(
+            SHARED_DATA['drum_set'], SHARED_DATA['chord_set'],
+            SHARED_DATA['instrument_set'], SHARED_DATA['noise_files'],
+            weights, SHARED_DATA['duration'], SHARED_DATA['samplerate'])
+    except ValueError:
+        print "Died trying to render '%d', revisit..."
+        return
+    y_out *= np.random.uniform(0.25, 1.0) / np.abs(y_out).max()
+    apath = "%s/%04d.mp3" % (SHARED_DATA['audio_dir'], n)
+    marl.audio.write(apath, y_out, SHARED_DATA['samplerate'])
+    with open("%s/%04d.json" % (SHARED_DATA['lab_dir'], n), 'w') as fp:
+        json.dump(
+            dict(labels=chord_labels, intervals=intervals.tolist()),
+            fp, indent=2)
+    print "[%s] Finished %12d" % (time.asctime(), n)
+
+
+SHARED_DATA = dict()
+def main(args):
+    SHARED_DATA['audio_dir'] = futil.create_directory(
+        os.path.join(args.output_directory, "audio"))
+    SHARED_DATA['lab_dir'] = futil.create_directory(
+        os.path.join(args.output_directory, "labs"))
+
+    SHARED_DATA['drum_set'] = json.load(open(args.drum_set))
+    SHARED_DATA['instrument_set'] = dict(
+        [(int(k), v) for k, v in json.load(open(args.instrument_set)).items()])
+
+    SHARED_DATA['chord_set'] = json.load(open(args.chord_voicings))
+    SHARED_DATA['noise_files'] = glob.glob(os.path.join(args.noise_dir,
+                                                        "*.wav"))
+
+    SHARED_DATA['duration'] = 60
+    SHARED_DATA['samplerate'] = 44100
+
+    for n in range(args.num_files):
+        render(n)
+    pool.close()
+    pool.join()
 
 
 if __name__ == "__main__":
@@ -333,17 +398,23 @@ if __name__ == "__main__":
 
     # Inputs
     parser.add_argument("drum_set",
-                        metavar="drum_dir", type=str,
-                        help="Path to a JSON file of .")
+                        metavar="drum_set", type=str,
+                        help="Path to a JSON file of drum track info.")
     parser.add_argument("instrument_set",
-                        metavar="drum_dir", type=str,
-                        help="Path to a JSON file of .")
-    parser.add_argument("vox_set",
-                        metavar="drum_dir", type=str,
+                        metavar="instrument_set", type=str,
+                        help="Path to a JSON file of note numbers and files.")
+    parser.add_argument("chord_voicings",
+                        metavar="chord_voicings", type=str,
+                        help="Path to a JSON file of chord labels and notes.")
+    parser.add_argument("noise_dir",
+                        metavar="noise_dir", type=str,
+                        help="Path to a set of background noise files.")
+    parser.add_argument("num_files",
+                        metavar="num_files", type=int,
                         help="Path to a JSON file of .")
 
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Path to save the training results.")
-    # main(parser.parse_args())
+    main(parser.parse_args())
