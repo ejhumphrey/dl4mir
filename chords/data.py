@@ -189,13 +189,13 @@ def quality_map(entity, vocab_dim=157):
 
 
 def create_chord_stream(stash, win_length, pool_size=50, vocab_dim=157,
-                        pitch_shift=False):
+                        pitch_shift=0):
     """Return an unconstrained stream of chord samples."""
     entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
                    for key in stash.keys()]
     stream = pescador.mux(entity_pool, None, pool_size, lam=25)
-    if pitch_shift:
-        stream = FX.pitch_shift(stream)
+    if pitch_shift > 0:
+        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_chord_index(stream, vocab_dim)
 
@@ -380,3 +380,26 @@ def chroma_stepper(key, stash, index=None):
                             chord_label=entity.chord_labels.value[n])
         idx += 1
         count += 1
+
+
+def count_transitions(stash, vocab_dim=157):
+    transitions = np.zeros([(vocab_dim / 12) + 1, vocab_dim])
+    for k in stash.keys():
+        chord_labels = stash.get(k).chord_labels.value
+        chord_idx = labels.chord_label_to_class_index(chord_labels, vocab_dim)
+        for n in range(len(chord_idx) - 1):
+            if chord_idx[n] is None or chord_idx[n + 1] is None:
+                continue
+            c_idx = int(chord_idx[n]) / 12
+            rel_idx = labels.relative_chord_index(
+                chord_idx[n], chord_idx[n+1], vocab_dim)
+            transitions[c_idx, rel_idx] += 1
+
+    trans_mat = []
+    for row in transitions[:-1]:
+        for _ in range(12):
+            trans_mat.append(labels.rotate(row, 0-_))
+
+    trans_mat.append(trans_mat[-1])
+    return np.array(trans_mat)
+
