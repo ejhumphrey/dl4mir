@@ -109,7 +109,7 @@ then
     do
         for split in valid test train
         do
-            echo "Transforming ${OPTFILES}/${idx}/${split}.hdf5"
+            echo "Transforming ${OPTFILES}/${idx}/${split}${BS}.hdf5"
             python ${SRC}/common/convolve_graph_with_dset.py \
 ${OPTFILES}/${idx}/${split}${BS}.hdf5 \
 ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \

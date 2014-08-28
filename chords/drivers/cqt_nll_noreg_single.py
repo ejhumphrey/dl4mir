@@ -14,8 +14,7 @@ TIME_DIM = 20
 VOCAB = 157
 LEARNING_RATE = 0.01
 BATCH_SIZE = 50
-OCTAVE_DIM = 6
-PITCH_DIM = 40
+PITCH_DIM = 252
 
 # Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB
@@ -25,7 +24,7 @@ def main(args):
     # 1.1 Create Inputs
     input_data = optimus.Input(
         name='cqt',
-        shape=(None, OCTAVE_DIM, TIME_DIM, PITCH_DIM))
+        shape=(None, 1, TIME_DIM, PITCH_DIM))
 
     chord_idx = optimus.Input(
         name='chord_idx',
@@ -40,20 +39,20 @@ def main(args):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(32, None, 5, 5),
+        weight_shape=(32, 1, 5, 19),
         pool_shape=(2, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(64, None, 5, 7),
+        weight_shape=(64, None, 5, 15),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 3, 6),
+        weight_shape=(128, None, 3, 15),
         act_type='relu')
 
     layer3 = optimus.Affine(
