@@ -12,7 +12,8 @@ import time
 
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
-
+LAB_EXT = "json"
+NPZ_EXT = "npz"
 
 def create_chord_entity(npz_file, lab_file, dtype=np.float32):
     """Create an entity from the given files.
@@ -58,8 +59,8 @@ def populate_stash(keys, cqt_directory, lab_directory, stash,
     """
     total_count = len(keys)
     for idx, key in enumerate(keys):
-        cqt_file = path.join(cqt_directory, "%s.npz" % key)
-        lab_file = path.join(lab_directory, "%s.lab" % key)
+        cqt_file = path.join(cqt_directory, "%s.%s" % (key, NPZ_EXT))
+        lab_file = path.join(lab_directory, "%s.%s" % (key, LAB_EXT))
         stash.add(key, create_chord_entity(cqt_file, lab_file, dtype))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
