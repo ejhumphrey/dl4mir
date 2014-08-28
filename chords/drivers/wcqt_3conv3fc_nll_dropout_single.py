@@ -147,7 +147,7 @@ def main(args):
         name=GRAPH_NAME,
         inputs=[input_data, chord_idx],
         nodes=all_nodes,
-        connections=trainer_edges.connections,
+        connections=validator_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
         losses=[chord_nll])
 
