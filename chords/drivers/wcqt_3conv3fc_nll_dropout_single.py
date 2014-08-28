@@ -78,7 +78,7 @@ def main(args):
         n_out=VOCAB,
         act_type='linear')
 
-    all_nodes = [layer0, layer1, layer2, layer3, layer_4, chord_classifier]
+    all_nodes = [layer0, layer1, layer2, layer3, layer4, chord_classifier]
 
     for n in [layer3, layer4]:
         n.enable_dropout()
