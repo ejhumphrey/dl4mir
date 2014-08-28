@@ -12,7 +12,7 @@ from dl4mir.chords import DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.02
 BATCH_SIZE = 50
 OCTAVE_DIM = 6
 PITCH_DIM = 40
@@ -72,6 +72,9 @@ def main(args):
         output_shape=(None, 1024,),
         act_type='relu')
 
+    for n in [layer3, layer4]:
+        n.enable_dropout()
+
     chord_classifier = optimus.Softmax(
         name='chord_classifier',
         input_shape=layer4.output.shape,
@@ -79,9 +82,6 @@ def main(args):
         act_type='linear')
 
     all_nodes = [layer0, layer1, layer2, layer3, layer4, chord_classifier]
-
-    for n in [layer3, layer4]:
-        n.enable_dropout()
 
     # 1.1 Create Losses
     chord_nll = optimus.NegativeLogLikelihood(
@@ -132,6 +132,16 @@ def main(args):
 
     for n in [layer3, layer4]:
         n.disable_dropout()
+
+    validator_edges = optimus.ConnectionManager([
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, layer4.input),
+        (layer4.output, chord_classifier.input),
+        (chord_classifier.output, chord_nll.likelihood),
+        (chord_idx, chord_nll.target_idx)])
 
     validator = optimus.Graph(
         name=GRAPH_NAME,
