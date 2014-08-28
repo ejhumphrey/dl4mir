@@ -11,7 +11,7 @@
 
 # BASEDIR=/media/attic/dl4mir/chord_estimation
 BASEDIR=${DL4MIR}/chord_estimation
-SRC=dl4mir
+SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
