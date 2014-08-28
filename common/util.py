@@ -224,3 +224,10 @@ def viterbi(posterior, transition_matrix, prior=None, penalty=0, scaled=True):
     for idx in range(num_obs - 2, -1, -1):
         path[idx] = psi[idx + 1, path[idx + 1]]
     return path
+
+
+def fold_array(x_in, length, stride):
+    """Fold a 2D-matrix into a 3D tensor by wrapping the last dimension."""
+    num_tiles = int((x_in.shape[1] - (length-stride)) / float(stride))
+    return np.array([x_in[:, n*stride:n*stride + length]
+                     for n in range(num_tiles)])

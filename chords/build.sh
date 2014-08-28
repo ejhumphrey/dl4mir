@@ -1,5 +1,5 @@
 #!/bin/bash
-BASEDIR=/Volumes/megatron/dl4mir/chord_estimation
+BASEDIR=/Volumes/megatron/dl4mir/chord_estimation/chords_synth
 SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Flat directory of all audio
@@ -10,8 +10,10 @@ LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
 # Directory of biggie Stashes, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-DSETS=${BASEDIR}/biggie/chords
+STASH=${BASEDIR}/biggie/chords
+WSTASH=${BASEDIR}/biggie/chords_wrap
 
+AUDIO_EXT="mp3"
 AUDIO_FILES=${AUDIO}/filelist.txt
 CQT_FILES=${CQTS}/filelist.txt
 CQT_PARAMS=${META}/cqt_params.json
@@ -25,6 +27,9 @@ VALID_RATIO=0.15
 SPLIT_FILE=${META}/data_splits.json
 REFERENCE_FILE=${META}/reference_chords.json
 
+LENGTH=40
+STRIDE=36
+
 if [ -z "$1" ]; then
     echo "Usage:"
     echo "build.sh {clean|cqt|lcn|labs|splits|biggie|all}"
@@ -34,6 +39,7 @@ if [ -z "$1" ]; then
     echo $'\tlabs - Collects labfiles as a single JSON object'
     echo $'\tsplits - Builds the json metadata files'
     echo $'\tbiggie - Builds biggie dataset files'
+    echo $'\twrap - Wraps cqts down to 3D tensors'
     echo $'\tall - Do everything, in order'
     exit 0
 fi
@@ -43,7 +49,7 @@ if [ "$1" == "cqt" ] || [ "$1" == "all" ]; then
     echo "Updating audio file list."
     python ${SRC}/common/collect_files.py \
 ${AUDIO} \
-"*.mp3" \
+"*.${AUDIO_EXT}" \
 ${AUDIO_FILES}
 
     echo "Computing CQTs..."
@@ -84,6 +90,7 @@ ${SPLIT_FILE}
 fi
 
 # -- Labs --
+# Unnecessary??
 if [ "$1" == "labs" ] || [ "$1" == "all" ]; then
     echo "Collecting lab files..."
     python ${SRC}/chords/collect_labfiles.py \
@@ -93,8 +100,8 @@ fi
 
 # -- Biggie Files --
 if [ "$1" == "biggie" ] || [ "$1" == "all" ]; then
-    if [ -d ${DSETS} ]; then
-        rm -r ${DSETS}
+    if [ -d ${STASH} ]; then
+        rm -r ${STASH}
     fi
     echo "Updating LCN-CQT numpy file list."
     python ${SRC}/common/collect_files.py \
@@ -107,5 +114,24 @@ ${LCNCQT_FILES}
 ${SPLIT_FILE} \
 ${LCNCQTS} \
 ${LABS} \
-${DSETS}
+${STASH}
+fi
+
+# -- Wrap CQT octaves Files --
+if [ "$1" == "wrap" ] || [ "$1" == "all" ]; then
+    if [ -d ${WSTASH} ]; then
+        rm -r ${WSTASH}
+    fi
+    echo "Wrapping the CQTs..."
+    for ((idx=0; idx<NUM_FOLDS; idx++))
+    do
+        for split in valid test train
+        do
+            python ${SRC}/common/wrap_cqts.py \
+${STASH}/${idx}/${split}.hdf5 \
+${LENGTH} \
+${STRIDE} \
+${WSTASH}/${idx}/${split}.hdf5
+        done
+    done
 fi
