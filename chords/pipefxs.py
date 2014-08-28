@@ -248,8 +248,5 @@ def wrap_cqt(stream, length=40, stride=36):
             yield entity
             continue
         assert entity.cqt.value.shape[0] == 1
-        cqt = entity.cqt.value[0]
-        num_tiles = int((cqt.shape[1] - (length-stride)) / float(stride))
-        entity.cqt.value = np.array([cqt[:, n*stride:n*stride + length]
-                                     for n in range(num_tiles)])
+        entity.cqt = util.fold_cqt(entity.cqt_value[0], length, stride)
         yield entity
