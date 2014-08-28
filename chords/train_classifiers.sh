@@ -2,13 +2,22 @@
 #
 # Train a set of end-to-end classifiers and sweep over the checkpointed
 #    parameters to identify the early stopping point.
+#
+# Requires the following:
+#    - An environment variable `DL4MIR` has been set, pointing to the expected
+#      directory structure of data.
+#    - The script is called from the directory containing the top-level
+#      `dl4mir` source code directory.
 
-BASEDIR=/media/attic/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/dl4mir
+# BASEDIR=/media/attic/dl4mir/chord_estimation
+BASEDIR=${DL4MIR}/chord_estimation
+SRC=dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
-OPTFILES=${BASEDIR}/biggie/chords_hpss
+# OPTFILES=${BASEDIR}/biggie/chords
+# OPTFILES=${BASEDIR}/biggie/hpss
+OPTFILES=${BASEDIR}/biggie/synth_wrap
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
