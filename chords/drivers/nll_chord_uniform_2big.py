@@ -6,12 +6,13 @@ from os import path
 import json
 
 import dl4mir.chords.data as D
+import dl4mir.chords.pipefxs as FX
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
 
 TIME_DIM = 20
 VOCAB = 157
-LEARNING_RATE = 0.02
+LEARNING_RATE = 0.01
 BATCH_SIZE = 50
 
 # Other code depends on this.
@@ -100,11 +101,14 @@ def main(args):
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
         losses=[chord_nll],
-        updates=update_manager.connections)
+        updates=update_manager.connections,
+        momentum=None)
 
     for n in all_nodes:
         optimus.random_init(n.weights)
         optimus.random_init(n.bias)
+
+    trainer.load_param_values("/media/attic/dl4mir/chord_estimation/models/nll_chord_uniform_2big/synth_data_01/0/classifier-V157-synth_data_01-041750-2014-08-25_21h59m56s.npz")
 
     validator = optimus.Graph(
         name=GRAPH_NAME,
@@ -135,13 +139,9 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    # partition_labels = json.load(
-    #     open("/home/ejhumphrey/Dropbox/tmp/train0_v2_merged_partition.json"))
-    stream = S.minibatch(
-        D.create_uniform_chord_stream(
-            stash, TIME_DIM, pitch_shift=False, vocab_dim=VOCAB,
-            working_size=5),
-        batch_size=BATCH_SIZE)
+    stream = D.create_uniform_chord_stream(
+        stash, TIME_DIM, pitch_shift=False, vocab_dim=VOCAB, working_size=3)
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -151,13 +151,13 @@ def main(args):
 
     hyperparams = {learning_rate.name: LEARNING_RATE}
 
-    driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
-
     validator_file = path.join(driver.output_directory, args.validator_file)
     optimus.save(validator, def_file=validator_file)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
+
+    driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
 if __name__ == "__main__":
