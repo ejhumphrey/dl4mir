@@ -152,6 +152,21 @@ def chord_label_to_chroma(label):
     return chroma.flatten() if flatten else chroma
 
 
+def rotate(class_vector, root):
+    """Rotate a class vector to C (root invariance)"""
+    return np.array([class_vector[(n + root) % 12 + 12*(n/12)]
+                     for n in range(len(class_vector) - 1)]+[class_vector[-1]])
+
+
+def relative_chord_index(base_idx, chord_idx, vocab_dim=157):
+    """Return the index for `chord_idx` as if base_idx has 'C' as the root."""
+    if chord_idx == vocab_dim - 1:
+        return chord_idx
+    base_root = base_idx % 12
+    chord_root = chord_idx % 12
+    return 12 * (int(chord_idx) / 12) + (chord_root - base_root) % 12
+
+
 def _generate_tonnetz_matrix(radii):
     """Return a Tonnetz transform matrix.
 

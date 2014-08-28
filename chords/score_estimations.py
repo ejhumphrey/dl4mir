@@ -40,12 +40,6 @@ def load_chord_index_pair(reference_file, estimated_file, vocab_dim=157):
     return np.abs(np.diff(intervals, axis=1)).flatten(), ref_idxs, est_idxs
 
 
-def rotate(posterior, root):
-    """Rotate a class posterior to C (root invariance)"""
-    return np.array([posterior[(n + root) % 12 + 12*(n/12)]
-                     for n in range(len(posterior) - 1)]+[posterior[-1]])
-
-
 def collapse_estimations(estimations):
     """Accumulate a set of track-wise estimations to a flattened set.
 
@@ -95,7 +89,7 @@ def quality_confusion_matrix(results):
             continue
         quality_idx = int(chord_idx) / 12
         root = chord_idx % 12
-        counts = rotate(counts, root) if quality_idx != 13 else counts
+        counts = labels.rotate(counts, root) if quality_idx != 13 else counts
         qual_conf[quality_idx*12, :] += counts
     return qual_conf
 
