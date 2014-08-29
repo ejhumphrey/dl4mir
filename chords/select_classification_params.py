@@ -17,7 +17,7 @@ POSTERIOR = 'posterior'
 
 def average_prf(stream, predictor, num_obs=100):
     y_true, y_pred = [], []
-    for n in range(NUM_BATCHES):
+    for n in range(num_obs):
         data = stream.next()
         y_true.append(data['chord_idx'])
         y_pred.append(predictor(data['cqt'])[POSTERIOR].argmax(axis=1))
