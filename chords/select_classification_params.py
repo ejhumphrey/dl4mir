@@ -30,6 +30,8 @@ def average_prf(stream, predictor, num_obs=100):
 
 def find_best_param_file(param_files, predictor, stream, num_obs,
                          metric='recall', filt_len=5, start_idx=0):
+    """TODO(ejhumphrey): could save the scores, in case they're needed again...
+    """
     score_idx = dict(precision=0, recall=1, f1=2)[metric]
     best_score = -np.inf
     best_param_file = ''
@@ -41,9 +43,9 @@ def find_best_param_file(param_files, predictor, stream, num_obs,
             key = path.split(pf)[-1]
             np.load(pf)
             predictor.param_values = np.load(pf)
-            score = average_prf(stream, predictor, num_obs)[score_idx]
-            all_scores.append(score)
-            score_str = "/".join(["%0.4f" % v for v in score])
+            scores = average_prf(stream, predictor, num_obs)
+            all_scores.append(scores[score_idx])
+            score_str = "/".join(["%0.4f" % v for v in scores])
             print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
             # if score > best_score:
             #     best_score = score
