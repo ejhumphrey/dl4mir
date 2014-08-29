@@ -106,7 +106,7 @@ def main(args):
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx, learning_rate],
+        inputs=[input_data, chord_idx, learning_rate, dropout],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[optimus.Graph.TOTAL_LOSS],
