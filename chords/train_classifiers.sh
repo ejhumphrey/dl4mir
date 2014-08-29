@@ -97,7 +97,7 @@ ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 
         python ${SRC}/chords/select_classification_params.py \
 ${OPTFILES}/${idx}/valid${BS}.hdf5 \
-${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${VALIDATOR_NAME}.json \
+${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
 ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
 --num_obs=100
