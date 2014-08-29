@@ -12,11 +12,10 @@ import shutil
 import dl4mir.chords.data as D
 import dl4mir.common.streams as S
 
-NUM_BATCHES = 100
 POSTERIOR = 'posterior'
 
 
-def average_prf(stream, predictor):
+def average_prf(stream, predictor, num_obs=100):
     y_true, y_pred = [], []
     for n in range(NUM_BATCHES):
         data = stream.next()
@@ -60,7 +59,7 @@ def main(args):
 
     stash = biggie.Stash(args.data_file)
     stream = S.minibatch(
-        D.create_chord_stream(stash, time_dim),
+        D.create_chord_stream(stash, time_dim, pitch_shift=0),
         batch_size=200)
 
     best_params = find_best_param_file(
