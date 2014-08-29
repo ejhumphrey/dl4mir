@@ -5,6 +5,7 @@ import optimus
 import biggie
 import time
 import sklearn.metrics as metrics
+from scipy import signal
 
 from os import path
 import shutil
@@ -74,7 +75,8 @@ def main(args):
         param_files=futils.load_textlist(args.param_textlist),
         stream=stream,
         predictor=predictor,
-        num_obs=args.num_obs)
+        num_obs=args.num_obs,
+        start_idx=args.start_idx)
 
     shutil.copyfile(best_params, args.param_file)
 
