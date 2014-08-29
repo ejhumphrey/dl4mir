@@ -28,29 +28,34 @@ def average_prf(stream, predictor, num_obs=100):
             metrics.f1_score(y_true, y_pred)]
 
 
-def find_best_param_file(param_files, predictor, stream, num_obs, metric='f1'):
+def find_best_param_file(param_files, predictor, stream, num_obs,
+                         metric='recall', filt_len=5):
     score_idx = dict(precision=0, recall=1, f1=2)[metric]
     best_score = -np.inf
     best_param_file = ''
     param_files.sort()
-    for idx, pf in enumerate(param_files):
-        key = path.split(pf)[-1]
-        try:
+    all_scores = []
+    try:
+        for idx, pf in enumerate(param_files):
+            key = path.split(pf)[-1]
             np.load(pf)
-        # What was the error? and why did this happen?
-        except:
-            print "Warning: Opening '%s' failed." % pf
-            continue
-        predictor.param_values = np.load(pf)
-        scores = average_prf(stream, predictor, num_obs)
-        score_str = "/".join(["%0.4f" % v for v in scores])
-        print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
-        if scores[score_idx] > best_score:
-            best_score = scores[score_idx]
-            best_param_file = pf
-            print " >>> New best: %0.4f @ %s" % (best_score, key)
+            predictor.param_values = np.load(pf)
+            score = average_prf(stream, predictor, num_obs)[score_idx]
+            all_scores.append(score)
+            score_str = "/".join(["%0.4f" % v for v in score])
+            print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
+            # if score > best_score:
+            #     best_score = score
+            #     best_param_file = pf
+            #     print " >>> New best: %0.4f @ %s" % (best_score, key)
+    except KeyboardInterrupt:
+        print "Stopping early"
 
-    return best_params
+    w_n = np.hanning(filt_len)
+    w_n /= np.sum(w_n)
+    smoothed = signal.filtfilt(w_n, np.ones(1), np.array(scores))
+    best_idx = smoothed.argmax()
+    return param_files[best_idx]
 
 
 def main(args):
