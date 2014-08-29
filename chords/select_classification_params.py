@@ -44,7 +44,7 @@ def find_best_param_file(param_files, predictor, stream, num_obs,
             key = path.split(pf)[-1]
             np.load(pf)
             predictor.param_values = np.load(pf)
-            scores = average_prf(batches, predictor, num_obs)
+            scores = average_prf(batches, predictor)
             all_scores.append(scores[score_idx])
             score_str = "/".join(["%0.4f" % v for v in scores])
             print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
