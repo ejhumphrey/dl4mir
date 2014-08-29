@@ -17,7 +17,7 @@ SRC=./dl4mir
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
 # OPTFILES=${BASEDIR}/biggie/chords
 # OPTFILES=${BASEDIR}/biggie/hpss
-OPTFILES=${BASEDIR}/biggie/synth_wrap
+OPTFILES=${BASEDIR}/biggie/chords_wcqt
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
@@ -80,6 +80,7 @@ ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx} \
 ${TRIAL_NAME} \
 ${VALIDATOR_NAME}.json \
 ${TRANSFORM_NAME}.json
+#--init_param_file="${DL4MIR}/chord_estimation/models/wcqt_nll_noreg_single/take_00/0/transform.npz"
     done
 fi
 
