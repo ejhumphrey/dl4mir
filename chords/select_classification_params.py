@@ -16,10 +16,9 @@ import dl4mir.common.streams as S
 POSTERIOR = 'posterior'
 
 
-def average_prf(stream, predictor, num_obs=100):
+def average_prf(batches, predictor):
     y_true, y_pred = [], []
-    for n in range(num_obs):
-        data = stream.next()
+    for data in batches:
         y_true.append(data['chord_idx'])
         y_pred.append(predictor(data['cqt'])[POSTERIOR].argmax(axis=1))
     y_true = np.concatenate(y_true)
@@ -39,12 +38,13 @@ def find_best_param_file(param_files, predictor, stream, num_obs,
     param_files.sort()
     param_files = param_files[start_idx:]
     all_scores = []
+    batches = [stream.next() for _ in range(num_obs)]
     try:
         for idx, pf in enumerate(param_files):
             key = path.split(pf)[-1]
             np.load(pf)
             predictor.param_values = np.load(pf)
-            scores = average_prf(stream, predictor, num_obs)
+            scores = average_prf(batches, predictor, num_obs)
             all_scores.append(scores[score_idx])
             score_str = "/".join(["%0.4f" % v for v in scores])
             print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
