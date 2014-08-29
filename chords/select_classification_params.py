@@ -77,8 +77,8 @@ if __name__ == "__main__":
     parser.add_argument("data_file",
                         metavar="data_file", type=str,
                         help="Path to an optimus file for validation.")
-    parser.add_argument("validator_file",
-                        metavar="validator_file", type=str,
+    parser.add_argument("transform_file",
+                        metavar="transform_file", type=str,
                         help="Validator graph definition.")
     parser.add_argument("param_textlist",
                         metavar="param_textlist", type=str,
