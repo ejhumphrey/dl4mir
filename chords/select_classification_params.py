@@ -29,11 +29,12 @@ def average_prf(stream, predictor, num_obs=100):
 
 
 def find_best_param_file(param_files, predictor, stream, num_obs,
-                         metric='recall', filt_len=5):
+                         metric='recall', filt_len=5, start_idx=0):
     score_idx = dict(precision=0, recall=1, f1=2)[metric]
     best_score = -np.inf
     best_param_file = ''
     param_files.sort()
+    param_files = param_files[start_idx:]
     all_scores = []
     try:
         for idx, pf in enumerate(param_files):
@@ -92,6 +93,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_obs",
                         metavar="--num_obs", type=int, default=100,
                         help="Number of observations per parameter set.")
+    parser.add_argument("--start_idx",
+                        metavar="--start_idx", type=int, default=0,
+                        help="Index of the parameter file to start with.")
     # Outputs
     parser.add_argument("param_file",
                         metavar="param_file", type=str,
