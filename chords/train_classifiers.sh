@@ -17,7 +17,7 @@ SRC=./dl4mir
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
 # OPTFILES=${BASEDIR}/biggie/chords
 # OPTFILES=${BASEDIR}/biggie/hpss
-OPTFILES=${BASEDIR}/biggie/chords_wcqt
+OPTFILES=${BASEDIR}/biggie/synth
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
