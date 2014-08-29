@@ -57,8 +57,11 @@ def find_best_param_file(param_files, predictor, stream, num_obs,
 
     w_n = np.hanning(filt_len)
     w_n /= np.sum(w_n)
-    smoothed = signal.filtfilt(w_n, np.ones(1), np.array(scores))
-    best_idx = smoothed.argmax()
+    if len(all_scores) > 15:
+        smoothed = signal.filtfilt(w_n, np.ones(1), np.array(all_scores))
+        best_idx = smoothed.argmax()
+    else:
+        best_idx = np.array(all_scores).argmax()
     return param_files[best_idx]
 
 
