@@ -110,6 +110,7 @@ def main(args):
         optimus.random_init(n.bias)
 
     if args.init_param_file:
+        print "Loading parameters: %s" % args.init_param_file
         trainer.load_param_values(args.init_param_file)
 
     validator = optimus.Graph(
