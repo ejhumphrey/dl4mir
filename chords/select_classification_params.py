@@ -43,7 +43,7 @@ def find_best_param_file(param_files, predictor, stream, num_obs, metric='f1'):
             continue
         predictor.param_values = np.load(pf)
         scores = average_prf(stream, predictor, num_obs)
-        score_str = "/".join(["0.4f" % v for v in scores])
+        score_str = "/".join(["%0.4f" % v for v in scores])
         print "[%s] %4d: (%s) %s" % (time.asctime(), idx, score_str, key)
         if scores[score_idx] > best_score:
             best_score = scores[score_idx]
