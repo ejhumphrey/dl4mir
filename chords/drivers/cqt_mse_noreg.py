@@ -3,6 +3,7 @@ import argparse
 import biggie
 import optimus
 from os import path
+import numpy as np
 import json
 
 import dl4mir.chords.data as D
@@ -60,13 +61,13 @@ def main(args):
         output_shape=(None, 1024,),
         act_type='relu')
 
-    chord_estimator = optimus.Affine(
-        name='chord_estimator',
+    chord_classifier = optimus.Affine(
+        name='chord_classifier',
         input_shape=layer3.output.shape,
         output_shape=(None, VOCAB,),
         act_type='sigmoid')
 
-    all_nodes = [layer0, layer1, layer2, layer3, chord_estimator]
+    all_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
 
     # 1.1 Create Losses
     chord_mse = optimus.MeanSquaredError(
@@ -78,8 +79,8 @@ def main(args):
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, chord_estimator.input),
-        (chord_estimator.output, chord_mse.prediction),
+        (layer3.output, chord_classifier.input),
+        (chord_classifier.output, chord_mse.prediction),
         (target, chord_mse.target)])
 
     update_manager = optimus.ConnectionManager([
@@ -91,8 +92,8 @@ def main(args):
         # (learning_rate, layer2.bias),
         (learning_rate, layer3.weights),
         (learning_rate, layer3.bias),
-        (learning_rate, chord_estimator.weights),
-        (learning_rate, chord_estimator.bias)])
+        (learning_rate, chord_classifier.weights),
+        (learning_rate, chord_classifier.bias)])
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
@@ -125,8 +126,8 @@ def main(args):
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, chord_estimator.input),
-        (chord_estimator.output, posterior)])
+        (layer3.output, chord_classifier.input),
+        (chord_classifier.output, posterior)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
