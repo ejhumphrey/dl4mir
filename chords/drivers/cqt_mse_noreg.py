@@ -64,7 +64,7 @@ def main(args):
         name='chord_estimator',
         input_shape=layer3.output.shape,
         output_shape=(None, VOCAB,),
-        act_type='relu')
+        act_type='sigmoid')
 
     all_nodes = [layer0, layer1, layer2, layer3, chord_estimator]
 
