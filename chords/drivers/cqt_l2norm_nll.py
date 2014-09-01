@@ -141,7 +141,7 @@ def main(args):
         inputs=[input_data],
         nodes=all_nodes,
         connections=predictor_edges.connections,
-        outputs=[posterior, embedding])
+        outputs=[posterior])
 
     # 3. Create Data
     print "Loading %s" % args.training_file
