@@ -68,7 +68,7 @@ def main(args):
 
     chord_classifier = optimus.Softmax(
         name='chord_classifier',
-        input_shape=layer4.output.shape,
+        input_shape=layer3.output.shape,
         n_out=VOCAB,
         act_type='linear')
 
@@ -127,9 +127,6 @@ def main(args):
     posterior = optimus.Output(
         name='posterior')
 
-    embedding = optimus.Output(
-        name='embedding')
-
     predictor_edges = optimus.ConnectionManager([
         (input_data, input_scalar.input),
         (input_scalar.output, layer0.input),
@@ -137,7 +134,6 @@ def main(args):
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
         (layer3.output, chord_classifier.input),
-        (layer4.output, embedding),
         (chord_classifier.output, posterior)])
 
     predictor = optimus.Graph(
