@@ -39,7 +39,8 @@ def main(args):
     # 1.2 Create Nodes
     input_scalar = optimus.Normalize(
         name='input_scalar',
-        mode='l2')
+        mode='l2',
+        scale_factor=50.0)
 
     layer0 = optimus.Conv3D(
         name='layer0',

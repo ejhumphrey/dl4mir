@@ -39,7 +39,8 @@ def main(args):
     # 1.2 Create Nodes
     input_scalar = optimus.Normalize(
         name='input_scalar',
-        mode='l2')
+        mode='l2',
+        scale_factor=50.0)
 
     layer0 = optimus.Conv3D(
         name='layer0',
@@ -112,8 +113,8 @@ def main(args):
         updates=update_manager.connections)
 
     for n in all_nodes[1:]:
-        optimus.random_init(n.weights, 0.0, 0.001)
-        optimus.random_init(n.bias, 0.0, 0.001)
+        optimus.random_init(n.weights)
+        optimus.random_init(n.bias)
 
     if args.init_param_file:
         param_values = dict(np.load(args.init_param_file))
