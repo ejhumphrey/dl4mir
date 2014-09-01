@@ -64,7 +64,7 @@ def main(args):
     chord_classifier = optimus.Affine(
         name='chord_classifier',
         input_shape=layer3.output.shape,
-        output_shape=(None, VOCAB,),
+        output_shape=(None, 6,),
         act_type='sigmoid')
 
     all_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
@@ -141,7 +141,7 @@ def main(args):
     stream = D.create_uniform_chord_stream(
         stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=10)
     stream = S.minibatch(
-        FX.chord_index_to_affinity_vectors(stream, vocab_dim=VOCAB),
+        FX.chord_index_to_tonnetz(stream, vocab_dim=VOCAB),
         batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name

@@ -93,6 +93,16 @@ def map_to_chroma(stream):
         yield biggie.Entity(cqt=cqt, target_chroma=chroma.squeeze())
 
 
+def chord_index_to_tonnetz(stream, vocab_dim):
+    T = np.array([labels.chord_label_to_tonnetz(l) for l in chord_labels])
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        yield biggie.Entity(cqt=entity.cqt.value,
+                            target=T[entity.chord_idx.value])
+
+
 def map_to_chord_quality_index(stream, vocab_dim):
     """
     vocab_dim: int
