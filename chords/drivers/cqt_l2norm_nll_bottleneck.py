@@ -120,7 +120,7 @@ def main(args):
         losses=[chord_nll],
         updates=update_manager.connections)
 
-    for n in all_nodes:
+    for n in all_nodes[1:]:
         optimus.random_init(n.weights)
         optimus.random_init(n.bias)
 
