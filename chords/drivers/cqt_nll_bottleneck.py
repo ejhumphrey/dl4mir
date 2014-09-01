@@ -65,7 +65,7 @@ def main(args):
     layer4 = optimus.Affine(
         name='bottleneck',
         input_shape=layer3.output.shape,
-        output_shape=(None, 128,),
+        output_shape=(None, 3,),
         act_type='linear')
 
     chord_classifier = optimus.Softmax(
@@ -130,13 +130,17 @@ def main(args):
     posterior = optimus.Output(
         name='posterior')
 
+    embedding = optimus.Output(
+        name='embedding')
+
     predictor_edges = optimus.ConnectionManager([
         (input_data, layer0.input),
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
         (layer3.output, layer4.input),
-        (layer4.output, chord_classifier.input),
+        (layer4.output, chord_classifier.input)
+        (layer4.output, embedding),
         (chord_classifier.output, posterior)])
 
     predictor = optimus.Graph(
@@ -144,7 +148,7 @@ def main(args):
         inputs=[input_data],
         nodes=all_nodes,
         connections=predictor_edges.connections,
-        outputs=[posterior])
+        outputs=[posterior, embedding])
 
     # 3. Create Data
     print "Loading %s" % args.training_file
