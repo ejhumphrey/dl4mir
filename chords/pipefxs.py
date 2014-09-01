@@ -96,7 +96,8 @@ def map_to_chroma(stream):
 def chord_index_to_tonnetz(stream, vocab_dim):
     chord_labels = [labels.index_to_chord_label(n, vocab_dim)
                     for n in range(vocab_dim)]
-    T = np.array([labels.chord_label_to_tonnetz(l) for l in chord_labels])
+    T = np.array([labels.chord_label_to_tonnetz(l)
+                  for l in chord_labels]).squeeze()
     for entity in stream:
         if entity is None:
             yield entity
