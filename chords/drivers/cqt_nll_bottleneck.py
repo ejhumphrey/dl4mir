@@ -122,7 +122,7 @@ def main(args):
         param_values = dict(np.load(args.init_param_file))
         keys = param_values.keys()
         for key in keys:
-            if chord_classifier.name in key or layer.name in key:
+            if chord_classifier.name in key or layer3.name in key:
                 print "skipping %s" % key
                 del param_values[key]
         trainer.param_values = param_values
