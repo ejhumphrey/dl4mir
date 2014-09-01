@@ -17,7 +17,7 @@ SRC=./dl4mir
 #   ${OPTFILES}/${FOLD}/${SPLIT}.hdf5
 # OPTFILES=${BASEDIR}/biggie/chords
 # OPTFILES=${BASEDIR}/biggie/hpss
-OPTFILES=${BASEDIR}/biggie/chords_wcqt
+OPTFILES=${BASEDIR}/biggie/synth
 
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
@@ -78,9 +78,9 @@ then
 ${OPTFILES}/${idx}/train${BS}.hdf5 \
 ${MODELS}/${DRIVER}/${TRIAL_NAME}/${idx} \
 ${TRIAL_NAME} \
-${VALIDATOR_NAME}.json \
-${TRANSFORM_NAME}.json
-#--init_param_file="${DL4MIR}/chord_estimation/models/wcqt_nll_noreg_single/take_00/0/transform.npz"
+${TRANSFORM_NAME}.json \
+--init_param_file=${DL4MIR}/chord_estimation/models/cqt_nll_noreg_single/take_00/0/transform.npz
+#--secondary_source=${BASEDIR}/biggie/synth_wcqt/${idx}/train${BS}.hdf5
     done
 fi
 

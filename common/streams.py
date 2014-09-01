@@ -22,3 +22,11 @@ def minibatch(stream, batch_size, functions=None):
     while True:
         yield biggie.util.unpack_entity_list(batch_stream.next(),
                                              filter_nulls=True)
+
+def mux(streams, weights):
+    weights = np.array(weights)
+    assert weights.sum() > 0
+    weights /= float(weights.sum())
+    while True:
+        idx = pescador.categorical_sample(weights)
+        yield streams[idx].next()
