@@ -111,14 +111,6 @@ def main(args):
     if args.init_param_file:
         trainer.load_param_values(args.init_param_file)
 
-    validator = optimus.Graph(
-        name=GRAPH_NAME,
-        inputs=[input_data, chord_idx],
-        nodes=all_nodes,
-        connections=trainer_edges.connections,
-        outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll])
-
     posterior = optimus.Output(
         name='posterior')
 
@@ -140,10 +132,21 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = S.minibatch(
-        D.create_uniform_chord_stream(
-            stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=10),
-        batch_size=BATCH_SIZE)
+    synth_stash = biggie.Stash(args.secondary_source)
+    stream = D.muxed_uniform_chord_stream(
+        stash, synth_stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB,
+        working_size=10)
+    # stream = D.create_uniform_chord_stream(
+    #     stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=10)
+
+    # if args.secondary_source:
+    #     print "Loading %s" % args.secondary_source
+    #     stash2 = biggie.Stash(args.secondary_source)
+    #     stream2 = D.create_uniform_chord_stream(
+    #         stash2, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=5)
+    #     stream = S.mux([stream, stream2], [0.5, 0.5])
+
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -152,9 +155,6 @@ def main(args):
         output_directory=args.model_directory)
 
     hyperparams = {learning_rate.name: LEARNING_RATE}
-
-    validator_file = path.join(driver.output_directory, args.validator_file)
-    optimus.save(validator, def_file=validator_file)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
@@ -176,9 +176,6 @@ if __name__ == "__main__":
     parser.add_argument("trial_name",
                         metavar="trial_name", type=str,
                         help="Unique name for this training run.")
-    parser.add_argument("validator_file",
-                        metavar="validator_file", type=str,
-                        help="Name for the resulting validator graph.")
     parser.add_argument("predictor_file",
                         metavar="predictor_file", type=str,
                         help="Name for the resulting predictor graph.")
