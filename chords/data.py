@@ -282,28 +282,40 @@ def create_uniform_chord_stream(stash, win_length, partition_labels=None,
     return FX.map_to_chord_index(stream, vocab_dim)
 
 
-def uniform_quality_chroma_stream(stash, win_length, partition_labels=None,
-                                  pool_size=50, pitch_shift=True):
+def muxed_uniform_chord_stream(stash, synth_stash, win_length, vocab_dim=157,
+                               pitch_shift=0, working_size=4):
     """Return a stream of chord samples, with uniform quality presentation."""
-    if partition_labels is None:
-        partition_labels = util.partition(stash, quality_map)
+    partition_labels = util.partition(stash, chord_map)
+    synth_partition_labels = util.partition(synth_stash, chord_map)
 
-    quality_pool = []
-    for qual_idx in range(14):
-        quality_subindex = util.index_partition_arrays(
-            partition_labels, [qual_idx])
+    valid_idx = range(vocab_dim)
+    valid_idx_synth = range(60, vocab_dim - 1)
+
+    chord_pool = []
+    for chord_idx in valid_idx:
+        subindex = util.index_partition_arrays(partition_labels, [chord_idx])
         entity_pool = [pescador.Streamer(chord_sampler, key, stash,
-                                         win_length, quality_subindex)
-                       for key in quality_subindex.keys()]
-        stream = pescador.mux(entity_pool, n_samples=None, k=25, lam=20)
-        quality_pool.append(pescador.Streamer(stream))
+                                         win_length, subindex)
+                       for key in subindex.keys()]
+        if chord_idx in valid_idx_synth:
+            subindex = util.index_partition_arrays(
+                synth_partition_labels, [chord_idx])
+            synth_pool = [pescador.Streamer(chord_sampler, key, synth_stash,
+                                            win_length, subindex)
+                          for key in subindex.keys()]
+            entity_pool.extend(synth_pool)
+        if len(entity_pool) == 0:
+            continue
+        stream = pescador.mux(
+            entity_pool, n_samples=None, k=working_size, lam=20)
+        chord_pool.append(pescador.Streamer(stream))
 
-    stream = pescador.mux(quality_pool, n_samples=None, k=pool_size,
-                          lam=None, with_replacement=False)
+    stream = pescador.mux(chord_pool, n_samples=None, k=vocab_dim, lam=None,
+                          with_replacement=False)
     if pitch_shift:
-        stream = FX.pitch_shift(stream)
+        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
 
-    return FX.map_to_chroma(stream)
+    return FX.map_to_chord_index(stream, vocab_dim)
 
 
 def create_uniform_factored_stream(stash, win_length, partition_labels=None,
