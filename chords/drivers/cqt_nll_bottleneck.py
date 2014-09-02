@@ -65,7 +65,7 @@ def main(args):
     layer4 = optimus.Affine(
         name='bottleneck',
         input_shape=layer3.output.shape,
-        output_shape=(None, 3,),
+        output_shape=(None, 32,),
         act_type='linear')
 
     chord_classifier = optimus.Softmax(
