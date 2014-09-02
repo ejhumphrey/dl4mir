@@ -65,7 +65,7 @@ def main(args):
     layer4 = optimus.Affine(
         name='bottleneck',
         input_shape=layer3.output.shape,
-        output_shape=(None, 3,),
+        output_shape=(None, 32,),
         act_type='linear')
 
     chord_classifier = optimus.Softmax(
@@ -139,7 +139,7 @@ def main(args):
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
         (layer3.output, layer4.input),
-        (layer4.output, chord_classifier.input)
+        (layer4.output, chord_classifier.input),
         (layer4.output, embedding),
         (chord_classifier.output, posterior)])
 
@@ -153,10 +153,16 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = S.minibatch(
-        D.create_uniform_chord_stream(
-            stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=10),
-        batch_size=BATCH_SIZE)
+    stream = D.create_uniform_chord_stream(
+        stash, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=10)
+
+    if args.secondary_source:
+        stash2 = biggie.Stash(args.secondary_source)
+        stream2 = D.create_uniform_chord_stream(
+            stash2, TIME_DIM, pitch_shift=0, vocab_dim=VOCAB, working_size=5)
+        stream = S.mux([stream, stream2], [0.5, 0.5])
+
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -193,4 +199,7 @@ if __name__ == "__main__":
                         metavar="--init_param_file", type=str, default='',
                         help="Path to a NPZ archive for initialization the "
                         "parameters of the graph.")
+    parser.add_argument("--secondary_source",
+                        metavar="--secondary_source", type=str, default='',
+                        help="Path to a secondary stash to use for training.")
     main(parser.parse_args())
