@@ -183,4 +183,7 @@ if __name__ == "__main__":
                         metavar="--init_param_file", type=str, default='',
                         help="Path to a NPZ archive for initialization the "
                         "parameters of the graph.")
+    parser.add_argument("--secondary_source",
+                        metavar="--secondary_source", type=str, default='',
+                        help="Path to a secondary stash to use for training.")
     main(parser.parse_args())
