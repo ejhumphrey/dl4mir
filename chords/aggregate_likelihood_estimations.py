@@ -9,10 +9,15 @@ import marl.fileutils as futil
 import time
 
 import dl4mir.common.util as util
+import scipy.signal as signal
 
 
 def mle(posterior):
     return posterior.argmax(axis=1)
+
+
+def medfilt_mle(posterior, shape=[41,1]):
+    return mle(signal.medfilt(posterior, shape))
 
 
 def estimate_classes(entity, prediction_fx=mle):
@@ -46,9 +51,10 @@ def main(args):
         print "File does not exist: %s" % args.posterior_file
         return
     dset = biggie.Stash(args.posterior_file)
+    fx = dict(mle=mle, medfilt_mle=medfilt_mle).get(args.prediction_fx, 'mle')
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
-        estimations[key] = estimate_classes(dset.get(key))
+        estimations[key] = estimate_classes(dset.get(key), fx)
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
@@ -67,4 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("estimation_file",
                         metavar="estimation_file", type=str,
                         help="Path for the lab-file style output as JSON.")
+    parser.add_argument("--prediction_fx",
+                        metavar="--prediction_fx", type=str, default='mle',
+                        help="Prediction function to use during aggregation.")
     main(parser.parse_args())
