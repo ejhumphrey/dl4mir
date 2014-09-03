@@ -2,6 +2,7 @@
 
 import pescador
 import biggie.util
+import numpy as np
 
 
 def pipeline(stream, functions):

@@ -155,7 +155,7 @@ def compute_scores(estimations):
     res3 = "-"*72
     outputs = [res3, res1, res2, res3]
     outputs.append(compute_confusions(quality_confusions, 5))
-    return "\n".join(outputs)
+    return "\n".join(outputs) + '\n'
 
 
 def confusions_to_comparisons(conf_mat):
