@@ -10,6 +10,8 @@ import marl.fileutils as futil
 from dl4mir.chords import labels
 import time
 
+TMC_EXT = '.mp3.txt'
+
 
 def align_estimation_to_reference(est_file, ref_file, num_classes=157):
     """
@@ -58,13 +60,15 @@ def align_estimation_to_reference(est_file, ref_file, num_classes=157):
 
 
 def main(args):
-    results_files = glob.glob(os.path.join(args.results_dir, "*.txt"))
+
+    results_files = glob.glob(os.path.join(args.results_dir, "*%s" % TMC_EXT))
     predictions = dict()
     for idx, result_file in enumerate(results_files):
-        key = futil.filebase(result_file.replace(".txt", ''))
+        key = futil.filebase(result_file.replace(TMC_EXT, ''))
         lab_file = os.path.join(args.labs_dir, "%s.lab" % key)
         try:
-            predictions[key] = align_estimation_to_reference(result_file, lab_file)
+            predictions[key] = align_estimation_to_reference(
+                result_file, lab_file)
         except IndexError:
             print "Index error: %s" % result_file
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx,
