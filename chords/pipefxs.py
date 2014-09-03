@@ -261,5 +261,5 @@ def wrap_cqt(stream, length=40, stride=36):
             yield entity
             continue
         assert entity.cqt.value.shape[0] == 1
-        entity.cqt = util.fold_cqt(entity.cqt_value[0], length, stride)
+        entity.cqt = util.fold_array(entity.cqt_value[0], length, stride)
         yield entity
