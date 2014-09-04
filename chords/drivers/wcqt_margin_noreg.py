@@ -88,7 +88,8 @@ def main(args):
         (layer2.output, layer3.input),
         (layer3.output, chord_classifier.input),
         (chord_classifier.output, chord_margin.prediction),
-        (chord_idx, chord_margin.target_idx)])
+        (chord_idx, chord_margin.target_idx),
+        (margin, chord_margin.margin)])
 
     update_manager = optimus.ConnectionManager([
         (learning_rate, layer0.weights),
