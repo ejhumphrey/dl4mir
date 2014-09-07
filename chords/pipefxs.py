@@ -145,6 +145,16 @@ def chord_index_to_affinity_vectors(stream, vocab_dim):
                             target=affinity_vectors[entity.chord_idx.value])
 
 
+def chord_index_to_onehot_vectors(stream, vocab_dim):
+    one_hots = np.eye(vocab_dim)
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        yield biggie.Entity(cqt=entity.cqt.value,
+                            target=one_hots[entity.chord_idx.value])
+
+
 def map_to_joint_index(stream, vocab_dim):
     """
     vocab_dim: int
