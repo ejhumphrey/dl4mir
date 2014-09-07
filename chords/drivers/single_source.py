@@ -30,7 +30,9 @@ def main(args):
     stream = D.create_uniform_chord_stream(
         stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=10)
 
-    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
+    stream = S.minibatch(
+        FX.chord_index_to_onehot_vectors(stream, VOCAB),
+        batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
