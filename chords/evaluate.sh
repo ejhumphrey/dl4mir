@@ -2,8 +2,8 @@
 #
 # Run the evaluation pipeline over a set of posteriors.
 
-BASEDIR=/media/attic/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/dl4mir
+BASEDIR=${DL4MIR}/chord_estimation
+SRC=dl4mir
 
 # Flat directory of all audio
 LABS=${BASEDIR}/labs

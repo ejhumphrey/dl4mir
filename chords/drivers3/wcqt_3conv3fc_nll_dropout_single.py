@@ -134,24 +134,6 @@ def main(args):
     for n in [layer3, layer4]:
         n.disable_dropout()
 
-    validator_edges = optimus.ConnectionManager([
-        (input_data, layer0.input),
-        (layer0.output, layer1.input),
-        (layer1.output, layer2.input),
-        (layer2.output, layer3.input),
-        (layer3.output, layer4.input),
-        (layer4.output, chord_classifier.input),
-        (chord_classifier.output, chord_nll.likelihood),
-        (chord_idx, chord_nll.target_idx)])
-
-    validator = optimus.Graph(
-        name=GRAPH_NAME,
-        inputs=[input_data, chord_idx],
-        nodes=all_nodes,
-        connections=validator_edges.connections,
-        outputs=[optimus.Graph.TOTAL_LOSS],
-        losses=[chord_nll])
-
     posterior = optimus.Output(
         name='posterior')
 
@@ -188,9 +170,6 @@ def main(args):
     hyperparams = {learning_rate.name: LEARNING_RATE,
                    dropout.name: DROPOUT}
 
-    validator_file = path.join(driver.output_directory, args.validator_file)
-    optimus.save(validator, def_file=validator_file)
-
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
 
@@ -211,9 +190,6 @@ if __name__ == "__main__":
     parser.add_argument("trial_name",
                         metavar="trial_name", type=str,
                         help="Unique name for this training run.")
-    parser.add_argument("validator_file",
-                        metavar="validator_file", type=str,
-                        help="Name for the resulting validator graph.")
     parser.add_argument("predictor_file",
                         metavar="predictor_file", type=str,
                         help="Name for the resulting predictor graph.")
