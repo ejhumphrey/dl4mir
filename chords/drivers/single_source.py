@@ -8,7 +8,7 @@ import dl4mir.chords.data as D
 import dl4mir.chords.pipefxs as FX
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
-from dl4mir.chords.drivers import models
+from dl4mir.chords import models
 
 VOCAB = 157
 LEARNING_RATE = 0.02
