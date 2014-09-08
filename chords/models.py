@@ -220,7 +220,7 @@ def wcqt_likelihood(n_dim=VOCAB):
 
     target = optimus.Input(
         name='target',
-        shape=(None,))
+        shape=(None, 1))
 
     chord_idx = optimus.Input(
         name='chord_idx',
@@ -267,6 +267,7 @@ def wcqt_likelihood(n_dim=VOCAB):
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex('select')
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 'x'))
     error = optimus.SquaredEuclidean(name='squared_error')
     loss = optimus.Mean(name='mean_squared_error')
 
@@ -282,7 +283,8 @@ def wcqt_likelihood(n_dim=VOCAB):
         base_edges + [
             (chord_estimator.output, likelihoods.input),
             (chord_idx, likelihoods.index),
-            (likelihoods.output, error.input_a),
+            (likelihoods.output, dimshuffle.input),
+            (dimshuffle.output, error.input_a),
             (target, error.input_b),
             (error.output, loss.input)])
 

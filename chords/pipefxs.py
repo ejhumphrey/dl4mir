@@ -227,9 +227,9 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.0):
             neg_entity = _pitch_shift(neg_entity, shift, 3)
         # print pos_entity.chord_label.value, neg_entity.chord_label.value
         yield biggie.Entity(cqt=pos_entity.cqt.value,
-                            chord_idx=pos_chord_idx, target=1.0)
+                            chord_idx=pos_chord_idx, target=np.array([1.0]))
         yield biggie.Entity(cqt=neg_entity.cqt.value,
-                            chord_idx=pos_chord_idx, target=0.0)
+                            chord_idx=pos_chord_idx, target=np.array([0.0]))
 
 
 def binomial_mask(stream, max_dropout=0.25):
