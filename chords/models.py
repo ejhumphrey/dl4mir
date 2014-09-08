@@ -322,7 +322,142 @@ def wcqt_likelihood(n_dim=VOCAB):
     return trainer, predictor
 
 
+def wcqt_likelihood_wmoia(n_dim=VOCAB):
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 6, TIME_DIM, 40))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 1))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    moia_weight = optimus.Input(
+        name='moia_weight',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(32, None, 5, 5),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(64, None, 5, 7),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(128, None, 3, 6),
+        act_type='relu')
+
+    layer3 = optimus.Affine(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 1024,),
+        act_type='relu')
+
+    chord_estimator = optimus.Affine(
+        name='chord_estimator',
+        input_shape=layer3.output.shape,
+        output_shape=(None, n_dim),
+        act_type='sigmoid')
+
+    param_nodes = [layer0, layer1, layer2, layer3, chord_estimator]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex('select')
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 'x'))
+    error = optimus.SquaredEuclidean(name='squared_error')
+    main_loss = optimus.Mean(name='mean_squared_error')
+    loss_nodes1 = [likelihoods, dimshuffle, error, main_loss]
+
+    negone = optimus.Gain(name='negate')
+    negone.weight.value = -1.0
+    summer = optimus.Accumulate(name='moia_sum')
+    margin = optimus.RectifiedLinear(name='margin')
+    margin_loss = optimus.Mean(name='margin_loss')
+    weight = optimus.Multiply(name="margin_weight")
+
+    loss_nodes2 = [negone, summer, margin, margin_loss, weight]
+    total_loss = optimus.Accumulate("total_loss")
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, chord_estimator.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (chord_estimator.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, dimshuffle.input),
+            (dimshuffle.output, error.input_a),
+            (target, error.input_b),
+            (error.output, main_loss.input),
+            (dimshuffle.output, negone.input),
+            (negone.output, summer.input_list),
+            (chord_estimator.output, summer.input_list),
+            (summer.output, margin.input),
+            (margin.output, margin_loss.input),
+            (margin_loss.output, weight.input_a),
+            (moia_weight, weight.input_b),
+            (weight.output, total_loss.input_list),
+            (main_loss.output, total_loss.input_list)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    all_nodes = param_nodes + loss_nodes1 + loss_nodes2 + [total_loss]
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, target, chord_idx, learning_rate, moia_weight],
+        nodes=all_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss.output],
+        loss=total_loss.output,
+        updates=update_manager.connections,
+        verbose=True)
+
+    for n in param_nodes:
+        for p in n.params.values():
+            optimus.random_init(p)
+
+    posterior = optimus.Output(
+        name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(chord_estimator.output, posterior)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes,
+        connections=predictor_edges.connections,
+        outputs=[posterior])
+
+    return trainer, predictor
+
+
 MODELS = {
     'wcqt_nll': wcqt_nll,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
-    'wcqt_likelihood': wcqt_likelihood}
+    'wcqt_likelihood': wcqt_likelihood,
+    'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
