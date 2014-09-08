@@ -344,7 +344,7 @@ def create_uniform_factored_stream(stash, win_length, partition_labels=None,
 
 
 def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
-                                    partition_labels=None, working_size=5,
+                                    partition_labels=None, working_size=2,
                                     vocab_dim=157, pitch_shift=0):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:
