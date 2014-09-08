@@ -27,12 +27,10 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=10)
+    stream = D.create_contrastive_chord_stream(
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5)
 
-    stream = S.minibatch(
-        FX.chord_index_to_onehot_vectors(stream, VOCAB),
-        batch_size=BATCH_SIZE)
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(

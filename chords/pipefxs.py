@@ -207,7 +207,7 @@ def rotate_chord_to_root(stream, target_root):
         yield _pitch_shift(entity, shift, 3)
 
 
-def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
+def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.0):
     """
     vocab_dim: int
     """
@@ -227,9 +227,9 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.75):
             neg_entity = _pitch_shift(neg_entity, shift, 3)
         # print pos_entity.chord_label.value, neg_entity.chord_label.value
         yield biggie.Entity(cqt=pos_entity.cqt.value,
-                            chord_idx=pos_chord_idx, is_chord=1)
+                            chord_idx=pos_chord_idx, target=1.0)
         yield biggie.Entity(cqt=neg_entity.cqt.value,
-                            chord_idx=pos_chord_idx, is_chord=0)
+                            chord_idx=pos_chord_idx, target=0.0)
 
 
 def binomial_mask(stream, max_dropout=0.25):
