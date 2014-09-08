@@ -367,8 +367,8 @@ def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
 
     chord_streams = np.array(chord_streams)
     binary_pool = []
-    for chord_idx in range(vocab_dim):
-        neg_mask = np.ones(vocab_dim, dtype=bool)
+    for chord_idx in range(len(chord_streams)):
+        neg_mask = np.ones(len(chord_streams), dtype=bool)
         neg_mask[chord_idx] = False
         chord_pool = [pescador.Streamer(x)
                       for x in chord_streams[neg_mask]]
