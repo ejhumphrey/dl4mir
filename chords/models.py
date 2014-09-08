@@ -388,11 +388,14 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
     negone = optimus.Gain(name='negate')
     negone.weight.value = -1.0
     summer = optimus.Accumulate(name='moia_sum')
+    flatten = optimus.Sum('flatten', axis=1)
+    dimshuffle2 = optimus.Dimshuffle('dimshuffle2', (0, 'x'))
     margin = optimus.RectifiedLinear(name='margin')
-    margin_loss = optimus.Mean(name='margin_loss')
     weight = optimus.Multiply(name="margin_weight")
+    margin_loss = optimus.Mean(name='margin_loss', axis=None)
 
-    loss_nodes2 = [negone, summer, margin, margin_loss, weight]
+    loss_nodes2 = [negone, summer, margin, flatten,
+                   dimshuffle2, margin_loss, weight]
     total_loss = optimus.Accumulate("total_loss")
 
     # 2. Define Edges
@@ -411,14 +414,17 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
             (dimshuffle.output, error.input_a),
             (target, error.input_b),
             (error.output, main_loss.input),
+            # Margin loss
             (dimshuffle.output, negone.input),
             (negone.output, summer.input_list),
             (chord_estimator.output, summer.input_list),
             (summer.output, margin.input),
-            (margin.output, margin_loss.input),
-            (margin_loss.output, weight.input_a),
-            (moia_weight, weight.input_b),
-            (weight.output, total_loss.input_list),
+            (margin.output, flatten.input),
+            (flatten.output, dimshuffle2.input),
+            (dimshuffle2.output, weight.input_a),
+            (target, weight.input_b),
+            (weight.output, margin_loss.input),
+            (margin_loss.output, total_loss.input_list),
             (main_loss.output, total_loss.input_list)])
 
     update_manager = optimus.ConnectionManager(
@@ -428,7 +434,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
     all_nodes = param_nodes + loss_nodes1 + loss_nodes2 + [total_loss]
     trainer = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, target, chord_idx, learning_rate, moia_weight],
+        inputs=[input_data, target, chord_idx, learning_rate],
         nodes=all_nodes,
         connections=trainer_edges.connections,
         outputs=[total_loss.output],
