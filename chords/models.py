@@ -114,6 +114,131 @@ def wcqt_nll():
     return trainer, predictor
 
 
+def wcqt_nll_margin():
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 6, TIME_DIM, 40))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    margin = optimus.Input(
+        name='margin',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(32, None, 5, 5),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(64, None, 5, 7),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(128, None, 3, 6),
+        act_type='relu')
+
+    layer3 = optimus.Affine(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 1024,),
+        act_type='relu')
+
+    chord_classifier = optimus.Affine(
+        name='chord_classifier',
+        input_shape=layer3.output.shape,
+        output_shape=(None, VOCAB),
+        act_type='sigmoid')
+
+    param_nodes = [layer0, layer1, layer2, layer3, chord_classifier]
+
+    # 1.1 Create Loss
+    log = optimus.Log(name='log')
+    neg_one0 = optimus.Gain(name='neg_one0')
+    neg_one0.weight.value = -1.0
+
+    target_values = optimus.SelectIndex(name='target_values')
+    moia_values = optimus.MaxNotIndex(name="moia_values")
+
+    neg_one1 = optimus.Gain(name='neg_one')
+    neg_one1.weight.value = -1.0
+    summer = optimus.Accumulate(name='summer')
+
+    relu = optimus.RectifiedLinear(name='relu')
+    loss = optimus.Mean(name='margin_loss')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, chord_classifier.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (chord_classifier.output, log.input),
+            (log.output, neg_one0.input),
+            (neg_one0.output, target_values.input),
+            (chord_idx, target_values.index),
+            (neg_one0.output, moia_values.input),
+            (chord_idx, moia_values.index),
+            (margin, summer.input_list),
+            (target_values.output, summer.input_list),
+            (moia_values.output, neg_one1.input),
+            (neg_one1.output, summer.input_list),
+            (summer.output, relu.input),
+            (relu.output, loss.input)])
+
+    updates = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, chord_idx, learning_rate, margin],
+        nodes=param_nodes + [log, neg_one0, target_values, moia_values,
+                             neg_one1, summer, relu, loss],
+        connections=trainer_edges.connections,
+        outputs=[loss.output, chord_classifier.output, target_values.output],
+        loss=loss.output,
+        updates=updates.connections,
+        verbose=True)
+
+    for n in param_nodes:
+        for p in n.params.values():
+            optimus.random_init(p)
+
+    posterior = optimus.Output(
+        name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(chord_classifier.output, posterior)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes,
+        connections=predictor_edges.connections,
+        outputs=[posterior])
+
+    return trainer, predictor
+
+
 def wcqt_sigmoid_mse(n_dim=VOCAB):
     input_data = optimus.Input(
         name='cqt',
@@ -179,9 +304,11 @@ def wcqt_sigmoid_mse(n_dim=VOCAB):
             (target, error.input_b),
             (error.output, loss.input)])
 
+    # update_manager = optimus.ConnectionManager(
+    #     map(lambda n: (learning_rate, n.weights), param_nodes) +
+    #     map(lambda n: (learning_rate, n.bias), param_nodes))
     update_manager = optimus.ConnectionManager(
-        map(lambda n: (learning_rate, n.weights), param_nodes) +
-        map(lambda n: (learning_rate, n.bias), param_nodes))
+        [(learning_rate, chord_estimator.bias)])
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
