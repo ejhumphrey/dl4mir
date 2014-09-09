@@ -380,14 +380,18 @@ def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
         if chord_streams[chord_idx] is None:
             continue
 
-        neg_mask = np.ones(len(chord_streams), dtype=bool)
-        neg_mask[chord_idx] = False
+        # Skip contrast streams with (a) no data or (b) no probability.
+        not_chord_probs = neg_probs[chord_idx]
+        not_chord_probs[chord_idx] = 0.0
+        not_chord_probs *= has_data
+        nidx = not_chord_probs > 0.0
+        assert not_chord_probs.sum() > 0.0
         chord_pool = [pescador.Streamer(x)
-                      for x in chord_streams[neg_mask]]
+                      for x in chord_streams[nidx]]
         neg_stream = pescador.mux(chord_pool, n_samples=None,
                                   k=len(chord_pool), lam=None,
                                   with_replacement=False,
-                                  pool_weights=neg_probs[chord_idx][neg_mask])
+                                  pool_weights=not_chord_probs[nidx])
         pair_stream = itertools.izip(chord_streams[chord_idx], neg_stream)
         binary_pool.append(pescador.Streamer(pair_stream))
 
