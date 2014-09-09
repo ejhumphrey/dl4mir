@@ -345,7 +345,8 @@ def create_uniform_factored_stream(stash, win_length, partition_labels=None,
 
 def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
                                     partition_labels=None, working_size=2,
-                                    vocab_dim=157, pitch_shift=0):
+                                    vocab_dim=157, pitch_shift=0,
+                                    neg_probs=None):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:
         partition_labels = util.partition(stash, chord_map)
@@ -353,28 +354,40 @@ def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
     if valid_idx is None:
         valid_idx = range(vocab_dim)
 
+    if neg_probs is None:
+        neg_probs = np.ones([vocab_dim]*2)
+        neg_probs[np.eye(vocab_dim, dtype=bool)] = 0.0
+        neg_probs = util.normalize(neg_probs, axis=1)
+
     chord_streams = []
+    has_data = np.ones(vocab_dim, dtype=bool)
     for chord_idx in valid_idx:
         subindex = util.index_partition_arrays(partition_labels, [chord_idx])
         entity_pool = [pescador.Streamer(chord_sampler, key, stash,
                                          win_length, subindex)
                        for key in subindex.keys()]
         if len(entity_pool) == 0:
-            continue
-        stream = pescador.mux(
-            entity_pool, n_samples=None, k=working_size, lam=20)
+            has_data[chord_idx] = False
+            stream = None
+        else:
+            stream = pescador.mux(
+                entity_pool, n_samples=None, k=working_size, lam=20)
         chord_streams.append(stream)
 
     chord_streams = np.array(chord_streams)
     binary_pool = []
-    for chord_idx in range(len(chord_streams)):
+    for chord_idx in range(vocab_dim):
+        if chord_streams[chord_idx] is None:
+            continue
+
         neg_mask = np.ones(len(chord_streams), dtype=bool)
         neg_mask[chord_idx] = False
         chord_pool = [pescador.Streamer(x)
                       for x in chord_streams[neg_mask]]
         neg_stream = pescador.mux(chord_pool, n_samples=None,
                                   k=len(chord_pool), lam=None,
-                                  with_replacement=False)
+                                  with_replacement=False,
+                                  pool_weights=neg_probs[chord_idx][neg_mask])
         pair_stream = itertools.izip(chord_streams[chord_idx], neg_stream)
         binary_pool.append(pescador.Streamer(pair_stream))
 
