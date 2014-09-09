@@ -172,14 +172,23 @@ def wcqt_nll_margin():
     neg_one0.weight.value = -1.0
 
     target_values = optimus.SelectIndex(name='target_values')
-    moia_values = optimus.MaxNotIndex(name="moia_values")
+    moia_values = optimus.MinNotIndex(name="moia_values")
 
-    neg_one1 = optimus.Gain(name='neg_one')
+    neg_one1 = optimus.Gain(name='neg_one1')
     neg_one1.weight.value = -1.0
     summer = optimus.Accumulate(name='summer')
 
     relu = optimus.RectifiedLinear(name='relu')
     loss = optimus.Mean(name='margin_loss')
+
+    target_vals = optimus.Output(
+        name='target_vals')
+
+    moia_vals = optimus.Output(
+        name='moia_vals')
+
+    summer_vals = optimus.Output(
+        name='summer_vals')
 
     # 2. Define Edges
     base_edges = [
@@ -199,9 +208,12 @@ def wcqt_nll_margin():
             (chord_idx, moia_values.index),
             (margin, summer.input_list),
             (target_values.output, summer.input_list),
+            (target_values.output, target_vals),
             (moia_values.output, neg_one1.input),
+            (moia_values.output, moia_vals),
             (neg_one1.output, summer.input_list),
             (summer.output, relu.input),
+            (summer.output, summer_vals),
             (relu.output, loss.input)])
 
     updates = optimus.ConnectionManager(
@@ -214,7 +226,7 @@ def wcqt_nll_margin():
         nodes=param_nodes + [log, neg_one0, target_values, moia_values,
                              neg_one1, summer, relu, loss],
         connections=trainer_edges.connections,
-        outputs=[loss.output, chord_classifier.output, target_values.output],
+        outputs=[loss.output, chord_classifier.output, target_vals, moia_vals, summer_vals],
         loss=loss.output,
         updates=updates.connections,
         verbose=True)
