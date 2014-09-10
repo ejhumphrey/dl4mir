@@ -29,7 +29,8 @@ def main(args):
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5)
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,
+        valid_idx=range(156))
     # stream = D.create_chord_stream(
     #     stash, time_dim, pitch_shift=6, vocab_dim=VOCAB, working_size=2)
 

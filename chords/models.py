@@ -145,44 +145,38 @@ def wcqt_nll2():
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 3, 7),
+        weight_shape=(128, None, 4, 7),
         act_type='relu')
 
     layer3 = optimus.Conv3D(
         name='layer3',
         input_shape=layer2.output.shape,
-        weight_shape=(512, None, 2, 1),
-        act_type='relu')
-
-    layer4 = optimus.Conv3D(
-        name='layer4',
-        input_shape=layer3.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='linear')
 
     reorder = optimus.Flatten('reorder', 2)
 
-    no_chord = optimus.Affine(
-        name='no_chord',
-        input_shape=(None, 128*12),
-        output_shape=(None, 1),
-        act_type='linear')
+    # no_chord = optimus.Affine(
+    #     name='no_chord',
+    #     input_shape=(None, 128*12*2),
+    #     output_shape=(None, 1),
+    #     act_type='linear')
 
-    cat = optimus.Concatenate('concatenate', axis=1)
+    # cat = optimus.Concatenate('concatenate', axis=1)
     softmax = optimus.Softmax('softmax')
 
-    param_nodes = [layer0, layer1, layer2, layer3, layer4, no_chord]
-    misc_nodes = [reorder, cat, softmax]
+    param_nodes = [layer0, layer1, layer2, layer3]
+    misc_nodes = [reorder, softmax]
 
     # 1.1 Create Loss
-    target_values = optimus.SelectIndex(name='target_values')
+    likelihoods = optimus.SelectIndex(name='likelihoods')
 
     log = optimus.Log(name='log')
     neg = optimus.Gain(name='gain')
     neg.weight.value = -1.0
 
     loss = optimus.Mean(name='negative_log_likelihood')
-    loss_nodes = [target_values, log, neg, loss]
+    loss_nodes = [likelihoods, log, neg, loss]
 
     # 2. Define Edges
     base_edges = [
@@ -190,18 +184,14 @@ def wcqt_nll2():
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, layer4.input),
-        (layer4.output, reorder.input),
-        (reorder.output, cat.input_list),
-        (layer2.output, no_chord.input),
-        (no_chord.output, cat.input_list),
-        (cat.output, softmax.input)]
+        (layer3.output, reorder.input),
+        (reorder.output, softmax.input)]
 
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
-            (softmax.output, target_values.input),
-            (chord_idx, target_values.index),
-            (target_values.output, log.input),
+            (softmax.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, log.input),
             (log.output, neg.input),
             (neg.output, loss.input)])
 
@@ -580,6 +570,132 @@ def wcqt_likelihood(n_dim=VOCAB):
         name=GRAPH_NAME,
         inputs=[input_data],
         nodes=param_nodes,
+        connections=predictor_edges.connections,
+        outputs=[posterior])
+
+    return trainer, predictor
+
+
+def wcqt_likelihood2():
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 5, TIME_DIM, 80))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 1))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(32, None, 5, 9),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(64, None, 5, 7),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(128, None, 3, 7),
+        act_type='relu')
+
+    layer3 = optimus.Conv3D(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        weight_shape=(512, None, 2, 1),
+        act_type='relu')
+
+    layer4 = optimus.Conv3D(
+        name='layer4',
+        input_shape=layer3.output.shape,
+        weight_shape=(13, None, 1, 1),
+        act_type='sigmoid')
+
+    reorder = optimus.Flatten('reorder', 2)
+
+    no_chord = optimus.Affine(
+        name='no_chord',
+        input_shape=(None, 128*12*2),
+        output_shape=(None, 1),
+        act_type='sigmoid')
+
+    cat = optimus.Concatenate('concatenate', axis=1)
+
+    param_nodes = [layer0, layer1, layer2, layer3, layer4, no_chord]
+    misc_nodes = [reorder, cat]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex('select')
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 'x'))
+    error = optimus.SquaredEuclidean(name='squared_error')
+    loss = optimus.Mean(name='mean_squared_error')
+
+    loss_nodes = [likelihoods, dimshuffle, error, loss]
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, layer4.input),
+        (layer4.output, reorder.input),
+        (reorder.output, cat.input_list),
+        (layer2.output, no_chord.input),
+        (no_chord.output, cat.input_list)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (cat.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, dimshuffle.input),
+            (dimshuffle.output, error.input_a),
+            (target, error.input_b),
+            (error.output, loss.input)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, chord_idx, target, learning_rate],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[loss.output],
+        loss=loss.output,
+        updates=update_manager.connections,
+        verbose=True)
+
+    for n in param_nodes:
+        for p in n.params.values():
+            optimus.random_init(p)
+
+    posterior = optimus.Output(
+        name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(cat.output, posterior)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
         connections=predictor_edges.connections,
         outputs=[posterior])
 
