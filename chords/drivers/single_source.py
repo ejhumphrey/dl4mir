@@ -12,7 +12,8 @@ from dl4mir.chords import models
 
 VOCAB = 157
 LEARNING_RATE = 0.02
-BATCH_SIZE = 50
+BATCH_SIZE = 100
+MARGIN = 0.25
 
 
 def main(args):
@@ -27,13 +28,14 @@ def main(args):
     # 3. Create Data
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    # stream = D.create_contrastive_chord_stream(
-    #     stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5)
-    stream = D.create_chord_stream(
-        stash, time_dim, pitch_shift=6, vocab_dim=VOCAB, working_size=2)
+    stream = D.create_uniform_chord_stream(
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=3)
+    # stream = D.create_chord_stream(
+    #     stash, time_dim, pitch_shift=6, vocab_dim=VOCAB, working_size=2)
 
     stream = S.minibatch(
-        FX.chord_index_to_onehot_vectors(stream, VOCAB),
+        stream,
+        # FX.chord_index_to_onehot_vectors(stream, VOCAB),
         batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
