@@ -721,6 +721,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 MODELS = {
     'wcqt_nll': wcqt_nll,
+    'wcqt_nll2': wcqt_nll2,
     'wcqt_nll_margin': wcqt_nll_margin,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
     'wcqt_likelihood': wcqt_likelihood,
