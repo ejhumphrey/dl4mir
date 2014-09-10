@@ -114,6 +114,124 @@ def wcqt_nll():
     return trainer, predictor
 
 
+def wcqt_nll2():
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 5, TIME_DIM, 80))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(32, None, 5, 9),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(64, None, 5, 7),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(128, None, 5, 7),
+        act_type='relu')
+
+    layer3 = optimus.Conv3D(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        weight_shape=(13, None, 1, 1),
+        act_type='linear')
+
+    reorder = optimus.Flatten('reorder', 2)
+
+    no_chord = optimus.Affine(
+        name='chord_classifier',
+        input_shape=layer3.output.shape,
+        output_shape=(None, 1),
+        act_type='linear')
+
+    cat = optimus.Concatenate('concatenate', axis=1)
+    softmax = optimus.Softmax('softmax')
+
+    param_nodes = [layer0, layer1, layer2, layer3, no_chord]
+    misc_nodes = [reorder, cat, softmax]
+
+    # 1.1 Create Loss
+    target_values = optimus.SelectIndex(name='target_values')
+
+    log = optimus.Log(name='log')
+    neg = optimus.Gain(name='gain')
+    neg.weight.value = -1.0
+
+    loss = optimus.Mean(name='negative_log_likelihood')
+    loss_nodes = [target_values, log, neg, loss]
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, reorder.input),
+        (reorder.output, cat.input_list),
+        (layer2.output, no_chord.input),
+        (no_chord.output, cat.input_list),
+        (cat.output, softmax.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (softmax.output, target_values.input),
+            (chord_idx, target_values.index),
+            (target_values.output, log.input),
+            (log.output, neg.input),
+            (neg.output, loss.input)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, chord_idx, learning_rate],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[loss.output],
+        loss=loss.output,
+        updates=update_manager.connections,
+        verbose=True)
+
+    for n in param_nodes:
+        for p in n.params.values():
+            optimus.random_init(p)
+
+    posterior = optimus.Output(
+        name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(softmax.output, posterior)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=predictor_edges.connections,
+        outputs=[posterior])
+
+    return trainer, predictor
+
+
 def wcqt_nll_margin():
     input_data = optimus.Input(
         name='cqt',
@@ -603,6 +721,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 MODELS = {
     'wcqt_nll': wcqt_nll,
+    'wcqt_nll_margin': wcqt_nll_margin,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
     'wcqt_likelihood': wcqt_likelihood,
     'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
