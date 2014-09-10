@@ -145,12 +145,18 @@ def wcqt_nll2():
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 4, 7),
+        weight_shape=(128, None, 3, 7),
         act_type='relu')
 
     layer3 = optimus.Conv3D(
         name='layer3',
         input_shape=layer2.output.shape,
+        weight_shape=(512, None, 2, 1),
+        act_type='relu')
+
+    layer4 = optimus.Conv3D(
+        name='layer4',
+        input_shape=layer3.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='linear')
 
@@ -165,7 +171,7 @@ def wcqt_nll2():
     cat = optimus.Concatenate('concatenate', axis=1)
     softmax = optimus.Softmax('softmax')
 
-    param_nodes = [layer0, layer1, layer2, layer3, no_chord]
+    param_nodes = [layer0, layer1, layer2, layer3, layer4, no_chord]
     misc_nodes = [reorder, cat, softmax]
 
     # 1.1 Create Loss
@@ -184,7 +190,8 @@ def wcqt_nll2():
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, reorder.input),
+        (layer3.output, layer4.input),
+        (layer4.output, reorder.input),
         (reorder.output, cat.input_list),
         (layer2.output, no_chord.input),
         (no_chord.output, cat.input_list),
