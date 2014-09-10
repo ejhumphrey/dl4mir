@@ -159,7 +159,7 @@ def wcqt_nll_margin():
         act_type='relu')
 
     chord_classifier = optimus.Affine(
-        name='chord_classifier',
+        name='chord_estimator',
         input_shape=layer3.output.shape,
         output_shape=(None, VOCAB),
         act_type='sigmoid')
@@ -603,6 +603,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 MODELS = {
     'wcqt_nll': wcqt_nll,
+    'wcqt_nll_margin': wcqt_nll_margin,    
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
     'wcqt_likelihood': wcqt_likelihood,
     'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
