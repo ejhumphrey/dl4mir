@@ -16,6 +16,7 @@ LEARNING_RATE = 0.02
 BATCH_SIZE = 50
 OCTAVE_DIM = 6
 PITCH_DIM = 40
+DROPOUT = 0.5
 
 # Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB

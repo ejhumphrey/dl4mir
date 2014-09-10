@@ -69,8 +69,8 @@ ${BIGGIE}/${DATA_SOURCE}/${idx}/train.hdf5 \
 ${MODEL_NAME} \
 ${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME} \
 ${TRIAL_NAME} \
-${TRANSFORM_NAME}.json
-# --init_param_file=${DL4MIR}/chord_estimation/models/cqt_nll_noreg_single/take_00/0/transform.npz
+${TRANSFORM_NAME}.json \
+--init_param_file=${DL4MIR}/chord_estimation/models/wcqt_sigmoid_mse/synth_wcqt/0/take_01_lr0x02/transform.npz
 # --secondary_source=${BASEDIR}/biggie/synth/${idx}/train${BS}.hdf5
     done
 fi

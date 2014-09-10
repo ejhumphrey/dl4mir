@@ -277,7 +277,7 @@ def wcqt_nll_margin():
         act_type='relu')
 
     chord_classifier = optimus.Affine(
-        name='chord_classifier',
+        name='chord_estimator',
         input_shape=layer3.output.shape,
         output_shape=(None, VOCAB),
         act_type='sigmoid')
