@@ -145,7 +145,7 @@ def wcqt_nll2():
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 5, 7),
+        weight_shape=(128, None, 4, 7),
         act_type='relu')
 
     layer3 = optimus.Conv3D(
@@ -157,8 +157,8 @@ def wcqt_nll2():
     reorder = optimus.Flatten('reorder', 2)
 
     no_chord = optimus.Affine(
-        name='chord_classifier',
-        input_shape=layer3.output.shape,
+        name='no_chord',
+        input_shape=(None, 128*12),
         output_shape=(None, 1),
         act_type='linear')
 
