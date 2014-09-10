@@ -20,6 +20,11 @@ def medfilt_mle(posterior, shape=[41,1]):
     return mle(signal.medfilt(posterior, shape))
 
 
+def viterbi(posterior, penalty=-5):
+    transmat = np.ones([posterior.shape[1]] * 2)
+    return util.viterbi(posterior, transmat, penalty=penalty)
+
+
 def estimate_classes(entity, prediction_fx=mle):
     """
 
@@ -46,12 +51,15 @@ def estimate_classes(entity, prediction_fx=mle):
     return estimations
 
 
+PRED_FXS = dict(mle=mle, medfilt_mle=medfilt_mle, viterbi=viterbi)
+
+
 def main(args):
     if not os.path.exists(args.posterior_file):
         print "File does not exist: %s" % args.posterior_file
         return
     dset = biggie.Stash(args.posterior_file)
-    fx = dict(mle=mle, medfilt_mle=medfilt_mle).get(args.prediction_fx, 'mle')
+    fx = PRED_FXS.get(args.prediction_fx, 'mle')
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
         estimations[key] = estimate_classes(dset.get(key), fx)
