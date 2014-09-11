@@ -556,9 +556,15 @@ def wcqt_likelihood(n_dim=VOCAB):
         updates=update_manager.connections,
         verbose=True)
 
-    for n in param_nodes:
+    for n in layer0, layer1, layer2:
         for p in n.params.values():
-            optimus.random_init(p, 0.0, 0.01)
+            optimus.random_init(p, 0.01, 0.01)
+
+    for p in layer3.params.values():
+        optimus.random_init(p, 0.01, 0.001)
+
+    for p in chord_estimator.params.values():
+        optimus.random_init(p, 0.0, 0.001)
 
     posterior = optimus.Output(name='posterior')
 
@@ -836,4 +842,5 @@ MODELS = {
     'wcqt_nll_margin': wcqt_nll_margin,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
     'wcqt_likelihood': wcqt_likelihood,
+    'wcqt_likelihood2': wcqt_likelihood2,
     'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
