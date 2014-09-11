@@ -25,26 +25,26 @@ def wcqt_nll():
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(32, None, 5, 5),
+        weight_shape=(16, None, 5, 5),
         pool_shape=(2, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(64, None, 5, 7),
+        weight_shape=(20, None, 5, 7),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 3, 6),
+        weight_shape=(24, None, 3, 6),
         act_type='relu')
 
     layer3 = optimus.Affine(
         name='layer3',
         input_shape=layer2.output.shape,
-        output_shape=(None, 1024,),
+        output_shape=(None, 512,),
         act_type='relu')
 
     chord_classifier = optimus.Affine(
@@ -341,7 +341,7 @@ def wcqt_nll_margin():
         nodes=param_nodes + [log, neg_one0, target_values, moia_values,
                              neg_one1, summer, relu, loss],
         connections=trainer_edges.connections,
-        outputs=[loss.output, chord_classifier.output, target_vals, moia_vals, summer_vals],
+        outputs=[loss.output],
         loss=loss.output,
         updates=updates.connections,
         verbose=True)
@@ -489,26 +489,26 @@ def wcqt_likelihood(n_dim=VOCAB):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(32, None, 5, 5),
+        weight_shape=(12, None, 5, 5),
         pool_shape=(2, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(64, None, 5, 7),
+        weight_shape=(16, None, 5, 7),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 3, 6),
+        weight_shape=(20, None, 3, 6),
         act_type='relu')
 
     layer3 = optimus.Affine(
         name='layer3',
         input_shape=layer2.output.shape,
-        output_shape=(None, 1024,),
+        output_shape=(None, 512,),
         act_type='relu')
 
     chord_estimator = optimus.Affine(
@@ -558,10 +558,9 @@ def wcqt_likelihood(n_dim=VOCAB):
 
     for n in param_nodes:
         for p in n.params.values():
-            optimus.random_init(p)
+            optimus.random_init(p, 0.0, 0.01)
 
-    posterior = optimus.Output(
-        name='posterior')
+    posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
         base_edges + [(chord_estimator.output, posterior)])
@@ -598,46 +597,40 @@ def wcqt_likelihood2():
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(32, None, 5, 9),
+        weight_shape=(12, None, 5, 9),
         pool_shape=(2, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(64, None, 5, 7),
+        weight_shape=(16, None, 5, 7),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(128, None, 3, 7),
+        weight_shape=(20, None, 4, 7),
         act_type='relu')
 
     layer3 = optimus.Conv3D(
         name='layer3',
         input_shape=layer2.output.shape,
-        weight_shape=(512, None, 2, 1),
-        act_type='relu')
-
-    layer4 = optimus.Conv3D(
-        name='layer4',
-        input_shape=layer3.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='sigmoid')
 
     reorder = optimus.Flatten('reorder', 2)
 
-    no_chord = optimus.Affine(
-        name='no_chord',
-        input_shape=(None, 128*12*2),
-        output_shape=(None, 1),
-        act_type='sigmoid')
+    # no_chord = optimus.Affine(
+    #     name='no_chord',
+    #     input_shape=(None, 128*12),
+    #     output_shape=(None, 1),
+    #     act_type='sigmoid')
 
-    cat = optimus.Concatenate('concatenate', axis=1)
+    # cat = optimus.Concatenate('concatenate', axis=1)
 
-    param_nodes = [layer0, layer1, layer2, layer3, layer4, no_chord]
-    misc_nodes = [reorder, cat]
+    param_nodes = [layer0, layer1, layer2, layer3]
+    misc_nodes = [reorder]
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex('select')
@@ -653,15 +646,11 @@ def wcqt_likelihood2():
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, layer4.input),
-        (layer4.output, reorder.input),
-        (reorder.output, cat.input_list),
-        (layer2.output, no_chord.input),
-        (no_chord.output, cat.input_list)]
+        (layer3.output, reorder.input)]
 
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
-            (cat.output, likelihoods.input),
+            (reorder.output, likelihoods.input),
             (chord_idx, likelihoods.index),
             (likelihoods.output, dimshuffle.input),
             (dimshuffle.output, error.input_a),
@@ -686,11 +675,10 @@ def wcqt_likelihood2():
         for p in n.params.values():
             optimus.random_init(p)
 
-    posterior = optimus.Output(
-        name='posterior')
+    posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
-        base_edges + [(cat.output, posterior)])
+        base_edges + [(reorder.output, posterior)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
