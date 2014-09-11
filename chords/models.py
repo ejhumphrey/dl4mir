@@ -467,6 +467,118 @@ def wcqt_sigmoid_mse(n_dim=VOCAB):
     return trainer, predictor
 
 
+def cqt_likelihood(n_dim=VOCAB):
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, TIME_DIM, 252))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 1))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(6, None, 5, 7),  # or 13
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(20, None, 5, 15),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(20, None, 3, 15),
+        act_type='relu')
+
+    layer3 = optimus.Affine(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 512,),
+        act_type='relu')
+
+    chord_estimator = optimus.Affine(
+        name='chord_estimator',
+        input_shape=layer3.output.shape,
+        output_shape=(None, n_dim),
+        act_type='sigmoid')
+
+    param_nodes = [layer0, layer1, layer2, layer3, chord_estimator]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex('select')
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 'x'))
+    error = optimus.SquaredEuclidean(name='squared_error')
+    loss = optimus.Mean(name='mean_squared_error')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, chord_estimator.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (chord_estimator.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, dimshuffle.input),
+            (dimshuffle.output, error.input_a),
+            (target, error.input_b),
+            (error.output, loss.input)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, target, chord_idx, learning_rate],
+        nodes=param_nodes + [likelihoods, dimshuffle, error, loss],
+        connections=trainer_edges.connections,
+        outputs=[loss.output],
+        loss=loss.output,
+        updates=update_manager.connections,
+        verbose=True)
+
+    posterior = optimus.Output(name='posterior')
+    out0 = optimus.Output(name='out0')
+    out1 = optimus.Output(name='out1')
+    out2 = optimus.Output(name='out2')
+    out3 = optimus.Output(name='out3')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(chord_estimator.output, posterior),
+                      (layer0.output, out0),
+                      (layer1.output, out1),
+                      (layer2.output, out2),
+                      (layer3.output, out3)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes,
+        connections=predictor_edges.connections,
+        outputs=[out0, out1, out2, out3, posterior])
+
+    return trainer, predictor
+
+
 def wcqt_likelihood(n_dim=VOCAB):
     input_data = optimus.Input(
         name='cqt',
@@ -841,6 +953,7 @@ MODELS = {
     'wcqt_nll2': wcqt_nll2,
     'wcqt_nll_margin': wcqt_nll_margin,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
+    'cqt_likelihood': cqt_likelihood,
     'wcqt_likelihood': wcqt_likelihood,
     'wcqt_likelihood2': wcqt_likelihood2,
     'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
