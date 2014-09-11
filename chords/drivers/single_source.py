@@ -10,9 +10,10 @@ import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
+DRIVER_ARGS['max_iter'] = 500000
 VOCAB = 157
-LEARNING_RATE = 0.02
-BATCH_SIZE = 50
+LEARNING_RATE = 0.1
+BATCH_SIZE = 100
 MARGIN = 0.25
 
 
@@ -29,8 +30,8 @@ def main(args):
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,
-        valid_idx=range(156))
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,)
+    #    valid_idx=range(156))
     # stream = D.create_chord_stream(
     #     stash, time_dim, pitch_shift=6, vocab_dim=VOCAB, working_size=2)
 

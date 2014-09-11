@@ -12,11 +12,11 @@ from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
 VOCAB = 157
-LEARNING_RATE = 0.02
-BATCH_SIZE = 50
+LEARNING_RATE = 0.1
+BATCH_SIZE = 100
 
 
-NEG_PROBS = np.load("/home/ejhumphrey/Dropbox/tmp/synth_train0_negprobs.py")
+NEG_PROBS = np.load("/home/ejhumphrey/Dropbox/tmp/synth_train0_negprobs.npy")
 
 
 def main(args):
@@ -32,7 +32,7 @@ def main(args):
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_contrastive_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=2,
         neg_probs=NEG_PROBS)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
