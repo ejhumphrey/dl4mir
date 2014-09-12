@@ -815,6 +815,122 @@ def cqt_smax_3layer(n_dim=VOCAB):
     return trainer, predictor
 
 
+def cqt_smax_3layer_mce(n_dim=VOCAB):
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, TIME_DIM, 252))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(8, None, 5, 13),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(24, None, 5, 37),
+        act_type='relu')
+
+    layer2 = optimus.Affine(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        output_shape=(None, 512,),
+        act_type='relu')
+
+    chord_classifier = optimus.Affine(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        output_shape=(None, n_dim),
+        act_type='softmax')
+
+    param_nodes = [layer0, layer1, layer2, chord_classifier]
+
+    # 1.1 Create Loss
+    log = optimus.Log(name='log')
+    neg_one0 = optimus.Gain(name='neg_one0')
+    neg_one0.weight.value = -1.0
+
+    target_values = optimus.SelectIndex(name='target_values')
+    moia_values = optimus.MinNotIndex(name="moia_values")
+
+    neg_one1 = optimus.Gain(name='neg_one1')
+    neg_one1.weight.value = -1.0
+    summer = optimus.Accumulate(name='summer', num_inputs=2)
+
+    soft_step = optimus.Sigmoid(name='soft_step')
+    loss = optimus.Mean(name='mce_loss')
+
+    loss_nodes = [log, neg_one0, target_values, moia_values,
+                  neg_one1, summer, soft_step, loss]
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chord_classifier.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (chord_classifier.output, log.input),
+            (log.output, neg_one0.input),
+            (neg_one0.output, target_values.input),
+            (chord_idx, target_values.index),
+            (neg_one0.output, moia_values.input),
+            (chord_idx, moia_values.index),
+            (target_values.output, summer.input_0),
+            (moia_values.output, neg_one1.input),
+            (neg_one1.output, summer.input_1),
+            (summer.output, soft_step.input),
+            (soft_step.output, loss.input)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, chord_idx, learning_rate],
+        nodes=param_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[loss.output],
+        loss=loss.output,
+        updates=update_manager.connections,
+        verbose=True)
+
+    out0 = optimus.Output(name='out0')
+    out1 = optimus.Output(name='out1')
+    out2 = optimus.Output(name='out2')
+    posterior = optimus.Output(name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(chord_classifier.output, posterior),
+                      (layer0.output, out0),
+                      (layer1.output, out1),
+                      (layer2.output, out2)])
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes,
+        connections=predictor_edges.connections,
+        outputs=[out0, out1, out2, posterior])
+
+    return trainer, predictor
+
+
 def cqt_likelihood(n_dim=VOCAB):
     input_data = optimus.Input(
         name='cqt',
