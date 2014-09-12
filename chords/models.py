@@ -229,7 +229,7 @@ def wcqt_nll2():
     return trainer, predictor
 
 
-def cqt_convclassifier_smax():
+def cqt_3layer_convclassifier_smax():
     input_data = optimus.Input(
         name='cqt',
         shape=(None, 1, TIME_DIM, 252))
@@ -254,40 +254,34 @@ def cqt_convclassifier_smax():
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(16, None, 5, 21),
+        weight_shape=(20, None, 5, 37),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(20, None, 3, 25),
+        weight_shape=(20, None, 3, 33),
         act_type='relu')
 
-    layer3 = optimus.Conv3D(
-        name='layer3',
+    chord_classifier = optimus.Conv3D(
+        name='chord_classifier',
         input_shape=layer2.output.shape,
-        weight_shape=(24, None, 2, 25),
-        act_type='relu')
+        weight_shape=(13, None, 2, 1),
+        act_type='linear')
 
-    layer4 = optimus.Conv3D(
-        name='layer4',
-        input_shape=layer3.output.shape,
-        weight_shape=(13, None, 1, 1),
-        act_type='relu')
+    flatten = optimus.Flatten('flatten', 2)
 
-    reorder = optimus.Flatten('reorder', 2)
+    null_classifier = optimus.Affine(
+        name='null_classifier',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 1),
+        act_type='linear')
 
-    # no_chord = optimus.Affine(
-    #     name='no_chord',
-    #     input_shape=(None, 128*12*2),
-    #     output_shape=(None, 1),
-    #     act_type='linear')
-
-    # cat = optimus.Concatenate('concatenate', axis=1)
+    cat = optimus.Concatenate('concatenate', num_inputs=2, axis=1)
     softmax = optimus.Softmax('softmax')
 
-    param_nodes = [layer0, layer1, layer2, layer3, layer4]
-    misc_nodes = [reorder, softmax]
+    param_nodes = [layer0, layer1, layer2, chord_classifier, null_classifier]
+    misc_nodes = [flatten, cat, softmax]
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex(name='likelihoods')
@@ -304,10 +298,12 @@ def cqt_convclassifier_smax():
         (input_data, layer0.input),
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
-        (layer2.output, layer3.input),
-        (layer3.output, layer4.input),
-        (layer4.output, reorder.input),
-        (reorder.output, softmax.input)]
+        (layer2.output, chord_classifier.input),
+        (layer2.output, null_classifier.input),
+        (chord_classifier.output, flatten.input),
+        (flatten.output, cat.input_0),
+        (null_classifier.output, cat.input_1),
+        (cat.output, softmax.input)]
 
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
@@ -331,15 +327,20 @@ def cqt_convclassifier_smax():
         updates=update_manager.connections,
         verbose=True)
 
-    for n in param_nodes:
-        for p in n.params.values():
-            optimus.random_init(p)
+    # for n in param_nodes:
+    #     for p in n.params.values():
+    #         optimus.random_init(p)
 
-    posterior = optimus.Output(
-        name='posterior')
+    # out0 = optimus.Output(name='out0')
+    # out1 = optimus.Output(name='out1')
+    # out2 = optimus.Output(name='out2')
+    posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
         base_edges + [(softmax.output, posterior)])
+                      # (layer0.output, out0),
+                      # (layer1.output, out1),
+                      # (layer2.output, out2)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
