@@ -296,15 +296,6 @@ def cqt_nll_margin():
     relu = optimus.RectifiedLinear(name='relu')
     loss = optimus.Mean(name='margin_loss')
 
-    target_vals = optimus.Output(
-        name='target_vals')
-
-    moia_vals = optimus.Output(
-        name='moia_vals')
-
-    summer_vals = optimus.Output(
-        name='summer_vals')
-
     # 2. Define Edges
     base_edges = [
         (input_data, layer0.input),
@@ -323,12 +314,9 @@ def cqt_nll_margin():
             (chord_idx, moia_values.index),
             (margin, summer.input_list),
             (target_values.output, summer.input_list),
-            (target_values.output, target_vals),
             (moia_values.output, neg_one1.input),
-            (moia_values.output, moia_vals),
             (neg_one1.output, summer.input_list),
             (summer.output, relu.input),
-            (summer.output, summer_vals),
             (relu.output, loss.input)])
 
     updates = optimus.ConnectionManager(
