@@ -1416,6 +1416,9 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 MODELS = {
     'wcqt_nll': wcqt_nll,
     'wcqt_nll2': wcqt_nll2,
+    'cqt_smax_3layer': cqt_smax_3layer,
+    'cqt_smax_3layer_mce': cqt_smax_3layer_mce,
+    'cqt_3layer_convclassifier_smax': cqt_3layer_convclassifier_smax,
     'cqt_nll_margin': cqt_nll_margin,
     'wcqt_nll_margin': wcqt_nll_margin,
     'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
