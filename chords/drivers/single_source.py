@@ -15,6 +15,7 @@ VOCAB = 157
 LEARNING_RATE = 0.1
 BATCH_SIZE = 100
 MARGIN = 0.25
+DROPOUT = 0.5
 
 
 def main(args):
@@ -30,10 +31,7 @@ def main(args):
     print "Loading %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,)
-    #    valid_idx=range(156))
-    # stream = D.create_chord_stream(
-    #     stash, time_dim, pitch_shift=6, vocab_dim=VOCAB, working_size=2)
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=3,)
 
     stream = S.minibatch(
         stream,
@@ -46,7 +44,7 @@ def main(args):
         name=args.trial_name,
         output_directory=args.output_directory)
 
-    hyperparams = dict(learning_rate=LEARNING_RATE)
+    hyperparams = dict(learning_rate=LEARNING_RATE, dropout=0.5)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
