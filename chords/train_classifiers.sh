@@ -64,13 +64,15 @@ if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
 then
     for idx in ${FOLD_IDXS}
     do
-        python ${SRC}/chords/drivers/weighted_contrast.py \
+        python ${SRC}/chords/drivers/single_source.py \
 ${BIGGIE}/${DATA_SOURCE}/${idx}/train.hdf5 \
 ${MODEL_NAME} \
 ${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME} \
 ${TRIAL_NAME} \
 ${TRANSFORM_NAME}.json \
---init_param_file=/home/ejhumphrey/cqt_likelihood_init_wsample.npz
+--init_param_file=/home/ejhumphrey/cqt_3layer_convclassifier_smax_init_wrand.npz
+# --init_param_file=/media/attic/dl4mir/chord_estimation/models/cqt_likelihood/synth/0/sampleinit_small_lr0x02_batch100_take00/classifier-V157-sampleinit_small_lr0x02_batch100_take00-100000-2014-09-11_21h14m31s.npz
+# --init_param_file=/home/ejhumphrey/cqt_likelihood_init_wsample.npz
 # --secondary_source=${BASEDIR}/biggie/synth/${idx}/train${BS}.hdf5
     done
 fi
