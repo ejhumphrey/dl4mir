@@ -381,13 +381,13 @@ def cqt_3layer_allconv_smax_dropout():
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(24, None, 5, 37),
+        weight_shape=(40, None, 5, 37),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(24, None, 4, 33),
+        weight_shape=(40, None, 4, 33),
         act_type='relu')
 
     chord_classifier = optimus.Conv3D(
