@@ -65,10 +65,9 @@ ${BIGGIE}/${DATA_SOURCE}/${idx}/train.hdf5 \
 ${MODEL_NAME} \
 ${MODELS}/${TRIAL_NAME}/${idx}/ \
 ${TRIAL_NAME} \
-${TRANSFORM_NAME}.json \
+${TRANSFORM_NAME}.json
 # --init_param_file=${INITS}/$6.npz
     done
-}
 fi
 
 # Model Selection

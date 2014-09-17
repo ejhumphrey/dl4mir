@@ -16,16 +16,16 @@ def mle(posterior):
     return posterior.argmax(axis=1)
 
 
-def medfilt_mle(posterior, shape=[41,1]):
+def medfilt_mle(posterior, shape=[41, 1]):
     return mle(signal.medfilt(posterior, shape))
 
 
-def viterbi(posterior, penalty=-5):
+def viterbi(posterior, penalty=-25):
     transmat = np.ones([posterior.shape[1]] * 2)
     return util.viterbi(posterior, transmat, penalty=penalty)
 
 
-def estimate_classes(entity, prediction_fx=mle):
+def estimate_classes(entity, prediction_fx=mle, **kwargs):
     """
 
     Parameters
@@ -42,7 +42,7 @@ def estimate_classes(entity, prediction_fx=mle):
     """
     num_classes = entity.posterior.shape[1]
     estimations = dict()
-    y_pred = prediction_fx(entity.posterior)
+    y_pred = prediction_fx(entity.posterior, **kwargs)
     for label, idx in zip(entity.chord_labels, y_pred):
         if not label in estimations:
             estimations[label] = np.zeros(num_classes, dtype=np.int).tolist()
