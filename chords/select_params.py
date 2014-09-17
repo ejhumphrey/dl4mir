@@ -58,9 +58,7 @@ def main(args):
     # vocab_dim = LABELvalidator.name
     stash = biggie.Stash(args.data_file)
     stream = S.minibatch(
-        D.create_chord_stream(stash, time_dim),
-        batch_size=100,
-        functions=[FX.map_to_chord_index(157)])
+        D.create_chord_stream(stash, time_dim), batch_size=100)
 
     best_params = find_best_param_file(
         param_files=futils.load_textlist(args.param_textlist),

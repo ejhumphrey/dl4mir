@@ -28,7 +28,7 @@ def compute_chord_averages(stash, win_length=20, num_obs=5000):
         base_stream = pescador.mux(pool, n_samples=None, k=50, lam=5)
         for root in range(12):
             stream = FX.rotate_chord_to_root(base_stream, root)
-            x_obs = np.array([stream.next().cqt.value for _ in range(num_obs)])
+            x_obs = np.array([stream.next().cqt for _ in range(num_obs)])
             obs_aves.append(x_obs.mean(axis=0).squeeze())
             print len(obs_aves)
 
@@ -36,7 +36,7 @@ def compute_chord_averages(stash, win_length=20, num_obs=5000):
     null_pool = [pescador.Streamer(chord_sampler, key, stash, 20, null_index)
                  for key in null_index]
     stream = pescador.mux(null_pool, n_samples=None, k=50, lam=5)
-    x_obs = np.array([stream.next().cqt.value for _ in range(num_obs)])
+    x_obs = np.array([stream.next().cqt for _ in range(num_obs)])
     obs_aves.append(x_obs.mean(axis=0).squeeze())
     return np.array(obs_aves)
 
@@ -53,7 +53,7 @@ def sample_chord_qualities(stash, output_dir, win_length=20, num_obs=10000):
         base_stream = pescador.mux(pool, n_samples=None, k=50, lam=5)
         for root in range(12):
             stream = FX.rotate_chord_to_root(base_stream, root)
-            x_obs = np.array([stream.next().cqt.value for _ in range(num_obs)])
+            x_obs = np.array([stream.next().cqt for _ in range(num_obs)])
             chord_idx = qual*12 + root
             np.save(os.path.join(output_dir, "%03d.npy" % chord_idx), x_obs)
             print "[%s] %3d" % (time.asctime(), chord_idx)
@@ -61,7 +61,7 @@ def sample_chord_qualities(stash, output_dir, win_length=20, num_obs=10000):
     null_pool = [pescador.Streamer(chord_sampler, key, stash, 20, null_index)
                  for key in null_index]
     stream = pescador.mux(null_pool, n_samples=None, k=50, lam=5)
-    x_obs = np.array([stream.next().cqt.value for _ in range(num_obs)])
+    x_obs = np.array([stream.next().cqt for _ in range(num_obs)])
     np.save(os.path.join(output_dir, "156.npy"), x_obs)
 
 

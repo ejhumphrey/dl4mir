@@ -1,19 +1,11 @@
-import numpy as np
 import itertools
+import numpy as np
 
 import biggie
 import pescador
-
 from dl4mir.chords import labels
 import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
-
-import scipy.cluster.vq as VQ
-from sklearn.decomposition import PCA
-import time
-
-import marl.fileutils as futil
-import os
 
 
 def extract_tile(x_in, idx, length):
@@ -65,9 +57,9 @@ def slice_chord_entity(entity, length, idx=None):
     sample: biggie.Entity with fields {cqt, chord_label}
         The windowed chord observation.
     """
-    idx = np.random.randint(cqt_shape[1]) if idx is None else idx
-    cqt = np.array([extract_tile(x, idx, length) for x in entity.cqt.value])
-    return biggie.Entity(cqt=cqt, chord_label=entity.chord_labels.value[idx])
+    idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
+    cqt = np.array([extract_tile(x, idx, length) for x in entity.cqt])
+    return biggie.Entity(cqt=cqt, chord_label=entity.chord_labels[idx])
 
 
 def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
@@ -96,7 +88,7 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
         The windowed chord observation.
     """
     entity = stash.get(key)
-    num_samples = len(entity.chord_labels.value)
+    num_samples = len(entity.chord_labels)
     if index is None:
         index = {key: np.arange(num_samples)}
 
@@ -128,7 +120,7 @@ def cqt_buffer(entity, win_length=20, valid_samples=None):
     sample: biggie.Entity with fields {cqt, chord_label}
         The windowed chord observation.
     """
-    num_samples = len(entity.chord_labels.value)
+    num_samples = len(entity.chord_labels)
     if valid_samples is None:
         valid_samples = np.arange(num_samples)
 
@@ -141,7 +133,8 @@ def cqt_buffer(entity, win_length=20, valid_samples=None):
 
 
 def lazy_cqt_buffer(key, stash, win_length=20, index=None):
-    """Generator for stepping windowed chord observations from an entity.
+    """Generator for stepping windowed chord observations from an entity; note
+    that the entity is not queried until the generator is invoked.
 
     Parameters
     ----------
@@ -159,7 +152,7 @@ def lazy_cqt_buffer(key, stash, win_length=20, index=None):
         The windowed chord observation.
     """
     entity = stash.get(key)
-    num_samples = len(entity.chord_labels.value)
+    num_samples = len(entity.chord_labels)
     if index is None:
         index = {key: np.arange(num_samples)}
 
@@ -170,7 +163,7 @@ def lazy_cqt_buffer(key, stash, win_length=20, index=None):
 
 def chord_map(entity, vocab_dim=157):
     """Map an entity's chord_labels to class indexes; for partitioning."""
-    chord_labels = entity.chord_labels.value
+    chord_labels = entity.chord_labels
     unique_labels = np.unique(chord_labels)
     unique_idxs = labels.chord_label_to_class_index(unique_labels)
     labels_to_index = dict([(l, i) for l, i in zip(unique_labels,
@@ -180,7 +173,7 @@ def chord_map(entity, vocab_dim=157):
 
 def quality_map(entity, vocab_dim=157):
     """Map an entity's chord_labels to quality indexes; for partitioning."""
-    chord_labels = entity.chord_labels.value
+    chord_labels = entity.chord_labels
     unique_labels = np.unique(chord_labels)
     unique_idxs = labels.chord_label_to_quality_index(unique_labels)
     labels_to_index = dict([(l, i) for l, i in zip(unique_labels,
@@ -207,12 +200,12 @@ def create_chord_stream(stash, win_length, pool_size=50, vocab_dim=157,
 
 
 def create_stash_stream(stash, win_length, pool_size=50, vocab_dim=157,
-                        pitch_shift=False):
+                        pitch_shift=0):
     """Stream the contents of a stash."""
     partition_labels = util.partition(stash, quality_map)
     quality_index = util.index_partition_arrays(partition_labels, range(14))
 
-    entity_pool = [pescador.Streamer(chord_stepper, key,
+    entity_pool = [pescador.Streamer(lazy_cqt_buffer, key,
                                      stash, win_length, quality_index)
                    for key in stash.keys()]
     stream = pescador.mux(entity_pool, None, pool_size)
@@ -284,7 +277,7 @@ def create_uniform_chord_stream(stash, win_length, partition_labels=None,
 
 def muxed_uniform_chord_stream(stash, synth_stash, win_length, vocab_dim=157,
                                pitch_shift=0, working_size=4):
-    """Return a stream of chord samples, with uniform quality presentation."""
+    """Return a stream of chord samples, merging two separate datasets."""
     partition_labels = util.partition(stash, chord_map)
     synth_partition_labels = util.partition(synth_stash, chord_map)
 
@@ -347,7 +340,8 @@ def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
                                     partition_labels=None, working_size=2,
                                     vocab_dim=157, pitch_shift=0,
                                     neg_probs=None):
-    """Return a stream of chord samples, with uniform quality presentation."""
+    """Return a stream of chord samples, with equal positive and negative
+    examples."""
     if partition_labels is None:
         partition_labels = util.partition(stash, chord_map)
 
@@ -401,8 +395,9 @@ def create_contrastive_chord_stream(stash, win_length, valid_idx=None,
 
 
 def chroma_stepper(key, stash, index=None):
+    """writeme."""
     entity = stash.get(key)
-    num_samples = len(entity.chord_labels.value)
+    num_samples = len(entity.chord_labels)
     if index is None:
         index = {key: np.arange(num_samples)}
 
@@ -411,19 +406,20 @@ def chroma_stepper(key, stash, index=None):
     count = 0
     while count < len(valid_samples):
         n = valid_samples[idx]
-        if n >= entity.chroma.value.shape[0]:
+        if n >= entity.chroma.shape[0]:
             print "Out of range! %s" % key
             break
-        yield biggie.Entity(chroma=entity.chroma.value[n],
-                            chord_label=entity.chord_labels.value[n])
+        yield biggie.Entity(chroma=entity.chroma[n],
+                            chord_label=entity.chord_labels[n])
         idx += 1
         count += 1
 
 
 def count_transitions(stash, vocab_dim=157):
+    """writeme."""
     transitions = np.zeros([(vocab_dim / 12) + 1, vocab_dim])
     for k in stash.keys():
-        chord_labels = stash.get(k).chord_labels.value
+        chord_labels = stash.get(k).chord_labels
         chord_idx = labels.chord_label_to_class_index(chord_labels, vocab_dim)
         for n in range(len(chord_idx) - 1):
             if chord_idx[n] is None or chord_idx[n + 1] is None:
@@ -440,4 +436,3 @@ def count_transitions(stash, vocab_dim=157):
 
     trans_mat.append(trans_mat[-1])
     return np.array(trans_mat)
-

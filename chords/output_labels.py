@@ -71,10 +71,9 @@ def main(args):
 
     framerate = json.load(open(args.cqt_params))['framerate']
     total_count = len(dset.keys())
-    results = dict()
     for idx, key in enumerate(dset.keys()):
         intervals, labels = posterior_to_labeled_intervals(
-            dset.get(key).posterior.value,
+            dset.get(key).posterior,
             framerate=framerate,
             viterbi_penalty=args.viterbi_penalty,
             medfilt=args.medfilt)

@@ -229,7 +229,12 @@ def wcqt_nll2():
     return trainer, predictor
 
 
-def cqt_3layer_convclassifier_smax():
+def allconv_nll(size='small'):
+    k0, k1, k2 = dict(
+        small=(8, 16, 20),
+        med=(12, 24, 32),
+        large=(16, 32, 48))[size]
+
     input_data = optimus.Input(
         name='cqt',
         shape=(None, 1, TIME_DIM, 252))
@@ -247,20 +252,20 @@ def cqt_3layer_convclassifier_smax():
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(8, None, 5, 13),
+        weight_shape=(k0, None, 5, 13),
         pool_shape=(2, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(20, None, 5, 37),
+        weight_shape=(k1, None, 5, 37),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(20, None, 3, 33),
+        weight_shape=(k2, None, 3, 33),
         act_type='relu')
 
     chord_classifier = optimus.Conv3D(
@@ -327,27 +332,27 @@ def cqt_3layer_convclassifier_smax():
         updates=update_manager.connections,
         verbose=True)
 
-    # for n in param_nodes:
-    #     for p in n.params.values():
-    #         optimus.random_init(p)
+    for n in param_nodes:
+        for p in n.params.values():
+            optimus.random_init(p)
 
-    out0 = optimus.Output(name='out0')
-    out1 = optimus.Output(name='out1')
-    out2 = optimus.Output(name='out2')
+    # out0 = optimus.Output(name='out0')
+    # out1 = optimus.Output(name='out1')
+    # out2 = optimus.Output(name='out2')
     posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
-        base_edges + [(softmax.output, posterior),
-                      (layer0.output, out0),
-                      (layer1.output, out1),
-                      (layer2.output, out2)])
+        base_edges + [(softmax.output, posterior)])
+                      # (layer0.output, out0),
+                      # (layer1.output, out1),
+                      # (layer2.output, out2)])
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
         inputs=[input_data],
         nodes=param_nodes + misc_nodes,
         connections=predictor_edges.connections,
-        outputs=[posterior, out0, out1, out2])
+        outputs=[posterior])  # , out0, out1, out2])
 
     return trainer, predictor
 
@@ -1689,17 +1694,4 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 
 MODELS = {
-    'wcqt_nll': wcqt_nll,
-    'wcqt_nll2': wcqt_nll2,
-    'cqt_smax_3layer': cqt_smax_3layer,
-    'cqt_smax_3layer_mce': cqt_smax_3layer_mce,
-    'cqt_3layer_convclassifier_smax': cqt_3layer_convclassifier_smax,
-    'cqt_3layer_allconv_smax_dropout': cqt_3layer_allconv_smax_dropout,
-    'cqt_3layer_convclassifier_smax_smce': cqt_3layer_convclassifier_smax_smce,
-    'cqt_nll_margin': cqt_nll_margin,
-    'wcqt_nll_margin': wcqt_nll_margin,
-    'wcqt_sigmoid_mse': wcqt_sigmoid_mse,
-    'cqt_likelihood': cqt_likelihood,
-    'wcqt_likelihood': wcqt_likelihood,
-    'wcqt_likelihood2': wcqt_likelihood2,
-    'wcqt_likelihood_wmoia': wcqt_likelihood_wmoia}
+    'allconv_nll': allconv_nll}

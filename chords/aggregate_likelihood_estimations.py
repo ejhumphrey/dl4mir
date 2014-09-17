@@ -40,10 +40,10 @@ def estimate_classes(entity, prediction_fx=mle):
     estimations: dict
         Chord labels and dense count vectors.
     """
-    num_classes = entity.posterior.value.shape[1]
+    num_classes = entity.posterior.shape[1]
     estimations = dict()
-    y_pred = prediction_fx(entity.posterior.value)
-    for label, idx in zip(entity.chord_labels.value, y_pred):
+    y_pred = prediction_fx(entity.posterior)
+    for label, idx in zip(entity.chord_labels, y_pred):
         if not label in estimations:
             estimations[label] = np.zeros(num_classes, dtype=np.int).tolist()
         estimations[label][idx] += 1

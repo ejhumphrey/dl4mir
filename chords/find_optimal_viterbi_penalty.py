@@ -29,10 +29,10 @@ def predict(entity, penalty, weighting=None):
     y_true : np.ndarray
     y_pred : np.ndarray
     """
-    posterior = np.array(entity.posterior.value)
+    posterior = np.array(entity.posterior)
     if not weighting is None:
         posterior *= weighting.reshape(1, posterior.shape[1])
-    y_true = CL.chord_label_to_class_index(entity.chord_labels.value, 157)
+    y_true = CL.chord_label_to_class_index(entity.chord_labels, 157)
     y_pred = util.viterbi(posterior, np.ones([157]*2), penalty=penalty)
     L = min([len(y_true), len(y_pred)])
     y_true = np.asarray(y_true[:L])
@@ -86,7 +86,6 @@ def weighting_sweep(stash, prior, exponents, penalty=-6, scoring_fx=f1_score):
                                                          scores[idx])
         all_scores.append(((scores * weights) / weights.sum()).sum())
     return all_scores
-
 
 
 def main(args):

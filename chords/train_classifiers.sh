@@ -16,7 +16,7 @@ SRC=./dl4mir
 # Directory of optimus data files, divided by index and split, like
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie
-
+INITS=${BASEDIR}/param_inits
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
@@ -26,54 +26,47 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
-    echo "train.sh {model} {source} {[0-4]|*all} {trial} {fit|select|transform|*all}"
+    echo "train.sh {driver} {model_name} {data} {[0-4]|all} {fit|select|transform|all} {}"
     echo $'\tdriver - Name of the training driver.'
     echo $'\tfold# - Number of the training fold, default=all.'
     echo $'\tphase - Name of training phase, default=all.'
     exit 0
-else
-    MODEL_NAME="$1"
-    DATA_SOURCE="$2"
 fi
 
-if [ "$3" == "all" ] || [ -z "$3" ];
+DRIVER="$1"
+MODEL_NAME="$2"
+DATA_SOURCE="$3"
+TRIAL_NAME="${DRIVER}-${MODEL_NAME}-${DATA_SOURCE}"
+
+if [ "$4" == "all" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
 else
-    FOLD_IDXS=$3
+    FOLD_IDXS=$4
 fi
 
-if [ -z "$4" ]
+PHASE="$5"
+
+if [ -z "$6"];
 then
-    TRIAL_NAME="deleteme"
+    INIT_FILE=""
 else
-    TRIAL_NAME=$4
+    INIT_FILE=$6
 fi
-
-if [ -z "$5" ]
-then
-    PHASE="all"
-else
-    PHASE="$5"
-fi
-
 
 # Fit networks
 if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
 then
     for idx in ${FOLD_IDXS}
     do
-        python ${SRC}/chords/drivers/single_source.py \
+        python ${SRC}/chords/drivers/${DRIVER}.py \
 ${BIGGIE}/${DATA_SOURCE}/${idx}/train.hdf5 \
 ${MODEL_NAME} \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME} \
+${MODELS}/${TRIAL_NAME}/${idx}/ \
 ${TRIAL_NAME} \
-${TRANSFORM_NAME}.json \
---init_param_file=/home/ejhumphrey/cqt_3layer_convclassifier_smax_init_wrand.npz
-# --init_param_file=/media/attic/dl4mir/chord_estimation/models/cqt_likelihood/synth/0/sampleinit_small_lr0x02_batch100_take00/classifier-V157-sampleinit_small_lr0x02_batch100_take00-100000-2014-09-11_21h14m31s.npz
-# --init_param_file=/home/ejhumphrey/cqt_likelihood_init_wsample.npz
-# --secondary_source=${BASEDIR}/biggie/synth/${idx}/train${BS}.hdf5
+${TRANSFORM_NAME}.json
+# --init_param_file=${INITS}/$6.npz
     done
 fi
 
@@ -84,15 +77,15 @@ then
     do
         echo "Collecting parameters."
         python ${SRC}/common/collect_files.py \
-${MODELS}/${MODEL_NAME}/${TRIAL_NAME}/${idx}/ \
+${MODELS}/${TRIAL_NAME}/${idx}/ \
 "*.npz" \
-${MODELS}/${MODEL_NAME}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
+${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 
         python ${SRC}/chords/select_classification_params.py \
-${BIGGIE}/${DATA_SOURCE}/${idx}/valid${BS}.hdf5 \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST} \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz \
+${BIGGIE}/${DATA_SOURCE}/${idx}/valid.hdf5 \
+${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
 --num_obs=100 \
 --start_idx=200
     done
@@ -105,12 +98,12 @@ then
     do
         for split in valid test train
         do
-            echo "Transforming ${OPTFILES}/${idx}/${split}${BS}.hdf5"
+            echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
             python ${SRC}/common/convolve_graph_with_dset.py \
-${BIGGIE}/${DATA_SOURCE}/${idx}/${split}${BS}.hdf5 \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
-${MODELS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${MODEL_NAME}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${split}.hdf5
+${BIGGIE}/${DATA_SOURCE}/${idx}/${split}.hdf5 \
+${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${TRIAL_NAME}/${idx}/${split}.hdf5
         done
     done
 fi
