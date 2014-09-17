@@ -20,7 +20,7 @@ def medfilt_mle(posterior, shape=[41,1]):
     return mle(signal.medfilt(posterior, shape))
 
 
-def viterbi(posterior, penalty=-5):
+def viterbi(posterior, penalty=-25):
     transmat = np.ones([posterior.shape[1]] * 2)
     return util.viterbi(posterior, transmat, penalty=penalty)
 
