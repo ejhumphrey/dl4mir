@@ -13,8 +13,8 @@ FILE_EXT = "mp3.mat"
 
 
 def entity_to_mdict(entity, labseg):
-    chroma = entity.chroma.value.T
-    time_points = entity.time_points.value
+    chroma = entity.chroma.T
+    time_points = entity.time_points
     labseg = np.array(labseg, dtype=np.uint32)
     # This is a gross hack. Where is this +1 index issue coming from?
     L = min([chroma.shape[1], len(time_points), len(labseg)])
@@ -27,7 +27,7 @@ def entity_to_mdict(entity, labseg):
         time_points=time_points[:L].reshape(L, 1),
         chroma=chroma_obj,
         labseg=labseg[:L],
-        endT=float(entity.endT.value))
+        endT=float(entity.endT))
 
 
 def main(args):

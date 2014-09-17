@@ -14,11 +14,11 @@ from dl4mir.chords import labels
 
 
 def evaluate_posterior(entity, medfilt=0):
-    posterior, chord_labels = entity.posterior.value, entity.chord_labels.value
+    posterior, chord_labels = entity.posterior, entity.chord_labels
     vocab_dim = posterior.shape[1]
     chord_idxs = labels.chord_label_to_class_index(chord_labels, vocab_dim)
     if medfilt > 0:
-        posterior = signal.medfilt(posterior, [medfilt,1])
+        posterior = signal.medfilt(posterior, [medfilt, 1])
         posterior /= posterior.sum(axis=1)[:, np.newaxis]
     pred_idxs = posterior.argmax(axis=1)
     L = min([len(pred_idxs), len(chord_idxs)])

@@ -1,8 +1,17 @@
-from sklearn.decomposition import PCA
 import annoy
+import argparse
 import numpy as np
 import biggie
 import joblib
+import json
+import time
+from sklearn.decomposition import PCA
+
+import marl.fileutils as futil
+from optimus.util import array_stepper
+import dl4mir.chords.labels as L
+
+NUM_CPUS = 8
 
 
 class ANNClassifier(object):
@@ -52,7 +61,6 @@ class ANNClassifier(object):
                             break
                 else:
                     y = winning_labels[0]
-                print y
                 y_pred[idx] = y
         return y_pred[:, 0]
 
@@ -60,23 +68,56 @@ class ANNClassifier(object):
         pass
 
 
-def build_knn_classifier(centers, class_idxs, counts, n_components=400,
-                         ann_trees=50, mode='sorted', verbose=True):
-    x_true = np.concatenate([c.reshape(len(c), np.prod(c.shape[1:]))
-                             for c in centers], axis=0)
-    y_true = np.concatenate([np.zeros(len(c), dtype=int) + i
-                             for c, i in zip(centers, class_idxs)])
+def build_model(centers, class_idxs, n_components=400, n_neighbors=3,
+                verbose=True):
+    X = np.concatenate([c.reshape(len(c), np.prod(c.shape[1:]))
+                        for c in centers], axis=0)
+    y = np.concatenate([np.zeros(len(c), dtype=int) + i
+                        for c, i in zip(centers, class_idxs)])
+
     if verbose:
         print "Fitting PCA..."
-    pca = PCA(n_components).fit(x_true)
-    x_true = pca.transform(x_true)
+    pca = PCA(n_components).fit(X)
+    X = pca.transform(X)
+
+    ann = ANNClassifier(n_neighbors=n_neighbors)
+    ann.fit(X, y)
+    return pca, ann
 
 
+def predict(cqt, pca, ann, win_length=20):
+    X = np.array([x.flatten() for x in array_stepper(cqt, win_length,
+                                                     axis=1, mode='same')])
+    return ann.predict(pca.transform(X))
 
+
+def predict_all(stash, pca, ann):
+    predictions = dict()
+    for n, key in enumerate(stash.keys()):
+        x = stash.get(key)
+        y_true = np.array(
+            L.chord_label_to_class_index(x.chord_labels, 157))
+        y_pred = predict(x.cqt, pca, ann)
+        predictions[key] = y_pred.tolist()
+        valid_idx = np.not_equal(y_true, None)
+        if valid_idx.sum() > 0:
+            score = np.equal(y_true[valid_idx], y_pred[valid_idx]).mean()
+        else:
+            score = 0
+        print "[%s] %4d: %s (%0.4f)" % (time.asctime(), n, key, score)
+    return predictions
 
 
 def main(args):
-    class_data = np.load(args.centers_files)
+    class_data = np.load(args.centers_file)
+    pca, ann = build_model(
+        centers=class_data['centers'], class_idxs=class_data['chord_idx'],
+        n_neighbors=args.n_neighbors, n_components=args.n_components)
+    pool = joblib.Parallel(n_jobs=NUM_CPUS)
+    stash = biggie.Stash(args.stash_file)
+    predictions = predict_all(stash, pca, ann)
+    with open(args.output_file, 'w') as fp:
+        json.dump(predictions, fp, indent=2)
 
 
 if __name__ == "__main__":
@@ -88,6 +129,12 @@ if __name__ == "__main__":
     parser.add_argument("centers_file",
                         metavar="centers_file", type=str,
                         help="Class centers in a npz archive.")
+    parser.add_argument("n_neighbors",
+                        metavar="n_neighbors", type=int,
+                        help="Number of neighbors to consider.")
+    parser.add_argument("n_components",
+                        metavar="n_components", type=int,
+                        help="Number of components to keep for the PCA redux.")
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="JSON Output.")

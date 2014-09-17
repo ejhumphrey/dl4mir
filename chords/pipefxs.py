@@ -102,8 +102,7 @@ def chord_index_to_tonnetz(stream, vocab_dim):
         if entity is None:
             yield entity
             continue
-        yield biggie.Entity(cqt=entity.cqt.value,
-                            target=T[entity.chord_idx.value])
+        yield biggie.Entity(cqt=entity.cqt, target=T[entity.chord_idx])
 
 
 def map_to_chord_quality_index(stream, vocab_dim):
@@ -131,8 +130,8 @@ def chord_index_to_tonnetz_distance(stream, vocab_dim):
         if entity is None:
             yield entity
             continue
-        yield biggie.Entity(cqt=entity.cqt.value,
-                            target=sn_distance[entity.chord_idx.value])
+        yield biggie.Entity(cqt=entity.cqt,
+                            target=sn_distance[entity.chord_idx])
 
 
 def chord_index_to_affinity_vectors(stream, vocab_dim):
@@ -141,8 +140,8 @@ def chord_index_to_affinity_vectors(stream, vocab_dim):
         if entity is None:
             yield entity
             continue
-        yield biggie.Entity(cqt=entity.cqt.value,
-                            target=affinity_vectors[entity.chord_idx.value])
+        yield biggie.Entity(cqt=entity.cqt,
+                            target=affinity_vectors[entity.chord_idx])
 
 
 def chord_index_to_onehot_vectors(stream, vocab_dim):
@@ -151,8 +150,8 @@ def chord_index_to_onehot_vectors(stream, vocab_dim):
         if entity is None:
             yield entity
             continue
-        yield biggie.Entity(cqt=entity.cqt.value,
-                            target=one_hots[entity.chord_idx.value])
+        yield biggie.Entity(cqt=entity.cqt,
+                            target=one_hots[entity.chord_idx])
 
 
 def map_to_joint_index(stream, vocab_dim):
@@ -186,8 +185,8 @@ def rotate_chroma_to_root(stream, target_root):
         if entity is None:
             yield entity
             continue
-        chroma = entity.chroma.value.reshape(1, 12)
-        chord_label = str(entity.chord_label.value)
+        chroma = entity.chroma.reshape(1, 12)
+        chord_label = str(entity.chord_label)
         chord_idx = labels.chord_label_to_class_index(chord_label, 157)
         shift = target_root - chord_idx % 12
         # print chord_idx, shift, chord_label
@@ -200,7 +199,7 @@ def rotate_chord_to_root(stream, target_root):
         if entity is None:
             yield entity
             continue
-        chord_label = str(entity.chord_label.value)
+        chord_label = str(entity.chord_label)
         chord_idx = labels.chord_label_to_class_index(chord_label, 157)
         shift = target_root - chord_idx % 12
         # print chord_idx, shift, chord_label
@@ -216,8 +215,8 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.0):
             yield pair
             continue
         pos_entity, neg_entity = pair
-        pos_chord_label = str(pos_entity.chord_label.value)
-        neg_chord_label = str(neg_entity.chord_label.value)
+        pos_chord_label = str(pos_entity.chord_label)
+        neg_chord_label = str(neg_entity.chord_label)
         pos_chord_idx = labels.chord_label_to_class_index(pos_chord_label,
                                                           vocab_dim)
         neg_chord_idx = labels.chord_label_to_class_index(neg_chord_label,
@@ -225,10 +224,10 @@ def unpack_contrastive_pairs(stream, vocab_dim, rotate_prob=0.0):
         if np.random.binomial(1, rotate_prob):
             shift = (pos_chord_idx - neg_chord_idx) % 12
             neg_entity = _pitch_shift(neg_entity, shift, 3)
-        # print pos_entity.chord_label.value, neg_entity.chord_label.value
-        yield biggie.Entity(cqt=pos_entity.cqt.value,
+        # print pos_entity.chord_label, neg_entity.chord_label
+        yield biggie.Entity(cqt=pos_entity.cqt,
                             chord_idx=pos_chord_idx, target=np.array([1.0]))
-        yield biggie.Entity(cqt=neg_entity.cqt.value,
+        yield biggie.Entity(cqt=neg_entity.cqt,
                             chord_idx=pos_chord_idx, target=np.array([0.0]))
 
 
@@ -238,8 +237,8 @@ def binomial_mask(stream, max_dropout=0.25):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.value.shape)
-        entity.cqt.value = entity.cqt.value * mask
+        mask = np.random.binomial(1, p, entity.cqt.shape)
+        entity.cqt = entity.cqt * mask
         yield entity
 
 
@@ -248,8 +247,8 @@ def awgn(stream, mu=0.0, sigma=0.1):
         if entity is None:
             yield entity
             continue
-        noise = np.random.normal(mu, sigma, entity.cqt.value.shape)
-        entity.cqt.value = entity.cqt.value + noise * np.random.normal(0, 0.25)
+        noise = np.random.normal(mu, sigma, entity.cqt.shape)
+        entity.cqt = entity.cqt + noise * np.random.normal(0, 0.25)
         yield entity
 
 
@@ -259,9 +258,9 @@ def drop_frames(stream, max_dropout=0.1):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.value.shape[1])
+        mask = np.random.binomial(1, p, entity.cqt.shape[1])
         mask[len(mask)/2] = 1.0
-        entity.cqt.value = entity.cqt.value * mask[np.newaxis, :, np.newaxis]
+        entity.cqt = entity.cqt * mask[np.newaxis, :, np.newaxis]
         yield entity
 
 
@@ -270,6 +269,6 @@ def wrap_cqt(stream, length=40, stride=36):
         if entity is None:
             yield entity
             continue
-        assert entity.cqt.value.shape[0] == 1
-        entity.cqt = util.fold_array(entity.cqt.value[0], length, stride)
+        assert entity.cqt.shape[0] == 1
+        entity.cqt = util.fold_array(entity.cqt[0], length, stride)
         yield entity

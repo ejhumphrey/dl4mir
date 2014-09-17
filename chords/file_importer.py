@@ -15,6 +15,7 @@ FILE_FMT = "%s/%s.hdf5"
 LAB_EXT = "json"
 NPZ_EXT = "npz"
 
+
 def create_chord_entity(npz_file, lab_file, dtype=np.float32):
     """Create an entity from the given files.
 
@@ -35,8 +36,8 @@ def create_chord_entity(npz_file, lab_file, dtype=np.float32):
     entity = biggie.Entity(**np.load(npz_file))
     intervals, labels = L.load_labeled_intervals(lab_file)
     entity.chord_labels = mir_eval.util.interpolate_intervals(
-        intervals, labels, entity.time_points.value, fill_value='N')
-    entity.cqt = entity.cqt.value.astype(dtype)
+        intervals, labels, entity.time_points, fill_value='N')
+    entity.cqt = entity.cqt.astype(dtype)
     return entity
 
 
