@@ -18,7 +18,7 @@ NUM_FOLDS=5
 
 SPLIT_FILE=${META}/data_splits.json
 
-if [ -z "$1" ] || [ -z "$2" ]; then
+if [ -z "$3" ]; then
     echo "Usage:"
     echo "evaluate.sh driver trial_name {fold|all} {aggregate|score|all}"
     echo $'\taggregate - Collects output classes over posteriors'
@@ -28,21 +28,30 @@ if [ -z "$1" ] || [ -z "$2" ]; then
 fi
 
 DRIVER=$1
-TRIAL_NAME=$2
+DATA_SOURCE=$2
+TRIAL_NAME=$3
 
-if [ -z "$3" ];
+if [ -z "$4" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
 else
-    FOLD_IDXS=$3
+    FOLD_IDXS=$4
 fi
 
-if [ -z "$4" ]
+if [ -z "$5" ]
+then
+    PREDICTION_FX=""
+else
+    PREDICTION_FX="$5"
+    PRED_TAG=_"$5"
+fi
+
+if [ -z "$6" ]
 then
     MODE="all"
 else
-    MODE="$4"
+    MODE="$6"
 fi
 
 
@@ -56,8 +65,9 @@ then
             echo $DRIVER
             echo $TRIAL_NAME
             python ${SRC}/chords/aggregate_likelihood_estimations.py \
-${OUTPUTS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.hdf5 \
-${ESTIMATIONS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.json
+${OUTPUTS}/${DRIVER}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${split}.hdf5 \
+${ESTIMATIONS}/${DRIVER}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${split}${PRED_TAG}.json \
+--prediction_fx=${PREDICTION_FX}
         done
     done
 fi
@@ -70,8 +80,8 @@ then
         for split in train valid test
         do
             python ${SRC}/chords/score_estimations.py \
-${ESTIMATIONS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.json \
-${RESULTS}/${DRIVER}/${TRIAL_NAME}/${idx}/${split}.txt
+${ESTIMATIONS}/${DRIVER}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${split}${PRED_TAG}.json \
+${RESULTS}/${DRIVER}/${DATA_SOURCE}/${idx}/${TRIAL_NAME}/${split}${PRED_TAG}.json
         done
     done
 fi
