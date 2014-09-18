@@ -217,7 +217,7 @@ def create_stash_stream(stash, win_length, pool_size=50, vocab_dim=157,
 
 def create_uniform_quality_stream(stash, win_length, partition_labels=None,
                                   pool_size=50, vocab_dim=157,
-                                  pitch_shift=True, valid_idx=None):
+                                  pitch_shift=0, valid_idx=None):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:
         partition_labels = util.partition(stash, quality_map)
@@ -246,7 +246,7 @@ def create_uniform_quality_stream(stash, win_length, partition_labels=None,
 
 
 def create_uniform_chord_stream(stash, win_length, partition_labels=None,
-                                vocab_dim=157, pitch_shift=6,
+                                vocab_dim=157, pitch_shift=0,
                                 working_size=4, valid_idx=None):
     """Return a stream of chord samples, with uniform quality presentation."""
     if partition_labels is None:

@@ -12,7 +12,7 @@ import dl4mir.chords.score_estimations as SE
 import dl4mir.common.convolve_graph_with_dset as C
 
 
-PENALTY_VALUES = [0, -5, -25]
+PENALTY_VALUES = [0, -5, -10, -25, -40]
 
 
 def sweep_penalty(entity, transform, p_vals):
@@ -21,20 +21,18 @@ def sweep_penalty(entity, transform, p_vals):
     estimations = dict()
     for p in p_vals:
         estimations[p] = ALE.estimate_classes(
-            z.posterior, prediction_fx=ALE.viterbi, penalty=p)
+            z, prediction_fx=ALE.viterbi, penalty=p)
     return estimations
 
 
 def sweep_stash(stash, transform, p_vals):
     """Predict all the entities in a stash."""
     stash_estimations = dict([(p, dict()) for p in p_vals])
-    for idx, key in enumerate(stash.keys()):
+    for idx, key in enumerate(stash.keys()[:100]):
         entity_estimations = sweep_penalty(stash.get(key), transform, p_vals)
         for p in p_vals:
             stash_estimations[p][key] = entity_estimations[p]
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
-    for p in p_vals:
-        stash_estimations[p] = SE.collapse_estimations(stash_estimations[p])
     return stash_estimations
 
 
@@ -57,6 +55,7 @@ def main(args):
     stash = biggie.Stash(args.validation_file, cache=True)
 
     param_files = futils.load_textlist(args.param_textlist)
+    param_files.sort()
     param_stats = sweep_param_files(
         param_files, stash, transform, PENALTY_VALUES)
 

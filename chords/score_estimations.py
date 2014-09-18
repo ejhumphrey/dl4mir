@@ -180,12 +180,11 @@ def stats_to_string(stats):
                                        100*stats['recall_weighted'],
                                        100*stats['f1_weighted'])
 
-    res2 = "Averaged: " + stat_line % (100*stats['precision_ave'],
-                                       100*stats['recall_ave'],
-                                       100*stats['f1_ave'])
+    res2 = "Averaged: " + stat_line % (100*stats['precision_averaged'],
+                                       100*stats['recall_averaged'],
+                                       100*stats['f1_averaged'])
     res3 = "-"*72
     outputs = [res3, res1, res2, res3]
-    outputs.append()
     return "\n".join(outputs) + '\n'
 
 
