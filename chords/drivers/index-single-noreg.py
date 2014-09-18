@@ -16,7 +16,7 @@ BATCH_SIZE = 100
 
 
 def main(args):
-    trainer, predictor = models.allconv(args.model_name)
+    trainer, predictor = models.MODELS[args.model_name]()
     time_dim = trainer.inputs['cqt'].shape[2]
 
     if args.init_param_file:

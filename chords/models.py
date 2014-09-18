@@ -1822,5 +1822,9 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 
 MODELS = {
-    'allconv_nll': allconv_nll,
-    'wcqt_allconv_nll': wcqt_allconv_nll}
+    'cqt_allconv_nll_small': lambda: allconv_nll('small'),
+    'cqt_allconv_nll_med': lambda: allconv_nll('med'),
+    'cqt_allconv_nll_large': lambda: allconv_nll('large'),
+    'wcqt_allconv_nll_small': lambda: wcqt_allconv_nll('small'),
+    'wcqt_allconv_nll_med': lambda: wcqt_allconv_nll('med'),
+    'wcqt_allconv_nll_large': lambda: wcqt_allconv_nll('large')}
