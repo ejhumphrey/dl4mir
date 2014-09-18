@@ -81,13 +81,11 @@ ${MODELS}/${TRIAL_NAME}/${idx}/ \
 "*.npz" \
 ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/chords/select_classification_params.py \
+        python ${SRC}/chords/find_best_params.py \
 ${BIGGIE}/${DATA_SOURCE}/${idx}/valid.hdf5 \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
---num_obs=100 \
---start_idx=200
+${MODELS}/${TRIAL_NAME}/${idx}/validation_stats.json
     done
 fi
 
