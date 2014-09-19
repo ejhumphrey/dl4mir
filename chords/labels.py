@@ -26,6 +26,11 @@ join = mir_eval.chord.join
 pitch_class_to_semitone = mir_eval.chord.pitch_class_to_semitone
 
 
+def semitone_matrix(vocab_dim):
+    return np.array([mir_eval.chord.QUALITIES[q]
+                     for q in QUALITIES[vocab_dim]])
+
+
 def semitone_to_pitch_class(semitone):
     r'''Convert a semitone to its pitch class.
 
