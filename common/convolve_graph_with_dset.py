@@ -6,7 +6,6 @@ import optimus
 import biggie
 import os
 import marl.fileutils as futils
-import pescador
 import time
 
 
@@ -31,6 +30,7 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
     -------
     new_entity
     """
+    # TODO(ejhumphrey): Make this more stable, super fragile as-is
     time_dim = graph.inputs.values()[0].shape[2]
     data = entity.values()
     data_stepper = optimus.array_stepper(

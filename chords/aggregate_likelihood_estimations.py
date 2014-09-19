@@ -25,7 +25,7 @@ def viterbi(posterior, penalty=-25):
     return util.viterbi(posterior, transmat, penalty=penalty)
 
 
-def estimate_classes(entity, prediction_fx=mle, **kwargs):
+def estimate_classes(entity, prediction_fx, **kwargs):
     """
 
     Parameters
@@ -43,10 +43,14 @@ def estimate_classes(entity, prediction_fx=mle, **kwargs):
     num_classes = entity.posterior.shape[1]
     estimations = dict()
     y_pred = prediction_fx(entity.posterior, **kwargs)
-    for label, idx in zip(entity.chord_labels, y_pred):
+    if hasattr(entity, 'durations'):
+        weights = np.asarray(entity.durations)
+    else:
+        weights = np.ones(len(y_pred))
+    for label, idx, w in zip(entity.chord_labels, y_pred, weights):
         if not label in estimations:
             estimations[label] = np.zeros(num_classes, dtype=np.int).tolist()
-        estimations[label][idx] += 1
+        estimations[label][idx] += w
 
     return estimations
 
@@ -59,7 +63,7 @@ def main(args):
         print "File does not exist: %s" % args.posterior_file
         return
     dset = biggie.Stash(args.posterior_file)
-    fx = PRED_FXS.get(args.prediction_fx, 'mle')
+    fx = PRED_FXS.get(args.prediction_fx)
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
         estimations[key] = estimate_classes(dset.get(key), fx)
@@ -77,11 +81,11 @@ if __name__ == "__main__":
     parser.add_argument("posterior_file",
                         metavar="posterior_file", type=str,
                         help="Path to an optimus file of chord posteriors.")
+    parser.add_argument("prediction_fx",
+                        metavar="prediction_fx", type=str,
+                        help="Prediction function to use during aggregation.")
     # Outputs
     parser.add_argument("estimation_file",
                         metavar="estimation_file", type=str,
                         help="Path for the lab-file style output as JSON.")
-    parser.add_argument("--prediction_fx",
-                        metavar="--prediction_fx", type=str, default='mle',
-                        help="Prediction function to use during aggregation.")
     main(parser.parse_args())
