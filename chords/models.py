@@ -473,7 +473,7 @@ def bs_conv4_pcabasis_nll(size='small'):
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
         outputs=[total_loss],
-        loss=loss.output,
+        loss=total_loss,
         updates=update_manager.connections,
         verbose=True)
 
