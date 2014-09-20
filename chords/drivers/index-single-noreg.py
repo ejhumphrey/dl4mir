@@ -28,8 +28,7 @@ def main(args):
     stream = D.create_uniform_chord_stream(
         stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,)
 
-    stream = S.ThreadedStream(
-        S.minibatch(stream, batch_size=BATCH_SIZE), size=5)
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
