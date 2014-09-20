@@ -15,6 +15,7 @@ import numpy as np
 PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5, -15.0, -20.0, -25, -30, -40]
 # PENALTY_VALUES = -1.5 - np.arange(10, dtype=float)/5.0
 
+
 def sweep_penalty(entity, transform, p_vals):
     """Predict an entity over a set of penalty values."""
     z = C.convolve(entity, transform)
@@ -57,7 +58,11 @@ def main(args):
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     param_stats = sweep_param_files(
+<<<<<<< HEAD
         param_files[4::5], stash, transform, PENALTY_VALUES)
+=======
+        param_files[4::10], stash, transform, PENALTY_VALUES)
+>>>>>>> cd8c8ad7a06d54ad32dc4d211cf5643964c79d54
 
     with open(args.stats_file, 'w') as fp:
         json.dump(param_stats, fp, indent=2)

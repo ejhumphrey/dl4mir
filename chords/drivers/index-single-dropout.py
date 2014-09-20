@@ -9,10 +9,11 @@ import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
-DRIVER_ARGS['max_iter'] = 200000
+DRIVER_ARGS['max_iter'] = 500000
 VOCAB = 157
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.01
 BATCH_SIZE = 100
+DROPOUT = 0.5
 
 
 def main(args):
@@ -24,12 +25,11 @@ def main(args):
         trainer.load_param_values(args.init_param_file)
 
     print "Opening %s" % args.training_file
-    stash = biggie.Stash(args.training_file, cache=True)
+    stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,)
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=3,)
 
-    stream = S.ThreadedStream(
-        S.minibatch(stream, batch_size=BATCH_SIZE), size=5)
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -37,7 +37,7 @@ def main(args):
         name=args.trial_name,
         output_directory=args.output_directory)
 
-    hyperparams = dict(learning_rate=LEARNING_RATE)
+    hyperparams = dict(learning_rate=LEARNING_RATE, dropout=DROPOUT)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
