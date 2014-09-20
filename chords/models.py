@@ -2509,6 +2509,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 MODELS = {
     'bs_conv3_nll_dropout_large': lambda: bs_conv3_nll_dropout('large'),
+    'bs_conv3_l2normed_nll_large': lambda: bs_conv3_l2normed_nll('large'),
     'bs_conv4_pcabasis_nll_small': lambda: bs_conv4_pcabasis_nll('small'),
     'bs_conv4_pcabasis_nll_med': lambda: bs_conv4_pcabasis_nll('med'),
     'bs_conv4_pcabasis_nll_large': lambda: bs_conv4_pcabasis_nll('large'),

@@ -11,8 +11,9 @@ import dl4mir.chords.aggregate_likelihood_estimations as ALE
 import dl4mir.chords.score_estimations as SE
 import dl4mir.common.convolve_graph_with_dset as C
 
-
-PENALTY_VALUES = [0, -5, -10, -25, -40]
+import numpy as np
+PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5, -15.0, -20.0, -25, -30, -40]
+# PENALTY_VALUES = -1.5 - np.arange(10, dtype=float)/5.0
 
 
 def sweep_penalty(entity, transform, p_vals):
@@ -28,7 +29,7 @@ def sweep_penalty(entity, transform, p_vals):
 def sweep_stash(stash, transform, p_vals):
     """Predict all the entities in a stash."""
     stash_estimations = dict([(p, dict()) for p in p_vals])
-    for idx, key in enumerate(stash.keys()[:100]):
+    for idx, key in enumerate(stash.keys()):
         entity_estimations = sweep_penalty(stash.get(key), transform, p_vals)
         for p in p_vals:
             stash_estimations[p][key] = entity_estimations[p]
@@ -44,7 +45,7 @@ def sweep_param_files(param_files, stash, transform, p_vals):
         for p in p_vals:
             param_stats[f][p] = SE.compute_scores(stash_estimations[p])[0]
             stat_str = SE.stats_to_string(param_stats[f][p])
-            print "[%s] %s (%d) \n%s" % (time.asctime(), f, p, stat_str)
+            print "[%s] %s (%0.3f) \n%s" % (time.asctime(), f, p, stat_str)
 
     return param_stats
 
@@ -57,7 +58,11 @@ def main(args):
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     param_stats = sweep_param_files(
-        param_files, stash, transform, PENALTY_VALUES)
+<<<<<<< HEAD
+        param_files[4::5], stash, transform, PENALTY_VALUES)
+=======
+        param_files[4::10], stash, transform, PENALTY_VALUES)
+>>>>>>> cd8c8ad7a06d54ad32dc4d211cf5643964c79d54
 
     with open(args.stats_file, 'w') as fp:
         json.dump(param_stats, fp, indent=2)
