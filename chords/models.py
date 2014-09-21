@@ -1186,7 +1186,7 @@ def bs_conv3_mce(size='large'):
     return trainer, predictor
 
 
-def bs_conv3_sqsq(size='large'):
+def bs_conv3_cnll(size='large'):
     k0, k1, k2 = dict(
         large=(16, 32, 48))[size]
 
@@ -1201,6 +1201,10 @@ def bs_conv3_sqsq(size='large'):
 
     learning_rate = optimus.Input(
         name='learning_rate',
+        shape=None)
+
+    margin = optimus.Input(
+        name='margin',
         shape=None)
 
     # 1.2 Create Nodes
@@ -1244,20 +1248,19 @@ def bs_conv3_sqsq(size='large'):
 
     # 1.1 Create Loss
     log = optimus.Log(name='log')
-    neg_one0 = optimus.Gain(name='gain')
-    neg_one0.weight.value = -1.0
+    neg_one = optimus.Gain(name='gain')
+    neg_one.weight.value = -1.0
 
     target_values = optimus.SelectIndex(name='target_values')
-    moia_values = optimus.MinNotIndex(name='moia_values')
+    target_matrix = optimus.Dimshuffle('target_matrix', (0, 'x'))
+    margin_sum = optimus.Accumulate(name='margin_sum', num_inputs=3)
+    relu = optimus.RectifiedLinear(name='relu')
+    margin_loss = optimus.Mean('margin_loss', axis=None)
+    target_loss = optimus.Mean('target_loss', axis=None)
 
-    neg_one1 = optimus.Gain(name='neg_one1')
-    neg_one1.weight.value = -1.0
-    summer = optimus.Accumulate(name='summer', num_inputs=2)
-
-    soft_step = optimus.Sigmoid(name='soft_step')
-    loss = optimus.Mean(name='mce_loss')
-    loss_nodes = [log, neg_one0, target_values, moia_values,
-                  neg_one1, summer, soft_step, loss]
+    total_loss = optimus.Accumulate(name='total_loss', num_inputs=2)
+    loss_nodes = [log, neg_one, target_values, target_matrix,
+                  margin_sum, relu, margin_loss, target_loss, total_loss]
 
     # 2. Define Edges
     base_edges = [
@@ -1273,16 +1276,18 @@ def bs_conv3_sqsq(size='large'):
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
             (cat.output, log.input),
-            (log.output, neg_one0.input),
-            (neg_one0.output, target_values.input),
+            (log.output, neg_one.input),
+            (neg_one.output, target_values.input),
             (chord_idx, target_values.index),
-            (neg_one0.output, moia_values.input),
-            (chord_idx, moia_values.index),
-            (target_values.output, summer.input_0),
-            (moia_values.output, neg_one1.input),
-            (neg_one1.output, summer.input_1),
-            (summer.output, soft_step.input),
-            (soft_step.output, loss.input)])
+            (target_values.output, target_loss.input),
+            (target_loss.output, total_loss.input_0),
+            (margin, margin_sum.input_0),
+            (target_values.output, target_matrix.input),
+            (target_matrix.output, margin_sum.input_1),
+            (log.output, margin_sum.input_2),
+            (margin_sum.output, relu.input),
+            (relu.output, margin_loss.input),
+            (margin_loss.output, total_loss.input_1)])
 
     update_manager = optimus.ConnectionManager(
         map(lambda n: (learning_rate, n.weights), param_nodes) +
@@ -1290,11 +1295,11 @@ def bs_conv3_sqsq(size='large'):
 
     trainer = optimus.Graph(
         name=GRAPH_NAME,
-        inputs=[input_data, chord_idx, learning_rate],
+        inputs=[input_data, chord_idx, learning_rate, margin],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
-        outputs=[loss.output],
-        loss=loss.output,
+        outputs=[total_loss.output],
+        loss=total_loss.output,
         updates=update_manager.connections,
         verbose=True)
 
@@ -2939,6 +2944,7 @@ MODELS = {
     'bs_conv4_pcabasis_nll_large': lambda: bs_conv4_pcabasis_nll('large'),
     'bs_conv3_nll_large': lambda: bs_conv3_nll('large'),
     'bs_conv3_mce_large': lambda: bs_conv3_mce('large'),
+    'bs_conv3_cnll_large': lambda: bs_conv3_cnll('large'),
     'cqt_allconv_nll_small': lambda: allconv_nll('small'),
     'cqt_allconv_nll_med': lambda: allconv_nll('med'),
     'cqt_allconv_nll_large': lambda: allconv_nll('large'),
