@@ -672,13 +672,13 @@ def bs_conv3_bottleneck_nll(size='large'):
 
     bottleneck = optimus.Conv3D(
         name='bottleneck',
-        input_shape=layer1.output.shape,
-        weight_shape=(8, None, 2, 1),
+        input_shape=layer2.output.shape,
+        weight_shape=(3, None, 2, 1),
         act_type='linear')
 
     chord_classifier = optimus.Conv3D(
         name='chord_classifier',
-        input_shape=layer2.output.shape,
+        input_shape=bottleneck.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='linear')
 
@@ -686,7 +686,7 @@ def bs_conv3_bottleneck_nll(size='large'):
 
     null_classifier = optimus.Affine(
         name='null_classifier',
-        input_shape=layer2.output.shape,
+        input_shape=bottleneck.output.shape,
         output_shape=(None, 1),
         act_type='linear')
 
@@ -2645,7 +2645,7 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
 
 MODELS = {
-    'bs_conv3_bottleneck_nll_large': lambda: bs_conv3_bottleneck_nll('large'),
+    'bs_conv3_bottleneck2_nll_large': lambda: bs_conv3_bottleneck_nll('large'),
     'bs_conv3_nll_dropout_large': lambda: bs_conv3_nll_dropout('large'),
     'bs_conv3_l2normed_nll_large': lambda: bs_conv3_l2normed_nll('large'),
     'bs_conv4_pcabasis_nll_small': lambda: bs_conv4_pcabasis_nll('small'),
