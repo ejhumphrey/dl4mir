@@ -509,6 +509,8 @@ def bs_conv4_pcabasis_nll(size='small'):
 
 def bs_conv3_nll(size='large'):
     k0, k1, k2 = dict(
+        small=(8, 16, 20),
+        med=(12, 24, 32),
         large=(16, 32, 48))[size]
 
     input_data = optimus.Input(
@@ -1395,11 +1397,16 @@ def bs_conv3_margin(size='large'):
     margin_sum = optimus.Accumulate(name='margin_sum', num_inputs=3)
     relu = optimus.RectifiedLinear(name='relu')
     margin_loss = optimus.Mean('margin_loss', axis=None)
-    target_loss = optimus.Mean('target_loss', axis=None)
+    # target_loss = optimus.Mean('target_loss', axis=None)
 
-    total_loss = optimus.Accumulate(name='total_loss', num_inputs=2)
+    # total_loss = optimus.Accumulate(name='total_loss', num_inputs=2)
     loss_nodes = [log, neg_one, target_values, moia_values,
-                  margin_sum, relu, margin_loss, target_loss, total_loss]
+                  margin_sum, relu, margin_loss]  # , target_loss, total_loss]
+
+    posterior = optimus.Output(name='posterior')
+    target_out = optimus.Output(name='target_out')
+    moia_out = optimus.Output(name='moia_out')
+    loss = optimus.Output(name='loss')
 
     # 2. Define Edges
     base_edges = [
@@ -1415,18 +1422,25 @@ def bs_conv3_margin(size='large'):
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
             (cat.output, log.input),
+            (cat.output, posterior),
             (log.output, neg_one.input),
             (neg_one.output, target_values.input),
             (chord_idx, target_values.index),
-            (target_values.output, target_loss.input),
-            (target_loss.output, total_loss.input_0),
             (margin, margin_sum.input_0),
             (target_values.output, margin_sum.input_1),
             (log.output, moia_values.input),
+            (chord_idx, moia_values.index),
             (moia_values.output, margin_sum.input_2),
+            (moia_values.output, moia_out),
             (margin_sum.output, relu.input),
             (relu.output, margin_loss.input),
-            (margin_loss.output, total_loss.input_1)])
+            (target_values.output, target_out),
+            (margin_loss.output, loss)])
+            # (target_values.output, target_loss.input),
+
+            # (target_loss.output, total_loss.input_0),
+            # (margin_loss.output, total_loss.input_1),
+            # (total_loss.output, loss)])
 
     update_manager = optimus.ConnectionManager(
         map(lambda n: (learning_rate, n.weights), param_nodes) +
@@ -1437,16 +1451,14 @@ def bs_conv3_margin(size='large'):
         inputs=[input_data, chord_idx, learning_rate, margin],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
-        outputs=[total_loss.output],
-        loss=total_loss.output,
+        outputs=[loss, posterior, target_out, moia_out],
+        loss=loss,
         updates=update_manager.connections,
         verbose=True)
 
     for n in param_nodes:
         for p in n.params.values():
             optimus.random_init(p, 0.0, 0.1)
-
-    posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
         base_edges + [(cat.output, posterior)])
@@ -3080,6 +3092,8 @@ MODELS = {
     'bs_conv4_pcabasis_nll_med': lambda: bs_conv4_pcabasis_nll('med'),
     'bs_conv4_pcabasis_nll_large': lambda: bs_conv4_pcabasis_nll('large'),
     'bs_conv3_nll_large': lambda: bs_conv3_nll('large'),
+    'bs_conv3_nll_small': lambda: bs_conv3_nll('small'),
+    'bs_conv3_nll_med': lambda: bs_conv3_nll('med'),
     'bs_conv3_mce_large': lambda: bs_conv3_mce('large'),
     'bs_conv3_cnll_large': lambda: bs_conv3_cnll('large'),
     'bs_conv3_margin_large': lambda: bs_conv3_margin('large'),
