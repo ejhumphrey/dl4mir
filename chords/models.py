@@ -1423,6 +1423,7 @@ def bs_conv3_margin(size='large'):
             (margin, margin_sum.input_0),
             (target_values.output, margin_sum.input_1),
             (log.output, moia_values.input),
+            (chord_idx, moia_values.index),            
             (moia_values.output, margin_sum.input_2),
             (margin_sum.output, relu.input),
             (relu.output, margin_loss.input),
