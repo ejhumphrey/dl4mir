@@ -405,8 +405,8 @@ def bs_conv4_pcabasis_nll(size='small'):
         weight_shape=(8, None, 2, 1),
         act_type='linear')
 
-    l2norm = optimus.NormalizeDim(
-        name='l2norm', axis=1, mode='l2')
+    # l2norm = optimus.NormalizeDim(
+    #     name='l2norm', axis=1, mode='l2')
 
     chord_classifier = optimus.Conv3D(
         name='chord_classifier',
@@ -427,7 +427,7 @@ def bs_conv4_pcabasis_nll(size='small'):
 
     param_nodes = [layer0, layer1, layer2, layer3,
                    null_classifier, chord_classifier]
-    misc_nodes = [l2norm, flatten, cat, softmax]
+    misc_nodes = [flatten, cat, softmax]
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex(name='likelihoods')
@@ -446,8 +446,7 @@ def bs_conv4_pcabasis_nll(size='small'):
         (layer0.output, layer1.input),
         (layer1.output, layer2.input),
         (layer2.output, layer3.input),
-        (layer3.output, l2norm.input),
-        (l2norm.output, chord_classifier.input),
+        (layer3.output, chord_classifier.input),
         (layer3.output, null_classifier.input),
         (chord_classifier.output, flatten.input),
         (flatten.output, cat.input_0),
@@ -1305,9 +1304,7 @@ def bs_conv3_cnll(size='large'):
 
     for n in param_nodes:
         for p in n.params.values():
-            if 'classifier' in n.name and 'bias' in p.name:
-                continue
-            optimus.random_init(p)
+            optimus.random_init(p, 0, 0.1)
 
     posterior = optimus.Output(name='posterior')
 
