@@ -507,8 +507,158 @@ def bs_conv4_pcabasis_nll(size='small'):
     return trainer, predictor
 
 
+def bs_conv4_semitones_nll(size='large'):
+    k0, k1, k2 = dict(
+        large=(24, 48, 64))[size]
+
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, 8, 252))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, 3, 13),
+        pool_shape=(1, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, 3, 37),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, 3, 33),
+        act_type='relu')
+
+    layer3 = optimus.Conv3D(
+        name='layer3',
+        input_shape=layer2.output.shape,
+        weight_shape=(10, None, 2, 1),
+        act_type='relu')
+
+    chord_classifier = optimus.Conv3D(
+        name='chord_classifier',
+        input_shape=layer3.output.shape,
+        weight_shape=(13, None, 1, 1),
+        act_type='linear')
+
+    flatten = optimus.Flatten('flatten', 2)
+
+    null_classifier = optimus.Affine(
+        name='null_classifier',
+        input_shape=layer3.output.shape,
+        output_shape=(None, 1),
+        act_type='linear')
+
+    cat = optimus.Concatenate('concatenate', num_inputs=2, axis=1)
+    softmax = optimus.Softmax('softmax')
+
+    param_nodes = [layer0, layer1, layer2, layer3,
+                   null_classifier, chord_classifier]
+    misc_nodes = [flatten, cat, softmax]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex(name='likelihoods')
+
+    log = optimus.Log(name='log')
+    neg = optimus.Gain(name='gain')
+    neg.weight.value = -1.0
+
+    loss = optimus.Mean(name='negative_log_likelihood')
+    loss_nodes = [likelihoods, log, neg, loss]
+    total_loss = optimus.Output(name='total_loss')
+
+    layer0.enable_dropout()
+    layer1.enable_dropout()
+    layer2.enable_dropout()
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, layer3.input),
+        (layer3.output, chord_classifier.input),
+        (layer3.output, null_classifier.input),
+        (chord_classifier.output, flatten.input),
+        (flatten.output, cat.input_0),
+        (null_classifier.output, cat.input_1),
+        (cat.output, softmax.input)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (dropout, layer0.dropout),
+            (dropout, layer1.dropout),
+            (dropout, layer2.dropout),
+            (softmax.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, log.input),
+            (log.output, neg.input),
+            (neg.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes[:-1]) +
+        map(lambda n: (learning_rate, n.bias), param_nodes[:-1]))
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, chord_idx, learning_rate, dropout],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    for n in param_nodes[:-1]:
+        for p in n.params.values():
+            optimus.random_init(p)
+
+    semitones = L.semitone_matrix(157)[:13, 2:]
+    chord_classifier.weights.value = semitones.reshape(13, 10, 1, 1)
+
+    posterior = optimus.Output(name='posterior')
+
+    predictor_edges = optimus.ConnectionManager(
+        base_edges + [(softmax.output, posterior)])
+
+    layer0.disable_dropout()
+    layer1.disable_dropout()
+    layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=predictor_edges.connections,
+        outputs=[posterior])
+
+    return trainer, predictor
+
+
 def bs_conv3_nll(size='large'):
     k0, k1, k2 = dict(
+        small=(8, 16, 20),
+        med=(12, 24, 32),
         large=(16, 32, 48))[size]
 
     input_data = optimus.Input(
@@ -1395,11 +1545,16 @@ def bs_conv3_margin(size='large'):
     margin_sum = optimus.Accumulate(name='margin_sum', num_inputs=3)
     relu = optimus.RectifiedLinear(name='relu')
     margin_loss = optimus.Mean('margin_loss', axis=None)
-    target_loss = optimus.Mean('target_loss', axis=None)
+    # target_loss = optimus.Mean('target_loss', axis=None)
 
-    total_loss = optimus.Accumulate(name='total_loss', num_inputs=2)
+    # total_loss = optimus.Accumulate(name='total_loss', num_inputs=2)
     loss_nodes = [log, neg_one, target_values, moia_values,
-                  margin_sum, relu, margin_loss, target_loss, total_loss]
+                  margin_sum, relu, margin_loss]  # , target_loss, total_loss]
+
+    posterior = optimus.Output(name='posterior')
+    target_out = optimus.Output(name='target_out')
+    moia_out = optimus.Output(name='moia_out')
+    loss = optimus.Output(name='loss')
 
     # 2. Define Edges
     base_edges = [
@@ -1415,19 +1570,25 @@ def bs_conv3_margin(size='large'):
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
             (cat.output, log.input),
+            (cat.output, posterior),
             (log.output, neg_one.input),
             (neg_one.output, target_values.input),
             (chord_idx, target_values.index),
-            (target_values.output, target_loss.input),
-            (target_loss.output, total_loss.input_0),
             (margin, margin_sum.input_0),
             (target_values.output, margin_sum.input_1),
             (log.output, moia_values.input),
             (chord_idx, moia_values.index),            
             (moia_values.output, margin_sum.input_2),
+            (moia_values.output, moia_out),
             (margin_sum.output, relu.input),
             (relu.output, margin_loss.input),
-            (margin_loss.output, total_loss.input_1)])
+            (target_values.output, target_out),
+            (margin_loss.output, loss)])
+            # (target_values.output, target_loss.input),
+
+            # (target_loss.output, total_loss.input_0),
+            # (margin_loss.output, total_loss.input_1),
+            # (total_loss.output, loss)])
 
     update_manager = optimus.ConnectionManager(
         map(lambda n: (learning_rate, n.weights), param_nodes) +
@@ -1438,16 +1599,14 @@ def bs_conv3_margin(size='large'):
         inputs=[input_data, chord_idx, learning_rate, margin],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
-        outputs=[total_loss.output],
-        loss=total_loss.output,
+        outputs=[loss, posterior, target_out, moia_out],
+        loss=loss,
         updates=update_manager.connections,
         verbose=True)
 
     for n in param_nodes:
         for p in n.params.values():
             optimus.random_init(p, 0.0, 0.1)
-
-    posterior = optimus.Output(name='posterior')
 
     predictor_edges = optimus.ConnectionManager(
         base_edges + [(cat.output, posterior)])
@@ -3081,6 +3240,8 @@ MODELS = {
     'bs_conv4_pcabasis_nll_med': lambda: bs_conv4_pcabasis_nll('med'),
     'bs_conv4_pcabasis_nll_large': lambda: bs_conv4_pcabasis_nll('large'),
     'bs_conv3_nll_large': lambda: bs_conv3_nll('large'),
+    'bs_conv3_nll_small': lambda: bs_conv3_nll('small'),
+    'bs_conv3_nll_med': lambda: bs_conv3_nll('med'),
     'bs_conv3_mce_large': lambda: bs_conv3_mce('large'),
     'bs_conv3_cnll_large': lambda: bs_conv3_cnll('large'),
     'bs_conv3_margin_large': lambda: bs_conv3_margin('large'),
