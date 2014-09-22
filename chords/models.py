@@ -507,7 +507,7 @@ def bs_conv4_pcabasis_nll(size='small'):
     return trainer, predictor
 
 
-def bs_conv4_semitones_nll(size='large'):
+def i8c4b10_nll_dropout_L(size='large'):
     k0, k1, k2 = dict(
         large=(24, 48, 64))[size]
 
@@ -3239,6 +3239,7 @@ MODELS = {
     'bs_conv4_pcabasis_nll_small': lambda: bs_conv4_pcabasis_nll('small'),
     'bs_conv4_pcabasis_nll_med': lambda: bs_conv4_pcabasis_nll('med'),
     'bs_conv4_pcabasis_nll_large': lambda: bs_conv4_pcabasis_nll('large'),
+    'i8c4b10_nll_dropout_L': lambda: i8c4b10_nll_dropout_L('large'),
     'bs_conv3_nll_large': lambda: bs_conv3_nll('large'),
     'bs_conv3_nll_small': lambda: bs_conv3_nll('small'),
     'bs_conv3_nll_med': lambda: bs_conv3_nll('med'),
