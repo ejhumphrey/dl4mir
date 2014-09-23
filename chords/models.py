@@ -1156,6 +1156,8 @@ def i8c3_pwmse(size='large'):
 
     for n in param_nodes:
         for p in n.params.values():
+            if 'classifier' in n.name and 'bias' in p.name:
+                continue
             optimus.random_init(p, 0.0, 0.01)
 
     posterior = optimus.Output(name='posterior')
