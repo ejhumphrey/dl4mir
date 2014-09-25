@@ -1116,6 +1116,8 @@ def i1c3_bigram762_nll(size='large'):
         weight_shape=(762, None, 1, 1),
         act_type='linear')
 
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 3, 2, 1))
+
     flatten = optimus.Flatten('flatten', 2)
 
     null_classifier = optimus.Affine(
@@ -1130,7 +1132,7 @@ def i1c3_bigram762_nll(size='large'):
     prior.weight.value = np.ones([1, 9145]) / 9145.0
 
     param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
-    misc_nodes = [flatten, cat, softmax, prior]
+    misc_nodes = [dimshuffle, flatten, cat, softmax, prior]
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex(name='likelihoods')
@@ -1152,7 +1154,8 @@ def i1c3_bigram762_nll(size='large'):
         (layer1.output, layer2.input),
         (layer2.output, chord_classifier.input),
         (layer2.output, null_classifier.input),
-        (chord_classifier.output, flatten.input),
+        (chord_classifier.output, dimshuffle.input),
+        (dimshuffle.output, flatten.input),
         (flatten.output, cat.input_0),
         (null_classifier.output, cat.input_1),
         (cat.output, softmax.input),
@@ -1190,6 +1193,148 @@ def i1c3_bigram762_nll(size='large'):
         nodes=param_nodes + misc_nodes,
         connections=optimus.ConnectionManager(base_edges).connections,
         outputs=[posterior])
+
+    return trainer, predictor
+
+
+def i1c3_bigram762_nll_dropout(size='large'):
+    k0, k1, k2 = dict(
+        small=(10, 20, 40),
+        med=(12, 24, 48),
+        large=(16, 32, 64))[size]
+
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, 1, 252))
+
+    class_idx = optimus.Input(
+        name='class_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, 1, 13),
+        pool_shape=(1, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, 1, 37),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, 1, 33),
+        act_type='relu')
+
+    chord_classifier = optimus.Conv3D(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        weight_shape=(762, None, 1, 1),
+        act_type='linear')
+
+    flatten = optimus.Flatten('flatten', 2)
+
+    null_classifier = optimus.Affine(
+        name='null_classifier',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 1),
+        act_type='linear')
+
+    layer0.enable_dropout()
+    layer1.enable_dropout()
+    layer2.enable_dropout()
+
+    cat = optimus.Concatenate('concatenate', num_inputs=2, axis=1)
+    softmax = optimus.Softmax('softmax')
+    prior = optimus.Multiply("prior", weight_shape=(1, 9145), broadcast=[0])
+    prior.weight.value = np.ones([1, 9145]) / 9145.0
+
+    param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
+    misc_nodes = [flatten, cat, softmax, prior]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex(name='likelihoods')
+
+    log = optimus.Log(name='log')
+    neg = optimus.Multiply(name='gain', weight_shape=None)
+    neg.weight.value = -1.0
+
+    loss = optimus.Mean(name='negative_log_likelihood')
+    loss_nodes = [likelihoods, log, neg, loss]
+    total_loss = optimus.Output(name='total_loss')
+
+    classifier_out = optimus.Output(name='classifier_out')
+    flatten_out = optimus.Output(name='flatten_out')
+    posterior = optimus.Output(name='posterior')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chord_classifier.input),
+        (layer2.output, null_classifier.input),
+        (chord_classifier.output, flatten.input),
+        (chord_classifier.output, classifier_out),
+        (flatten.output, cat.input_0),
+        (flatten.output, flatten_out),
+        (null_classifier.output, cat.input_1),
+        (cat.output, softmax.input),
+        (softmax.output, prior.input),
+        (prior.output, posterior)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (dropout, layer0.dropout),
+            (dropout, layer1.dropout),
+            (dropout, layer2.dropout),
+            (softmax.output, likelihoods.input),
+            (class_idx, likelihoods.index),
+            (likelihoods.output, log.input),
+            (log.output, neg.input),
+            (neg.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name="classifier-V9145",
+        inputs=[input_data, class_idx, learning_rate],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss, posterior, classifier_out, flatten_out],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    layer0.disable_dropout()
+    layer1.disable_dropout()
+    layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name="classifier-V9145",
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[posterior, classifier_out, flatten_out])
 
     return trainer, predictor
 
