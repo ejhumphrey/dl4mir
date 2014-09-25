@@ -55,76 +55,6 @@ def semitones_index(semitones, vocab_dim=157):
     return _QINDEX[vocab_dim].get(tuple(semitones), None)
 
 
-def chord_label_to_class_index_soft(label, vocab_dim=157):
-    """Map a chord label to its class index, or None if undefined.
-
-    Parameters
-    ----------
-    label : str or array_like
-        Chord label(s) to map.
-    vocab_dim : int
-        Number of chords in the vocabulary.
-    """
-    N_quality_idx = (vocab_dim - 1) / 12
-    singleton = False
-    if isinstance(label, str):
-        label = [label]
-        singleton = True
-    root, semitones, bass = mir_eval.chord.encode_many(label)
-    quality_idx = [semitones_index(s, vocab_dim) for s in semitones]
-    class_idx = []
-    for r, q in zip(root, quality_idx):
-        if N_quality_idx == q:
-            idx = vocab_dim - 1
-        else:
-            idx = None if None in [q, r] else r + q * 12
-
-        class_idx.append(idx)
-    # class_idx[N_quality_idx == quality_idx] = vocab_dim - 1
-    return class_idx[0] if singleton else class_idx
-
-
-def chord_label_to_class_index(labels, vocab_dim=157):
-    """Map chord labels to class index, or None if undefined.
-
-    Note that this is a strict label mapping;
-
-    Parameters
-    ----------
-    labels : str or array_like
-        Chord label(s) to map.
-    vocab_dim : int
-        Number of chords in the vocabulary.
-    """
-    valid_qualities = QUALITIES[vocab_dim]
-    singleton = False
-    if isinstance(labels, str):
-        labels = [labels]
-        singleton = True
-
-    index_map = dict()
-    for l in np.unique(labels):
-        try:
-            row = mir_eval.chord.split(l)
-        except mir_eval.chord.InvalidChordException:
-            row = ['X', '', set(), '']
-        skip = [row[0] == 'X',
-                not row[1] in valid_qualities,
-                len(row[2]) > 0,
-                not row[3] in ['', '1']]
-        if any(skip):
-            idx = None
-        elif row[0] == 'N':
-            idx = vocab_dim - 1
-        else:
-            idx = mir_eval.chord.pitch_class_to_semitone(row[0])
-            idx += valid_qualities.index(row[1]) * 12
-        index_map[l] = idx
-
-    chord_idx = np.array([index_map[l] for l in labels])
-    return chord_idx[0] if singleton else chord_idx
-
-
 def chord_label_to_quality_index(label, vocab_dim=157):
     """Map a chord label to its quality index, or None if undefined."""
     singleton = False
@@ -138,13 +68,6 @@ def chord_label_to_quality_index(label, vocab_dim=157):
 
 def get_quality_index(semitones, vocab_dim):
     return _QINDEX[vocab_dim].get(tuple(semitones), None)
-
-
-def index_to_chord_label(index, vocab_dim):
-    if index == vocab_dim - 1:
-        return "N"
-    return "%s:%s" % (ROOTS[index % 12],
-                      QUALITIES[vocab_dim][int(index) / 12])
 
 
 def chord_label_to_chroma(label):
@@ -165,18 +88,16 @@ def rotate(class_vector, root):
                      for n in range(len(class_vector) - 1)]+[class_vector[-1]])
 
 
-def relative_chord_index(base_idx, chord_idx, vocab_dim=157):
-    """Return the index for `chord_idx` as if base_idx has 'C' as the root.
+def subtract_mod12(reference, index):
+    """Return the index relative to reference.
 
-    Note: If `base_idx` or `chord_idx` is None, the result is also None.
+    Note: If `reference_idx` or `idx` is None, the result is also None.
     """
-    if chord_idx == vocab_dim - 1:
-        return chord_idx
-    elif None in [base_idx, chord_idx]:
-        return chord_idx
-    base_root = base_idx % 12
-    chord_root = chord_idx % 12
-    return 12 * (int(chord_idx) / 12) + (chord_root - base_root) % 12
+    if None in [reference, index]:
+        return index
+    ref_idx = reference % 12
+    idx = index % 12
+    return 12 * (int(index) / 12) + (idx - ref_idx) % 12
 
 
 def _generate_tonnetz_matrix(radii):
