@@ -2,6 +2,8 @@ import mir_eval
 import json
 import os
 import numpy as np
+import dl4mir.common.util as util
+
 
 ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 
@@ -164,8 +166,13 @@ def rotate(class_vector, root):
 
 
 def relative_chord_index(base_idx, chord_idx, vocab_dim=157):
-    """Return the index for `chord_idx` as if base_idx has 'C' as the root."""
+    """Return the index for `chord_idx` as if base_idx has 'C' as the root.
+
+    Note: If `base_idx` or `chord_idx` is None, the result is also None.
+    """
     if chord_idx == vocab_dim - 1:
+        return chord_idx
+    elif None in [base_idx, chord_idx]:
         return chord_idx
     base_root = base_idx % 12
     chord_root = chord_idx % 12
@@ -223,12 +230,17 @@ def chord_label_to_tonnetz(chord_label, radii=(1.0, 1.0, 0.5)):
     return chroma_to_tonnetz(chroma, radii)
 
 
-def decode(root, semitones, bass):
-    root_name = semitone_to_pitch_class(root)
-
-
 def _load_json_labeled_intervals(label_file):
-    data = json.load(open(label_file , 'r'))
+    """Load labeled intervals from a JSON file.
+
+    Returns
+    -------
+    intervals : np.ndarray, shape=(N, 2)
+        Intervals in time, should be monotonically increasing.
+    labels : list, len=N
+        String labels corresponding to the given time intervals.
+    """
+    data = json.load(open(label_file, 'r'))
     chord_labels = [str(l) for l in data['labels']]
     return np.asarray(data['intervals']), chord_labels
 
@@ -239,10 +251,34 @@ LOADERS = {
     "json": _load_json_labeled_intervals
     }
 
-def load_labeled_intervals(label_file):
+
+def compress_labeled_intervals(intervals, labels):
+    """Collapse repeated labels and the corresponding intervals.
+
+    Parameters
+    ----------
+    intervals : np.ndarray, shape=(N, 2)
+        Intervals in time, should be monotonically increasing.
+    labels : list, len=N
+        Labels corresponding to the given time intervals.
+    """
+    intervals = np.asarray(intervals)
+    new_labels, new_intervals = list(), list()
+    idx = 0
+    for label, step in util.run_length_encode(labels):
+        new_labels.append(label)
+        new_intervals.append([intervals[idx, 0], intervals[idx + step - 1, 1]])
+        idx += step
+    return np.asarray(new_intervals), new_labels
+
+
+def load_labeled_intervals(label_file, compress=True):
     ext = os.path.splitext(label_file)[-1].strip(".")
     assert ext in LOADERS, "Unsupported extension: %s" % ext
-    return LOADERS[ext](label_file)
+    intervals, labels = LOADERS[ext](label_file)
+    if compress:
+        intervals, labels = compress_labeled_intervals(intervals, labels)
+    return intervals, labels
 
 
 _AFFINITY_VECTORS = [
@@ -278,5 +314,97 @@ def affinity_vectors(vocab_dim=157):
                 this_idx += (int(idx) / 12) * 12
                 vectors[chord_idx, this_idx] = value
             chord_idx += 1
-    vectors[-1,-1] = 1.0
+    vectors[-1, -1] = 1.0
     return vectors
+
+
+def count_labels(reference_set, vocab_dim=157):
+    labels = dict()
+    for labeled_intervals in reference_set.values():
+        rootless = [join(*list([''] + list(split(l)[1:])))
+                    for l in labeled_intervals['labels']]
+        intervals = np.array(labeled_intervals['intervals'])
+        durations = np.abs(np.diff(intervals, axis=1)).flatten()
+        for y, w in zip(rootless, durations):
+            if not y in labels:
+                labels[y] = 0
+            labels[y] += w
+
+    qlabels = labels.keys()
+    counts = [labels[y] for y in qlabels]
+    idx = np.argsort(counts)[::-1]
+    return [qlabels[i] for i in idx], [counts[i] for i in idx]
+
+
+def count_states(reference_set, vocab_dim=157):
+    states = dict()
+    for labeled_intervals in reference_set.values():
+        chord_idx = chord_label_to_class_index(labeled_intervals['labels'],
+                                               vocab_dim)
+        intervals = np.array(labeled_intervals['intervals'])
+        durations = np.abs(np.diff(intervals, axis=1)).flatten()
+        for y, w in zip(chord_idx, durations):
+            s = relative_chord_index(y, y, 157)
+            if not s in states:
+                states[s] = 0
+            states[s] += w
+
+    labels = states.keys()
+    counts = [states[y] for y in labels]
+    idx = np.argsort(counts)[::-1]
+    return [labels[i] for i in idx], [counts[i] for i in idx]
+
+
+def count_bigrams(reference_set, vocab_dim=157):
+    states = dict()
+    for labeled_intervals in reference_set.values():
+        chord_idx = chord_label_to_class_index(labeled_intervals['labels'],
+                                               vocab_dim)
+        intervals = np.array(labeled_intervals['intervals'])
+        durations = np.abs(np.diff(intervals, axis=1)).flatten()
+        for n in range(1, len(chord_idx)):
+            s = tuple([relative_chord_index(chord_idx[n],
+                                            chord_idx[n + i], 157)
+                       for i in range(-1, 1)])
+            if not s in states:
+                states[s] = 0
+            states[s] += durations[n]
+    labels = states.keys()
+    counts = [states[y] for y in labels]
+    idx = np.argsort(counts)[::-1]
+    return [labels[i] for i in idx], [counts[i] for i in idx]
+
+
+def count_trigrams(reference_set, vocab_dim=157):
+    states = dict()
+    for labeled_intervals in reference_set.values():
+        chord_idx = chord_label_to_class_index_soft(
+            labeled_intervals['labels'], vocab_dim)
+        intervals = np.array(labeled_intervals['intervals'])
+        durations = np.abs(np.diff(intervals, axis=1)).flatten()
+        for n in range(1, len(chord_idx) - 1):
+            s = tuple([relative_chord_index(chord_idx[n],
+                                            chord_idx[n + i], 157)
+                       for i in range(-1, 2)])
+            if not s in states:
+                states[s] = 0
+            states[s] += durations[n]
+    labels = states.keys()
+    counts = [states[y] for y in labels]
+    idx = np.argsort(counts)[::-1]
+    return [labels[i] for i in idx], [counts[i] for i in idx]
+
+
+def sequence_to_bigrams(seq, previous_state):
+    bigrams = [(previous_state, seq[0])]
+    for n in range(1, len(seq)):
+        bigrams.append(tuple([seq[n + i] for i in range(-1, 1)]))
+    return bigrams
+
+
+def sequence_to_trigrams(seq, start_state, end_state):
+    trigrams = [(start_state, seq[0], seq[1])]
+    for n in range(1, len(seq) - 1):
+        trigrams.append(tuple([seq[n + i] for i in range(-1, 2)]))
+    trigrams.append((seq[-2], seq[-1], end_state))
+    return trigrams
