@@ -1081,8 +1081,8 @@ def i1c3_bigram762_nll(size='large'):
         name='cqt',
         shape=(None, 1, 1, 252))
 
-    chord_idx = optimus.Input(
-        name='chord_idx',
+    class_idx = optimus.Input(
+        name='class_idx',
         shape=(None,),
         dtype='int32')
 
@@ -1162,7 +1162,7 @@ def i1c3_bigram762_nll(size='large'):
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
             (softmax.output, likelihoods.input),
-            (chord_idx, likelihoods.index),
+            (class_idx, likelihoods.index),
             (likelihoods.output, log.input),
             (log.output, neg.input),
             (neg.output, loss.input),
@@ -1176,7 +1176,7 @@ def i1c3_bigram762_nll(size='large'):
 
     trainer = optimus.Graph(
         name="classifier-V9145",
-        inputs=[input_data, chord_idx, learning_rate],
+        inputs=[input_data, class_idx, learning_rate],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
         outputs=[total_loss, posterior],
