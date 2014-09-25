@@ -62,8 +62,9 @@ def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
         data_shape = list(data[key].shape)
         if len(time_points) in data_shape:
             axis = data_shape.index(len(time_points))
+            pool_func = 'mode' if data[key].dtype.type == np.string_ else mode
             data[key] = util.boundary_pool(data[key], idxs,
-                                           pool_func=mode, axis=axis)
+                                           pool_func=pool_func, axis=axis)
 
     return biggie.Entity(time_points=time_boundaries[:-1],
                          chord_labels=chord_labels,
