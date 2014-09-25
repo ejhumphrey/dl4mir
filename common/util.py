@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats
+from itertools import groupby
 
 
 def mode(*args, **kwargs):
@@ -10,11 +11,12 @@ def mode2(x_in, axis):
     value_to_idx = dict()
     idx_to_value = dict()
     for x in x_in:
-        if not x in value_to_idx:
+        obj = buffer(x)
+        if not obj in value_to_idx:
             idx = len(value_to_idx)
-            value_to_idx[x] = idx
+            value_to_idx[obj] = idx
             idx_to_value[idx] = x
-    counts = np.bincount([value_to_idx[x] for x in x_in])
+    counts = np.bincount([value_to_idx[buffer(x)] for x in x_in])
     return idx_to_value[counts.argmax()]
 
 
@@ -235,3 +237,38 @@ def fold_array(x_in, length, stride):
     num_tiles = int((x_in.shape[1] - (length-stride)) / float(stride))
     return np.array([x_in[:, n*stride:n*stride + length]
                      for n in range(num_tiles)])
+
+
+def run_length_encode(seq):
+    """Run-length encode a sequence of items.
+
+    Parameters
+    ----------
+    seq : array_like
+        Sequence to compress.
+
+    Returns
+    -------
+    comp_seq : list
+        Compressed sequence containing (item, count) tuples.
+    """
+    return [(obj, len(list(group))) for obj, group in groupby(seq)]
+
+
+def run_length_decode(comp_seq):
+    """Run-length decode a sequence of (item, count) tuples.
+
+    Parameters
+    ----------
+    comp_seq : array_like
+        Sequence of (item, count) pairs to decompress.
+
+    Returns
+    -------
+    seq : list
+        Expanded sequence.
+    """
+    seq = list()
+    for obj, count in seq:
+        seq.extend([obj]*count)
+    return seq
