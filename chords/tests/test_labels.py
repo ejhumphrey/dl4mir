@@ -19,6 +19,8 @@ class LabelsTests(unittest.TestCase):
         self.assertEqual(L.subtract_mod12(10, 0), 2)
         self.assertEqual(L.subtract_mod12(10, 9), 11)
         self.assertEqual(L.subtract_mod12(25, 24), 35)
+        self.assertEqual(L.subtract_mod12(25, None), None)
+        self.assertEqual(L.subtract_mod12(None, 24), 24)
 
 
 if __name__ == "__main__":

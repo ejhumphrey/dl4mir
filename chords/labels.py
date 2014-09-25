@@ -89,15 +89,23 @@ def rotate(class_vector, root):
 
 
 def subtract_mod12(reference, index):
-    """Return the index relative to reference.
+    """Return the index relative to reference, wrapped inside an octave of 12.
 
-    Note: If `reference_idx` or `idx` is None, the result is also None.
+    Note: If 'reference' or `index` is None, this will return `index`.
+
+    Parameters
+    ----------
+    reference : int
+        Reference value.
+    index : int
+        Value to subtract.
     """
     if None in [reference, index]:
         return index
     ref_idx = reference % 12
     idx = index % 12
-    return 12 * (int(index) / 12) + (idx - ref_idx) % 12
+    octave = int(index) / 12
+    return 12 * octave + (idx - ref_idx) % 12
 
 
 def _generate_tonnetz_matrix(radii):
