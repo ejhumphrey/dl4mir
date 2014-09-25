@@ -12,7 +12,7 @@ import time
 
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
-LAB_EXT = "json"
+LAB_EXT = "lab"
 NPZ_EXT = "npz"
 
 
@@ -34,9 +34,12 @@ def create_chord_entity(npz_file, lab_file, dtype=np.float32):
         Populated chord entity, with {cqt, chord_labels, *time_points}.
     """
     entity = biggie.Entity(**np.load(npz_file))
-    intervals, labels = L.load_labeled_intervals(lab_file)
+    intervals, labels = L.load_labeled_intervals(lab_file, compress=True)
+    bigrams = L.sequence_to_bigrams(labels, previous_state='N')
     entity.chord_labels = mir_eval.util.interpolate_intervals(
         intervals, labels, entity.time_points, fill_value='N')
+    entity.bigrams = mir_eval.util.interpolate_intervals(
+        intervals, bigrams, entity.time_points, fill_value=('N', 'N'))
     entity.cqt = entity.cqt.astype(dtype)
     return entity
 

@@ -64,7 +64,7 @@ def pitch_shift(stream, max_pitch_shift=6, bins_per_pitch=3):
         yield _pitch_shift(entity, shift, bins_per_pitch)
 
 
-def map_to_chord_index(stream, vocab_dim):
+def map_to_class_index(stream, index_mapper, *args, **kwargs):
     """
     vocab_dim: int
     """
@@ -72,11 +72,9 @@ def map_to_chord_index(stream, vocab_dim):
         if entity is None:
             yield entity
             continue
-        values = entity.values()
-        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
-        chord_idx = labels.chord_label_to_class_index(chord_label, vocab_dim)
-        yield None if chord_idx is None else biggie.Entity(cqt=cqt,
-                                                           chord_idx=chord_idx)
+        class_idx = index_mapper(entity, *args, **kwargs)
+        yield None if class_idx is None else biggie.Entity(cqt=entity.cqt,
+                                                           class_idx=class_idx)
 
 
 def map_to_chroma(stream):
