@@ -8,6 +8,7 @@ class Lexicon(object):
     def __init__(self, vocab_dim):
         self.vocab_dim = vocab_dim
         self.num_classes = vocab_dim
+        self.classes_per_root = 13
         self._label_map = dict()
         self._index_map = dict()
 
@@ -43,6 +44,12 @@ class Lexicon(object):
 
         chord_labels = [self._label_map[idx] for idx in index]
         return chord_labels[0] if singleton else chord_labels
+
+    # def root_invariant_index(self, index):
+    #     label = self.index_to_label(index)
+    #     if not label in [L.NO_CHORD, L.SKIP_CHORD]:
+    #         label = L.join("C", *L.split(label)[1:])
+    #     return
 
 
 class Strict(Lexicon):
@@ -914,19 +921,19 @@ __bigrams__ = [
     {'index': 746, 'label': (49, 144), 'weight': 1.2184882843333185},
     {'index': 747, 'label': (59, 144), 'weight': 1.1188435374999983},
     {'index': 748, 'label': (25, 144), 'weight': 0.67300000000000182},
-    {'index': 749, 'label': (0, 156), 'weight': None},
-    {'index': 750, 'label': (12, 156), 'weight': None},
-    {'index': 751, 'label': (24, 156), 'weight': None},
-    {'index': 752, 'label': (36, 156), 'weight': None},
-    {'index': 753, 'label': (48, 156), 'weight': None},
-    {'index': 754, 'label': (60, 156), 'weight': None},
-    {'index': 755, 'label': (72, 156), 'weight': None},
-    {'index': 756, 'label': (84, 156), 'weight': None},
-    {'index': 757, 'label': (96, 156), 'weight': None},
-    {'index': 758, 'label': (108, 156), 'weight': None},
-    {'index': 759, 'label': (120, 156), 'weight': None},
-    {'index': 760, 'label': (132, 156), 'weight': None},
-    {'index': 761, 'label': (144, 156), 'weight': None}]
+    {'index': 749, 'label': (0, 156), 'weight': 38.11159808981965},
+    {'index': 750, 'label': (12, 156), 'weight': 38.11159808981965},
+    {'index': 751, 'label': (24, 156), 'weight': 38.11159808981965},
+    {'index': 752, 'label': (36, 156), 'weight': 38.11159808981965},
+    {'index': 753, 'label': (48, 156), 'weight': 38.11159808981965},
+    {'index': 754, 'label': (60, 156), 'weight': 38.11159808981965},
+    {'index': 755, 'label': (72, 156), 'weight': 38.11159808981965},
+    {'index': 756, 'label': (84, 156), 'weight': 38.11159808981965},
+    {'index': 757, 'label': (96, 156), 'weight': 38.11159808981965},
+    {'index': 758, 'label': (108, 156), 'weight': 38.11159808981965},
+    {'index': 759, 'label': (120, 156), 'weight': 38.11159808981965},
+    {'index': 760, 'label': (132, 156), 'weight': 38.11159808981965},
+    {'index': 761, 'label': (144, 156), 'weight': 38.11159808981965}]
 
 
 __null_bigrams__ = [
@@ -934,7 +941,7 @@ __null_bigrams__ = [
     {'index': 750, 'label': (None, 156), 'weight': 1437.7640507396729},
     {'index': 751, 'label': (7, 156), 'weight': 766.45442888250682},
     {'index': 752, 'label': (9, 156), 'weight': 523.19027790753069},
-    # {'index': 753, 'label': (0, 156), 'weight': 503.72792447414247},
+    {'index': 753, 'label': (0, 156), 'weight': 503.72792447414247},
     {'index': 754, 'label': (2, 156), 'weight': 475.81426317109708},
     {'index': 755, 'label': (4, 156), 'weight': 475.41566526103384},
     {'index': 756, 'label': (10, 156), 'weight': 321.92609756683908},
@@ -946,7 +953,7 @@ __null_bigrams__ = [
     {'index': 762, 'label': (11, 156), 'weight': 137.1213900871098},
     {'index': 763, 'label': (1, 156), 'weight': 136.10849358908578},
     {'index': 764, 'label': (23, 156), 'weight': 101.74824315870114},
-    # {'index': 765, 'label': (12, 156), 'weight': 90.862365983611667},
+    {'index': 765, 'label': (12, 156), 'weight': 90.862365983611667},
     {'index': 766, 'label': (28, 156), 'weight': 81.066047440408425},
     {'index': 767, 'label': (55, 156), 'weight': 79.673429023923262},
     {'index': 768, 'label': (35, 156), 'weight': 63.299894664302684},
@@ -956,8 +963,8 @@ __null_bigrams__ = [
     {'index': 772, 'label': (52, 156), 'weight': 58.017334867513242},
     {'index': 773, 'label': (57, 156), 'weight': 57.912040993430018},
     {'index': 774, 'label': (19, 156), 'weight': 56.104805933100153},
-    # {'index': 775, 'label': (24, 156), 'weight': 55.160347999999999},
-    # {'index': 776, 'label': (48, 156), 'weight': 53.545331001736194},
+    {'index': 775, 'label': (24, 156), 'weight': 55.160347999999999},
+    {'index': 776, 'label': (48, 156), 'weight': 53.545331001736194},
     {'index': 777, 'label': (43, 156), 'weight': 53.417952215194589},
     {'index': 778, 'label': (14, 156), 'weight': 49.800363410440156},
     {'index': 779, 'label': (53, 156), 'weight': 48.228528076333419},
@@ -988,7 +995,7 @@ __null_bigrams__ = [
     {'index': 804, 'label': (46, 156), 'weight': 6.6675056690000076},
     {'index': 805, 'label': (71, 156), 'weight': 6.4754648530000054},
     {'index': 806, 'label': (90, 156), 'weight': 6.4424115999999856},
-    # {'index': 807, 'label': (36, 156), 'weight': 6.4348299310000243},
+    {'index': 807, 'label': (36, 156), 'weight': 6.4348299310000243},
     {'index': 808, 'label': (113, 156), 'weight': 5.4756961449999721},
     {'index': 809, 'label': (39, 156), 'weight': 5.3732426299999645},
     {'index': 810, 'label': (32, 156), 'weight': 5.2012698415000784},
@@ -996,7 +1003,7 @@ __null_bigrams__ = [
     {'index': 812, 'label': (116, 156), 'weight': 4.9915022672498708},
     {'index': 813, 'label': (76, 156), 'weight': 4.7609999999999957},
     {'index': 814, 'label': (88, 156), 'weight': 4.5109999999999957},
-    # {'index': 815, 'label': (108, 156), 'weight': 4.3991245710000726},
+    {'index': 815, 'label': (108, 156), 'weight': 4.3991245710000726},
     {'index': 816, 'label': (67, 156), 'weight': 4.0901271000000037},
     {'index': 817, 'label': (37, 156), 'weight': 4.0114512472500792},
     {'index': 818, 'label': (64, 156), 'weight': 3.8543121000000014},
@@ -1012,6 +1019,6 @@ __null_bigrams__ = [
     {'index': 828, 'label': (65, 156), 'weight': 1.7760000000000105},
     {'index': 829, 'label': (89, 156), 'weight': 1.7297482992998994},
     {'index': 830, 'label': (22, 156), 'weight': 1.5214933592856994},
-    # {'index': 831, 'label': (60, 156), 'weight': 1.3601343099615661},
+    {'index': 831, 'label': (60, 156), 'weight': 1.3601343099615661},
     {'index': 832, 'label': (134, 156), 'weight': 1.0791313000000002},
     {'index': 833, 'label': (70, 156), 'weight': 0.92411904750002805}]
