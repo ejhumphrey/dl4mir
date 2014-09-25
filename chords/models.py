@@ -1176,7 +1176,7 @@ def i1c3_bigram762_nll(size='large'):
     classifier_init(param_nodes)
 
     trainer = optimus.Graph(
-        name=GRAPH_NAME,
+        name="classifier-V9145",
         inputs=[input_data, chord_idx, learning_rate],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
@@ -1186,7 +1186,7 @@ def i1c3_bigram762_nll(size='large'):
         verbose=True)
 
     predictor = optimus.Graph(
-        name=GRAPH_NAME,
+        name="classifier-V9145",
         inputs=[input_data],
         nodes=param_nodes + misc_nodes,
         connections=optimus.ConnectionManager(base_edges).connections,
