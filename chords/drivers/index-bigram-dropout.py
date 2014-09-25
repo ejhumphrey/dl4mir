@@ -11,7 +11,7 @@ from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
 DRIVER_ARGS['max_iter'] = 1000000
-VOCAB = lex.StrictBigram(157)
+VOCAB = lex.StrictBigram()
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 DROPOUT = 0.5
