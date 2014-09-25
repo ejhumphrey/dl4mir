@@ -40,8 +40,14 @@ def inarray(ar1, ar2):
     """
     ar1 = np.asarray(ar1)
     out = np.zeros(ar1.shape, dtype=bool)
-    for val in np.asarray(ar2).flatten():
-        out |= np.equal(ar1, val)
+    unique1 = np.unique(ar1)
+    unique2 = np.unique(ar2)
+    if len(unique1) > len(unique2):
+        for val in unique2:
+            out |= np.equal(ar1, val)
+    else:
+        for val in unique1:
+            out |= np.equal(ar1, val) * (val in unique2)
     return out
 
 
@@ -53,10 +59,10 @@ def partition(obj, mapper, *args, **kwargs):
     obj : dict_like
         Data collection to partition.
     mapper : function
-        A partition labeling function.
+        A partition labeling function; consumes entities, returns integers.
     *args, **kwargs
           Additional positional arguments or keyword arguments to pass
-          through to ``generator()``
+          through to ``mapper()``
 
     Returns
     -------
@@ -272,3 +278,34 @@ def run_length_decode(comp_seq):
     for obj, count in seq:
         seq.extend([obj]*count)
     return seq
+
+
+def slice_tile(x_in, idx, length):
+    """Extract a padded tile from a matrix, along the first dimension.
+
+    Parameters
+    ----------
+    x_in : np.ndarray, ndim=2
+        2D Matrix to slice.
+    idx : int
+        Centered index for the resulting tile.
+    length : int
+        Total length for the output tile.
+
+    Returns
+    -------
+    z_out : np.ndarray, ndim=2
+        The extracted tile.
+    """
+    start_idx = idx - length / 2
+    end_idx = start_idx + length
+    tile = np.zeros([length, x_in.shape[1]])
+
+    if start_idx < 0:
+        tile[np.abs(start_idx):, :] = x_in[:end_idx, :]
+    elif end_idx > x_in.shape[0]:
+        end_idx = x_in.shape[0] - start_idx
+        tile[:end_idx, :] = x_in[start_idx:, :]
+    else:
+        tile[:, :] = x_in[start_idx:end_idx, :]
+    return tile

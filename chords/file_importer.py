@@ -12,7 +12,7 @@ import time
 
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
-LAB_EXT = "json"
+LAB_EXT = "lab"
 NPZ_EXT = "npz"
 
 
