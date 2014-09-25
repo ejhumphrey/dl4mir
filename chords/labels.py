@@ -88,8 +88,8 @@ def rotate(class_vector, root):
                      for n in range(len(class_vector) - 1)]+[class_vector[-1]])
 
 
-def subtract_mod12(reference, index):
-    """Return the index relative to reference, wrapped inside an octave of 12.
+def subtract_mod(reference, index, base):
+    """Return the distance relative to reference, modulo `base`.
 
     Note: If 'reference' or `index` is None, this will return `index`.
 
@@ -101,11 +101,33 @@ def subtract_mod12(reference, index):
         Value to subtract.
     """
     if None in [reference, index]:
-        return index
-    ref_idx = reference % 12
-    idx = index % 12
-    octave = int(index) / 12
-    return 12 * octave + (idx - ref_idx) % 12
+        return None
+    ref_idx = reference % base
+    idx = index % base
+    octave = int(index) / base
+    idx_out = base * octave + (idx - ref_idx) % base
+    return idx_out
+
+
+def add_mod(reference, value, base):
+    """Return the distance relative to reference, modulo `base`.
+
+    Note: If 'reference' or `value` is None, this will return `index`.
+
+    Parameters
+    ----------
+    reference : int
+        Reference value.
+    value : int
+        Value to add.
+    """
+    if None in [reference, value]:
+        return None
+    ref_idx = reference % base
+    idx = value % base
+    octave = int(reference) / base
+    idx_out = base * octave + (idx + ref_idx) % base
+    return idx_out
 
 
 def _generate_tonnetz_matrix(radii):
@@ -245,83 +267,6 @@ def affinity_vectors(vocab_dim=157):
             chord_idx += 1
     vectors[-1, -1] = 1.0
     return vectors
-
-
-def count_labels(reference_set, vocab_dim=157):
-    labels = dict()
-    for labeled_intervals in reference_set.values():
-        rootless = [join(*list([''] + list(split(l)[1:])))
-                    for l in labeled_intervals['labels']]
-        intervals = np.array(labeled_intervals['intervals'])
-        durations = np.abs(np.diff(intervals, axis=1)).flatten()
-        for y, w in zip(rootless, durations):
-            if not y in labels:
-                labels[y] = 0
-            labels[y] += w
-
-    qlabels = labels.keys()
-    counts = [labels[y] for y in qlabels]
-    idx = np.argsort(counts)[::-1]
-    return [qlabels[i] for i in idx], [counts[i] for i in idx]
-
-
-def count_states(reference_set, vocab_dim=157):
-    states = dict()
-    for labeled_intervals in reference_set.values():
-        chord_idx = chord_label_to_class_index(labeled_intervals['labels'],
-                                               vocab_dim)
-        intervals = np.array(labeled_intervals['intervals'])
-        durations = np.abs(np.diff(intervals, axis=1)).flatten()
-        for y, w in zip(chord_idx, durations):
-            s = relative_chord_index(y, y, 157)
-            if not s in states:
-                states[s] = 0
-            states[s] += w
-
-    labels = states.keys()
-    counts = [states[y] for y in labels]
-    idx = np.argsort(counts)[::-1]
-    return [labels[i] for i in idx], [counts[i] for i in idx]
-
-
-def count_bigrams(reference_set, vocab_dim=157):
-    states = dict()
-    for labeled_intervals in reference_set.values():
-        chord_idx = chord_label_to_class_index(labeled_intervals['labels'],
-                                               vocab_dim)
-        intervals = np.array(labeled_intervals['intervals'])
-        durations = np.abs(np.diff(intervals, axis=1)).flatten()
-        for n in range(1, len(chord_idx)):
-            s = tuple([relative_chord_index(chord_idx[n],
-                                            chord_idx[n + i], 157)
-                       for i in range(-1, 1)])
-            if not s in states:
-                states[s] = 0
-            states[s] += durations[n]
-    labels = states.keys()
-    counts = [states[y] for y in labels]
-    idx = np.argsort(counts)[::-1]
-    return [labels[i] for i in idx], [counts[i] for i in idx]
-
-
-def count_trigrams(reference_set, vocab_dim=157):
-    states = dict()
-    for labeled_intervals in reference_set.values():
-        chord_idx = chord_label_to_class_index_soft(
-            labeled_intervals['labels'], vocab_dim)
-        intervals = np.array(labeled_intervals['intervals'])
-        durations = np.abs(np.diff(intervals, axis=1)).flatten()
-        for n in range(1, len(chord_idx) - 1):
-            s = tuple([relative_chord_index(chord_idx[n],
-                                            chord_idx[n + i], 157)
-                       for i in range(-1, 2)])
-            if not s in states:
-                states[s] = 0
-            states[s] += durations[n]
-    labels = states.keys()
-    counts = [states[y] for y in labels]
-    idx = np.argsort(counts)[::-1]
-    return [labels[i] for i in idx], [counts[i] for i in idx]
 
 
 def sequence_to_bigrams(seq, previous_state):
