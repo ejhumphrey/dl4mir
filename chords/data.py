@@ -3,12 +3,17 @@ import numpy as np
 
 import biggie
 import pescador
+import mir_eval
 from dl4mir.chords import labels as L
 import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
 
 
-def slice_chord_entity(entity, length, idx=None):
+def intervals_to_durations(intervals):
+    return np.abs(np.diff(np.asarray(intervals), axis=1)).flatten()
+
+
+def slice_cqt_entity(entity, length, idx=None):
     """Return a windowed slice of a chord Entity.
 
     Parameters
@@ -23,17 +28,39 @@ def slice_chord_entity(entity, length, idx=None):
 
     Returns
     -------
-    sample: biggie.Entity with fields {cqt, chord_label}
+    sample: biggie.Entity with fields {data, chord_label}
         The windowed chord observation.
     """
     idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
     cqt = np.array([util.slice_tile(x, idx, length) for x in entity.cqt])
-    return biggie.Entity(cqt=cqt,
-                         chord_label=entity.chord_labels[idx])
-                         # bigrams=entity.bigrams[idx])
+    return biggie.Entity(data=cqt, chord_label=entity.chord_labels[idx])
 
 
-def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
+def slice_chroma_entity(entity, length, idx=None):
+    """Return a windowed slice of a chord Entity.
+
+    Parameters
+    ----------
+    entity : Entity, with at least {cqt, chord_labels} fields
+        Observation to window.
+        Note that entity.cqt is shaped (num_channels, num_frames, num_bins).
+    length : int
+        Length of the sliced array.
+    idx : int, or None
+        Centered frame index for the slice, or random if not provided.
+
+    Returns
+    -------
+    sample: biggie.Entity with fields {data, chord_label}
+        The windowed chord observation.
+    """
+    idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
+    chroma = util.slice_tile(entity.chroma, idx, length)
+    return biggie.Entity(data=chroma, chord_label=entity.chord_labels[idx])
+
+
+def chord_sampler(key, stash, win_length=20, index=None, max_samples=None,
+                  sample_func=slice_cqt_entity):
     """Generator for sampling windowed chord observations from an entity.
 
     Parameters
@@ -71,7 +98,7 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
         if idx >= len(valid_samples):
             np.random.shuffle(valid_samples)
             idx = 0
-        yield slice_chord_entity(entity, win_length, valid_samples[idx])
+        yield sample_func(entity, win_length, valid_samples[idx])
         idx += 1
         count += 1
 
@@ -98,7 +125,7 @@ def cqt_buffer(entity, win_length=20, valid_samples=None):
     idx = 0
     count = 0
     while count < len(valid_samples):
-        yield slice_chord_entity(entity, win_length, valid_samples[idx])
+        yield slice_cqt_entity(entity, win_length, valid_samples[idx])
         idx += 1
         count += 1
 
@@ -144,9 +171,12 @@ def map_bigrams(entity, lexicon):
     return lexicon.label_to_index(entity.bigrams)
 
 
-def create_index_stream(stash, win_length, lexicon, working_size=50,
-                        index_mapper=map_chord_labels, pitch_shift=0,
-                        partition_labels=None, valid_idx=None):
+def create_chord_index_stream(stash, win_length, lexicon,
+                              index_mapper=map_chord_labels,
+                              sample_func=slice_cqt_entity,
+                              pitch_shift_func=FX.pitch_shift_cqt,
+                              max_pitch_shift=0, working_size=50,
+                              partition_labels=None, valid_idx=None):
     """Return an unconstrained stream of chord samples with class indexes.
 
     Parameters
@@ -177,12 +207,13 @@ def create_index_stream(stash, win_length, lexicon, working_size=50,
 
     chord_index = util.index_partition_arrays(partition_labels, valid_idx)
     entity_pool = [pescador.Streamer(chord_sampler, key, stash,
-                                     win_length, chord_index)
+                                     win_length, chord_index,
+                                     sample_func=sample_func)
                    for key in stash.keys()]
 
     stream = pescador.mux(entity_pool, None, working_size, lam=25)
-    if pitch_shift > 0:
-        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
+    if max_pitch_shift > 0:
+        stream = pitch_shift_func(stream, max_pitch_shift=max_pitch_shift)
 
     return FX.map_to_class_index(stream, index_mapper, lexicon)
 
@@ -215,7 +246,7 @@ def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0):
 
     stream = pescador.mux(entity_pool, None, working_size, lam=25)
     if pitch_shift > 0:
-        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
+        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_chroma(stream)
 
@@ -266,7 +297,7 @@ def create_uniform_chord_stream(stash, win_length, lexicon,
     stream = pescador.mux(chord_pool, n_samples=None, k=lexicon.vocab_dim,
                           lam=None, with_replacement=False)
     if pitch_shift:
-        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
+        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_chord_index(stream, lexicon)
 
@@ -302,7 +333,7 @@ def muxed_uniform_chord_stream(stash, synth_stash, win_length, vocab_dim=157,
     stream = pescador.mux(chord_pool, n_samples=None, k=vocab_dim, lam=None,
                           with_replacement=False)
     if pitch_shift:
-        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
+        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_chord_index(stream, vocab_dim)
 
@@ -327,7 +358,7 @@ def create_uniform_factored_stream(stash, win_length, partition_labels=None,
     stream = pescador.mux(quality_pool, n_samples=None, k=working_size,
                           lam=None, with_replacement=False)
     if pitch_shift:
-        stream = FX.pitch_shift(stream)
+        stream = FX.pitch_shift_cqt(stream)
 
     return FX.map_to_joint_index(stream, vocab_dim)
 
@@ -531,3 +562,31 @@ def chroma_trigrams(ref_set):
             states[c]['duration'] += durations[n]
             states[c]['labels'].add(labels[n])
     return states
+
+
+def ideal_chroma_fr(ref_set, stash, framerate=20.0):
+    sample_size = 1./framerate
+    for k, v in ref_set.iteritems():
+        chroma = L.chord_label_to_chroma(v['labels'])
+        time_points, chroma = mir_eval.util.intervals_to_samples(
+            np.asarray(v['intervals']), chroma.tolist(),
+            sample_size=sample_size, fill_value=[0]*12)
+        time_points, labels = mir_eval.util.intervals_to_samples(
+            np.asarray(v['intervals']), v['labels'],
+            sample_size=sample_size, fill_value='N')
+        stash.add(str(k), biggie.Entity(
+            chroma=chroma, chord_labels=[str(l) for l in labels],
+            time_points=time_points), overwrite=True)
+        print k
+
+
+def ideal_chroma_ss(ref_set, stash):
+    for k, v in ref_set.iteritems():
+        intervals, labels = L.compress_labeled_intervals(**v)
+        chord_labels = [str(l) for l in labels]
+        chroma = L.chord_label_to_chroma(chord_labels)
+        durations = intervals_to_durations(intervals)
+        stash.add(str(k), biggie.Entity(
+            chroma=chroma, chord_labels=chord_labels,
+            time_points=intervals[:, 0], durations=durations), overwrite=True)
+        print k
