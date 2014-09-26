@@ -88,7 +88,9 @@ def map_to_chroma(stream):
         values = entity.values()
         cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
         chroma = labels.chord_label_to_chroma(chord_label)
-        yield biggie.Entity(cqt=cqt, target_chroma=chroma.squeeze())
+        if (chroma < 0).any():
+            yield None
+        yield biggie.Entity(cqt=cqt, target=chroma)
 
 
 def chord_index_to_tonnetz(stream, vocab_dim):

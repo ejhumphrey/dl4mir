@@ -1266,7 +1266,7 @@ def i1c3_bigram762_nll_dropout(size='large'):
     prior.weight.value = np.ones([1, 9145]) / 9145.0
 
     param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
-    misc_nodes = [flatten, cat, softmax, prior]
+    misc_nodes = [dimshuffle, flatten, cat, softmax, prior]
 
     # 1.1 Create Loss
     likelihoods = optimus.SelectIndex(name='likelihoods')
@@ -4148,6 +4148,107 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
         nodes=param_nodes,
         connections=predictor_edges.connections,
         outputs=[posterior])
+
+    return trainer, predictor
+
+
+def i20c3_mse12(size='large'):
+    k0, k1, k2 = dict(
+        small=(10, 20, 40),
+        med=(12, 24, 48),
+        large=(16, 32, 64))[size]
+
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, 20, 252))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 12))
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, 5, 13),
+        pool_shape=(2, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, 5, 37),
+        pool_shape=(2, 1),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, 1, 33),
+        pool_shape=(2, 1),
+        act_type='relu')
+
+    chroma_estimator = optimus.Conv3D(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        weight_shape=(1, None, 1, 1),
+        act_type='sigmoid')
+
+    flatten = optimus.Flatten('flatten', 2)
+
+    param_nodes = [layer0, layer1, layer2, chroma_estimator]
+    misc_nodes = [flatten]
+
+    # 1.1 Create Loss
+    error = optimus.SquaredEuclidean(name='squared_error')
+    loss = optimus.Mean(name='mean_squared_error')
+    loss_nodes = [error, loss]
+
+    chroma = optimus.Output(name='chroma')
+    total_loss = optimus.Output(name='total_loss')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chroma_estimator.input),
+        (chroma_estimator.output, flatten.input),
+        (flatten.output, chroma)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (flatten.output, error.input_a),
+            (target, error.input_b),
+            (error.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, target, learning_rate],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss, chroma],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[chroma])
 
     return trainer, predictor
 

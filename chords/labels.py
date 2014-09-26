@@ -74,12 +74,13 @@ def chord_label_to_chroma(label):
     flatten = False
     if isinstance(label, str):
         label = [label]
+        flatten = True
 
     root, semitones, bass = mir_eval.chord.encode_many(label)
     chroma = np.array([mir_eval.chord.rotate_bitmap_to_root(s, r)
-                       for s, r in zip(semitones, root)])
+                       for s, r in zip(semitones, root)], dtype=int)
 
-    return chroma.flatten() if flatten else chroma
+    return chroma[0] if flatten else chroma
 
 
 def rotate(class_vector, root):

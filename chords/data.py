@@ -29,8 +29,8 @@ def slice_chord_entity(entity, length, idx=None):
     idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
     cqt = np.array([util.slice_tile(x, idx, length) for x in entity.cqt])
     return biggie.Entity(cqt=cqt,
-                         chord_labels=entity.chord_labels[idx],
-                         bigrams=entity.bigrams[idx])
+                         chord_label=entity.chord_labels[idx])
+                         # bigrams=entity.bigrams[idx])
 
 
 def chord_sampler(key, stash, win_length=20, index=None, max_samples=None):
@@ -133,17 +133,21 @@ def lazy_cqt_buffer(key, stash, win_length=20, index=None):
 
 
 def map_chord_labels(entity, lexicon):
-    return lexicon.label_to_index(entity.chord_labels)
+    if hasattr(entity, 'chord_label'):
+        labels = entity.chord_label
+    else:
+        labels = entity.chord_labels
+    return lexicon.label_to_index(labels)
 
 
 def map_bigrams(entity, lexicon):
     return lexicon.label_to_index(entity.bigrams)
 
 
-def create_stream(stash, win_length, lexicon, index_mapper=map_chord_labels,
-                  working_size=50, pitch_shift=0, partition_labels=None,
-                  valid_idx=None):
-    """Return an unconstrained stream of chord samples.
+def create_index_stream(stash, win_length, lexicon, working_size=50,
+                        index_mapper=map_chord_labels, pitch_shift=0,
+                        partition_labels=None, valid_idx=None):
+    """Return an unconstrained stream of chord samples with class indexes.
 
     Parameters
     ----------
@@ -181,6 +185,39 @@ def create_stream(stash, win_length, lexicon, index_mapper=map_chord_labels,
         stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
 
     return FX.map_to_class_index(stream, index_mapper, lexicon)
+
+
+def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0):
+    """Return an unconstrained stream of chord samples with class indexes.
+
+    Parameters
+    ----------
+    stash : biggie.Stash
+        A collection of chord entities.
+    win_length : int
+        Length of a given tile slice.
+    lexicon : lexicon.Lexicon
+        Instantiated chord lexicon for mapping labels to indices.
+    working_size : int
+        Number of open streams at a time.
+    pitch_shift : int
+        Maximum number of semitones (+/-) to rotate an observation.
+    partition_labels : dict
+
+
+    Returns
+    -------
+    stream : generator
+        Data stream of windowed chord entities.
+    """
+    entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
+                   for key in stash.keys()]
+
+    stream = pescador.mux(entity_pool, None, working_size, lam=25)
+    if pitch_shift > 0:
+        stream = FX.pitch_shift(stream, max_pitch_shift=pitch_shift)
+
+    return FX.map_to_chroma(stream)
 
 
 def create_uniform_chord_stream(stash, win_length, lexicon,
@@ -415,11 +452,10 @@ def count_labels(reference_set, vocab_dim=157):
     return [qlabels[i] for i in idx], [counts[i] for i in idx]
 
 
-def count_states(reference_set, vocab_dim=157):
+def count_states(reference_set, lexicon):
     states = dict()
     for labeled_intervals in reference_set.values():
-        chord_idx = L.chord_label_to_class_index(labeled_intervals['labels'],
-                                                 vocab_dim)
+        chord_idx = lexicon.label_to_index(labeled_intervals['labels'])
         intervals = np.array(labeled_intervals['intervals'])
         durations = np.abs(np.diff(intervals, axis=1)).flatten()
         for y, w in zip(chord_idx, durations):
@@ -472,3 +508,26 @@ def count_trigrams(reference_set, vocab_dim=157):
     counts = [states[y] for y in labels]
     idx = np.argsort(counts)[::-1]
     return [labels[i] for i in idx], [counts[i] for i in idx]
+
+
+def chroma_trigrams(ref_set):
+    states = dict()
+    for v in ref_set.values():
+        labels = v['labels']
+        y = L.chord_label_to_class_index(labels, 157)
+        intervals = np.array(v['intervals'])
+        durations = np.abs(np.diff(intervals, axis=1)).flatten()
+        for n in range(1, len(y) - 1):
+            sidx = [L.relative_chord_index(y[n], y[n + i], 157)
+                    for i in range(-1, 2)]
+            if None in sidx:
+                continue
+            rot_labels = [L.index_to_chord_label(s, 157) for s in sidx]
+            c = tuple(["".join(["%d" % _
+                                for _ in L.chord_label_to_chroma(l).flatten()])
+                       for l in rot_labels])
+            if not c in states:
+                states[c] = dict(labels=set(), duration=0.0)
+            states[c]['duration'] += durations[n]
+            states[c]['labels'].add(labels[n])
+    return states
