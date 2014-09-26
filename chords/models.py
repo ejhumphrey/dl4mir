@@ -1247,6 +1247,7 @@ def i1c3_bigram762_nll_dropout(size='large'):
         weight_shape=(762, None, 1, 1),
         act_type='linear')
 
+    dimshuffle = optimus.Dimshuffle('dimshuffle', (0, 3, 2, 1))
     flatten = optimus.Flatten('flatten', 2)
 
     null_classifier = optimus.Affine(
@@ -1278,8 +1279,6 @@ def i1c3_bigram762_nll_dropout(size='large'):
     loss_nodes = [likelihoods, log, neg, loss]
     total_loss = optimus.Output(name='total_loss')
 
-    classifier_out = optimus.Output(name='classifier_out')
-    flatten_out = optimus.Output(name='flatten_out')
     posterior = optimus.Output(name='posterior')
 
     # 2. Define Edges
@@ -1289,10 +1288,9 @@ def i1c3_bigram762_nll_dropout(size='large'):
         (layer1.output, layer2.input),
         (layer2.output, chord_classifier.input),
         (layer2.output, null_classifier.input),
-        (chord_classifier.output, flatten.input),
-        (chord_classifier.output, classifier_out),
+        (chord_classifier.output, dimshuffle.input),
+        (dimshuffle.output, flatten.input),
         (flatten.output, cat.input_0),
-        (flatten.output, flatten_out),
         (null_classifier.output, cat.input_1),
         (cat.output, softmax.input),
         (softmax.output, prior.input),
@@ -1321,7 +1319,7 @@ def i1c3_bigram762_nll_dropout(size='large'):
         inputs=[input_data, class_idx, learning_rate],
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
-        outputs=[total_loss, posterior, classifier_out, flatten_out],
+        outputs=[total_loss, posterior],
         loss=total_loss,
         updates=update_manager.connections,
         verbose=True)
@@ -1335,7 +1333,7 @@ def i1c3_bigram762_nll_dropout(size='large'):
         inputs=[input_data],
         nodes=param_nodes + misc_nodes,
         connections=optimus.ConnectionManager(base_edges).connections,
-        outputs=[posterior, classifier_out, flatten_out])
+        outputs=[posterior])
 
     return trainer, predictor
 
@@ -4174,6 +4172,7 @@ MODELS = {
     'i1c3_bigram762_nll_L': lambda: i1c3_bigram762_nll('large'),
     'i1c3_bigram762_nll_M': lambda: i1c3_bigram762_nll('med'),
     'i1c3_bigram762_nll_S': lambda: i1c3_bigram762_nll('small'),
+    'i1c3_bigram762_nll_dropout_L': lambda: i1c3_bigram762_nll_dropout('large'),
     'bs_conv3_nll_large': lambda: bs_conv3_nll('large'),
     'bs_conv3_nll_small': lambda: bs_conv3_nll('small'),
     'bs_conv3_nll_med': lambda: bs_conv3_nll('med'),
