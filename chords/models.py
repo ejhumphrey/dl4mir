@@ -4285,4 +4285,5 @@ MODELS = {
     'cqt_allconv_nll_large': lambda: allconv_nll('large'),
     'wcqt_allconv_nll_small': lambda: wcqt_allconv_nll('small'),
     'wcqt_allconv_nll_med': lambda: wcqt_allconv_nll('med'),
-    'wcqt_allconv_nll_large': lambda: wcqt_allconv_nll('large')}
+    'wcqt_allconv_nll_large': lambda: wcqt_allconv_nll('large'),
+    'i20c3_mse12_L': lambda: i20c3_mse12('large')}
