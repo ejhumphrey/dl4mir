@@ -5,18 +5,18 @@ import numpy as np
 from os import path
 import biggie
 import time
-import scipy
+from scipy import signal
 
 
-def multiscale_pool(x_in, lags, axis=0, mode='median'):
+def multiscale_pool(x_in, lags, axis=0, mode='mean'):
     output = [x_in]
     for l in lags:
         if mode == 'median':
             filt = [1] * x_in.ndim
             filt[axis] = l
-            z = scipy.signal.medfilt(x_in, filt)
+            z = signal.medfilt(x_in, filt)
         elif mode == 'mean':
-            z = scipy.signal.lfilter(
+            z = signal.lfilter(
                 np.ones(l, dtype=float)/l, np.ones(1), x_in, axis=axis)
         else:
             raise ValueError("Filter mode `%s` unsupported." % mode)
