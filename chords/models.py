@@ -4250,11 +4250,11 @@ def i20c3_mse12(size='large'):
     return trainer, predictor
 
 
-def i6x24_c2_nll_dropout(size='large'):
+def i6x24_c3_nll_dropout(size='large'):
     k0, k1 = dict(
-        small=(20, 20),
-        med=(24, 24),
-        large=(32, 32))[size]
+        small=(20, 20, 24),
+        med=(24, 24, 24),
+        large=(64, 64, 64))[size]
 
     input_data = optimus.Input(
         name='data',
@@ -4286,13 +4286,20 @@ def i6x24_c2_nll_dropout(size='large'):
         weight_shape=(k1, None, 3, 7),
         act_type='relu')
 
+    layer2 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k2, None, 2, 1),
+        act_type='relu')
+
     layer0.enable_dropout()
     layer1.enable_dropout()
+    layer2.enable_dropout()
 
     chord_classifier = optimus.Conv3D(
         name='chord_classifier',
         input_shape=layer1.output.shape,
-        weight_shape=(13, None, 2, 1),
+        weight_shape=(13, None, 1, 1),
         act_type='linear')
 
     flatten = optimus.Flatten('flatten', 2)
@@ -4329,8 +4336,9 @@ def i6x24_c2_nll_dropout(size='large'):
     base_edges = [
         (input_data, layer0.input),
         (layer0.output, layer1.input),
-        (layer1.output, chord_classifier.input),
-        (layer1.output, null_classifier.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chord_classifier.input),
+        (layer2.output, null_classifier.input),
         (chord_classifier.output, flatten.input),
         (flatten.output, cat.input_0),
         (null_classifier.output, cat.input_1),
@@ -4342,6 +4350,7 @@ def i6x24_c2_nll_dropout(size='large'):
         base_edges + [
             (dropout, layer0.dropout),
             (dropout, layer1.dropout),
+            (dropout, layer2.dropout),
             (softmax.output, likelihoods.input),
             (chord_idx, likelihoods.index),
             (likelihoods.output, log.input),
@@ -4367,6 +4376,7 @@ def i6x24_c2_nll_dropout(size='large'):
 
     layer0.disable_dropout()
     layer1.disable_dropout()
+    layer2.disable_dropout()
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
@@ -4407,7 +4417,7 @@ MODELS = {
     'wcqt_allconv_nll_small': lambda: wcqt_allconv_nll('small'),
     'wcqt_allconv_nll_med': lambda: wcqt_allconv_nll('med'),
     'wcqt_allconv_nll_large': lambda: wcqt_allconv_nll('large'),
-    'i6x24_c2_nll_dropout_L': lambda: i6x24_c2_nll_dropout('large'),
-    'i6x24_c2_nll_dropout_M': lambda: i6x24_c2_nll_dropout('med'),
-    'i6x24_c2_nll_dropout_S': lambda: i6x24_c2_nll_dropout('small'),
+    'i6x24_c3_nll_dropout_L': lambda: i6x24_c3_nll_dropout('large'),
+    'i6x24_c3_nll_dropout_M': lambda: i6x24_c3_nll_dropout('med'),
+    'i6x24_c3_nll_dropout_S': lambda: i6x24_c3_nll_dropout('small'),
     'i20c3_mse12_L': lambda: i20c3_mse12('large')}
