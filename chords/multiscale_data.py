@@ -51,13 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("input_file",
                         metavar="input_file", type=str,
                         help="Path to the input biggie file.")
-    parser.add_argument("beat_times",
-                        metavar="beat_times", type=str,
-                        help="JSON file of new times; keys must match.")
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="Path to the output biggie file.")
-    parser.add_argument("--subdivide",
-                        metavar="--subdivide", type=int, default=1,
-                        help="Subdivisions per interval.")
     main(parser.parse_args())
