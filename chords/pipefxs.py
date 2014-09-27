@@ -89,6 +89,26 @@ def map_to_class_index(stream, index_mapper, *args, **kwargs):
                                                            class_idx=class_idx)
 
 
+def unroll_chroma(stream, key='data'):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.concatenate([values.pop(key)]*2, axis=-1)
+        yield biggie.Entity(**values)
+
+
+def reshape(stream, newshape, key):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.reshape(values.pop(key), newshape)
+        yield biggie.Entity(**values)
+
+
 def map_to_chroma(stream):
     """
     vocab_dim: int
@@ -249,8 +269,8 @@ def binomial_mask(stream, max_dropout=0.25):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.shape)
-        entity.cqt = entity.cqt * mask
+        mask = np.random.binomial(1, p, entity.data.shape)
+        entity.data = entity.data * mask
         yield entity
 
 
@@ -259,8 +279,8 @@ def awgn(stream, mu=0.0, sigma=0.1):
         if entity is None:
             yield entity
             continue
-        noise = np.random.normal(mu, sigma, entity.cqt.shape)
-        entity.cqt = entity.cqt + noise * np.random.normal(0, 0.25)
+        noise = np.random.normal(mu, sigma, entity.data.shape)
+        entity.data = entity.data + noise * np.random.normal(0, 0.25)
         yield entity
 
 
@@ -270,9 +290,9 @@ def drop_frames(stream, max_dropout=0.1):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.shape[1])
+        mask = np.random.binomial(1, p, entity.data.shape[1])
         mask[len(mask)/2] = 1.0
-        entity.cqt = entity.cqt * mask[np.newaxis, :, np.newaxis]
+        entity.data = entity.data * mask[np.newaxis, :, np.newaxis]
         yield entity
 
 
