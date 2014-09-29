@@ -4251,7 +4251,7 @@ def i20c3_mse12(size='large'):
 
 
 def i6x24_c3_nll_dropout(size='large'):
-    k0, k1 = dict(
+    k0, k1, k2 = dict(
         small=(20, 20, 24),
         med=(24, 24, 24),
         large=(64, 64, 64))[size]
@@ -4287,8 +4287,8 @@ def i6x24_c3_nll_dropout(size='large'):
         act_type='relu')
 
     layer2 = optimus.Conv3D(
-        name='layer1',
-        input_shape=layer0.output.shape,
+        name='layer2',
+        input_shape=layer1.output.shape,
         weight_shape=(k2, None, 2, 1),
         act_type='relu')
 
@@ -4298,7 +4298,7 @@ def i6x24_c3_nll_dropout(size='large'):
 
     chord_classifier = optimus.Conv3D(
         name='chord_classifier',
-        input_shape=layer1.output.shape,
+        input_shape=layer2.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='linear')
 
@@ -4306,7 +4306,7 @@ def i6x24_c3_nll_dropout(size='large'):
 
     null_classifier = optimus.Affine(
         name='null_classifier',
-        input_shape=layer1.output.shape,
+        input_shape=layer2.output.shape,
         output_shape=(None, 1),
         act_type='linear')
 
@@ -4316,7 +4316,7 @@ def i6x24_c3_nll_dropout(size='large'):
     prior = optimus.Multiply("prior", weight_shape=(1, 157), broadcast=[0])
     prior.weight.value = np.ones([1, 157])
 
-    param_nodes = [layer0, layer1, null_classifier, chord_classifier]
+    param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
     misc_nodes = [flatten, cat, softmax, prior]
 
     # 1.1 Create Loss
