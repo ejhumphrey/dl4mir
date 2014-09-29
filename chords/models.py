@@ -4257,7 +4257,7 @@ def i20c3_mse36_dropout(size='large'):
         large=(16, 32, 64))[size]
 
     input_data = optimus.Input(
-        name='cqt',
+        name='data',
         shape=(None, 1, 20, 252))
 
     target = optimus.Input(
@@ -4502,7 +4502,6 @@ def i6x24_c3_nll_dropout(size='large'):
         outputs=[posterior])
 
     return trainer, predictor
-
 
 
 MODELS = {

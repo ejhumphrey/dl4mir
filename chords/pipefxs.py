@@ -128,11 +128,11 @@ def map_to_chroma(stream, bins_per_pitch=1):
             yield entity
             continue
         values = entity.values()
-        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
+        data, chord_label = values.pop('data'), str(values.pop('chord_label'))
         chroma = labels.chord_label_to_chroma(chord_label, bins_per_pitch)
         if (chroma < 0).any():
             yield None
-        yield biggie.Entity(cqt=cqt, target=chroma)
+        yield biggie.Entity(data=data, target=chroma)
 
 
 def chord_index_to_tonnetz(stream, vocab_dim):
