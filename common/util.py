@@ -300,7 +300,7 @@ def slice_tile(x_in, idx, length):
     start_idx = idx - length / 2
     end_idx = start_idx + length
     tile = np.zeros([length, x_in.shape[1]])
-
+    x_in = np.concatenate([x_in, tile], axis=0)
     if start_idx < 0:
         tile[np.abs(start_idx):, :] = x_in[:end_idx, :]
     elif end_idx > x_in.shape[0]:
@@ -309,3 +309,16 @@ def slice_tile(x_in, idx, length):
     else:
         tile[:, :] = x_in[start_idx:end_idx, :]
     return tile
+
+
+def gibbs(energy, beta):
+    """Normalize
+    """
+    axis = {1: None, 2: 1}[energy.ndim]
+    y = np.exp(-beta * energy)
+    return y / y.sum(axis=axis)
+
+
+def categorical_sample(pdf):
+    pdf = pdf / pdf.sum()
+    return int(np.random.multinomial(1, pdf).nonzero()[0])

@@ -109,7 +109,17 @@ def reshape(stream, newshape, key):
         yield biggie.Entity(**values)
 
 
-def map_to_chroma(stream):
+def transpose(stream, axes, key):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.transpose(values.pop(key), axes)
+        yield biggie.Entity(**values)
+
+
+def map_to_chroma(stream, bins_per_pitch=1):
     """
     vocab_dim: int
     """
@@ -119,7 +129,7 @@ def map_to_chroma(stream):
             continue
         values = entity.values()
         cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
-        chroma = labels.chord_label_to_chroma(chord_label)
+        chroma = labels.chord_label_to_chroma(chord_label, bins_per_pitch)
         if (chroma < 0).any():
             yield None
         yield biggie.Entity(cqt=cqt, target=chroma)
