@@ -70,7 +70,7 @@ def get_quality_index(semitones, vocab_dim):
     return _QINDEX[vocab_dim].get(tuple(semitones), None)
 
 
-def chord_label_to_chroma(label):
+def chord_label_to_chroma(label, bins_per_pitch=1):
     flatten = False
     if isinstance(label, str):
         label = [label]
@@ -80,7 +80,9 @@ def chord_label_to_chroma(label):
     chroma = np.array([mir_eval.chord.rotate_bitmap_to_root(s, r)
                        for s, r in zip(semitones, root)], dtype=int)
 
-    return chroma[0] if flatten else chroma
+    chroma_out = np.zeros([len(chroma), 12*bins_per_pitch])
+    chroma_out[:, ::bins_per_pitch] = chroma
+    return chroma_out[0] if flatten else chroma_out
 
 
 def rotate(class_vector, root):

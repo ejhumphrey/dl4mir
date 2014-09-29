@@ -219,7 +219,8 @@ def create_chord_index_stream(stash, win_length, lexicon,
     return FX.map_to_class_index(stream, index_mapper, lexicon)
 
 
-def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0):
+def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0,
+                         bins_per_pitch=1):
     """Return an unconstrained stream of chord samples with class indexes.
 
     Parameters
@@ -249,7 +250,7 @@ def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0):
     if pitch_shift > 0:
         stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
-    return FX.map_to_chroma(stream)
+    return FX.map_to_chroma(stream, bins_per_pitch)
 
 
 def create_uniform_chord_stream(stash, win_length, lexicon,

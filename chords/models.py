@@ -4250,8 +4250,124 @@ def i20c3_mse12(size='large'):
     return trainer, predictor
 
 
+def i20c3_mse36_dropout(size='large'):
+    k0, k1, k2 = dict(
+        small=(10, 20, 40),
+        med=(12, 24, 48),
+        large=(16, 32, 64))[size]
+
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, 20, 252))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 36))
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, 5, 37),
+        pool_shape=(2, 1),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, 5, 91),
+        pool_shape=(2, 1),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, 1, 91),
+        pool_shape=(2, 1),
+        act_type='relu')
+
+    layer0.enable_dropout()
+    layer1.enable_dropout()
+    layer2.enable_dropout()
+
+    chroma_estimator = optimus.Conv3D(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        weight_shape=(1, None, 1, 1),
+        act_type='sigmoid')
+
+    flatten = optimus.Flatten('flatten', 2)
+
+    param_nodes = [layer0, layer1, layer2, chroma_estimator]
+    misc_nodes = [flatten]
+
+    # 1.1 Create Loss
+    error = optimus.SquaredEuclidean(name='squared_error')
+    loss = optimus.Mean(name='mean_squared_error')
+    loss_nodes = [error, loss]
+
+    chroma = optimus.Output(name='chroma')
+    total_loss = optimus.Output(name='total_loss')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chroma_estimator.input),
+        (chroma_estimator.output, flatten.input),
+        (flatten.output, chroma)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (dropout, layer0.dropout),
+            (dropout, layer1.dropout),
+            (dropout, layer2.dropout),
+            (flatten.output, error.input_a),
+            (target, error.input_b),
+            (error.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, target, learning_rate, dropout],
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss, chroma],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    layer0.disable_dropout()
+    layer1.disable_dropout()
+    layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[chroma])
+
+    return trainer, predictor
+
+
 def i6x24_c3_nll_dropout(size='large'):
-    k0, k1 = dict(
+    k0, k1, k2 = dict(
         small=(20, 20, 24),
         med=(24, 24, 24),
         large=(64, 64, 64))[size]
@@ -4287,8 +4403,8 @@ def i6x24_c3_nll_dropout(size='large'):
         act_type='relu')
 
     layer2 = optimus.Conv3D(
-        name='layer1',
-        input_shape=layer0.output.shape,
+        name='layer2',
+        input_shape=layer1.output.shape,
         weight_shape=(k2, None, 2, 1),
         act_type='relu')
 
@@ -4298,7 +4414,7 @@ def i6x24_c3_nll_dropout(size='large'):
 
     chord_classifier = optimus.Conv3D(
         name='chord_classifier',
-        input_shape=layer1.output.shape,
+        input_shape=layer2.output.shape,
         weight_shape=(13, None, 1, 1),
         act_type='linear')
 
@@ -4306,7 +4422,7 @@ def i6x24_c3_nll_dropout(size='large'):
 
     null_classifier = optimus.Affine(
         name='null_classifier',
-        input_shape=layer1.output.shape,
+        input_shape=layer2.output.shape,
         output_shape=(None, 1),
         act_type='linear')
 
@@ -4316,7 +4432,7 @@ def i6x24_c3_nll_dropout(size='large'):
     prior = optimus.Multiply("prior", weight_shape=(1, 157), broadcast=[0])
     prior.weight.value = np.ones([1, 157])
 
-    param_nodes = [layer0, layer1, null_classifier, chord_classifier]
+    param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
     misc_nodes = [flatten, cat, softmax, prior]
 
     # 1.1 Create Loss
@@ -4388,6 +4504,7 @@ def i6x24_c3_nll_dropout(size='large'):
     return trainer, predictor
 
 
+
 MODELS = {
     'bs_conv3_bottleneck_nll_large': lambda: bs_conv3_bottleneck_nll('large'),
     'bs_conv3_nll_dropout_large': lambda: bs_conv3_nll_dropout('large'),
@@ -4420,4 +4537,5 @@ MODELS = {
     'i6x24_c3_nll_dropout_L': lambda: i6x24_c3_nll_dropout('large'),
     'i6x24_c3_nll_dropout_M': lambda: i6x24_c3_nll_dropout('med'),
     'i6x24_c3_nll_dropout_S': lambda: i6x24_c3_nll_dropout('small'),
-    'i20c3_mse12_L': lambda: i20c3_mse12('large')}
+    'i20c3_mse12_L': lambda: i20c3_mse12('large'),
+    'i20c3_mse36_dropout_L': lambda: i20c3_mse36_dropout('large')}
