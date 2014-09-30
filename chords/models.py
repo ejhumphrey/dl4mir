@@ -4270,7 +4270,7 @@ def iXc3_mse12_dropout(n_in, size='large'):
 
     input_data = optimus.Input(
         name='data',
-        shape=(None, 1, 20, 252))
+        shape=(None, 1, n_in, 252))
 
     target = optimus.Input(
         name='target',
