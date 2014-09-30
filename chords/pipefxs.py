@@ -89,13 +89,13 @@ def map_to_class_index(stream, index_mapper, *args, **kwargs):
                                                            class_idx=class_idx)
 
 
-def unroll_chroma(stream, key='data'):
+def concatenate(stream, key='data', axis=-1):
     for entity in stream:
         if entity is None:
             yield entity
             continue
         values = entity.values()
-        values[key] = np.concatenate([values.pop(key)]*2, axis=-1)
+        values[key] = np.concatenate([values.pop(key)]*2, axis=axis)
         yield biggie.Entity(**values)
 
 

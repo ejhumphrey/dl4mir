@@ -55,8 +55,8 @@ def slice_chroma_entity(entity, length, idx=None):
         The windowed chord observation.
     """
     idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
-    # chroma = util.slice_tile(entity.chroma, idx, length)
-    chroma = np.array([util.slice_tile(x, idx, length) for x in entity.chroma])
+    chroma = util.slice_tile(entity.chroma, idx, length)
+    # chroma = np.array([util.slice_tile(x, idx, length) for x in entity.chroma])
     return biggie.Entity(data=chroma, chord_label=entity.chord_labels[idx])
 
 
