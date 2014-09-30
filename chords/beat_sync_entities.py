@@ -22,7 +22,7 @@ def subdivide_boundaries(time_boundaries, num_per_interval):
     return new_boundaries + [time_boundaries[-1]]
 
 
-def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
+def beat_sync(entity, time_boundaries, new_labels=None, pool_func='median'):
     """Beat-synchronize an entity to a set of boundaries in time.
 
     Parameters
@@ -33,7 +33,7 @@ def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
         List of boundary points over which to pool data.
     new_labels : array_like
         Set of pre-aligned labels to over-ride the current ones.
-    mode : str
+    pool_func : str
         Method of pooling data; one of ['mean', 'median'].
 
     Returns
@@ -59,7 +59,8 @@ def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
         data_shape = list(data[key].shape)
         if len(time_points) in data_shape:
             axis = data_shape.index(len(time_points))
-            pool_func = 'mode' if data[key].dtype.type == np.string_ else mode
+            dtype = data[key].dtype.type
+            pool_func = 'mode' if dtype == np.string_ else pool_func
             data[key] = util.boundary_pool(data[key], idxs,
                                            pool_func=pool_func, axis=axis)
 
@@ -78,7 +79,9 @@ def main(args):
     total_count = len(dset)
     for idx, key in enumerate(dset.keys()):
         boundaries = subdivide_boundaries(beat_times[key], args.subdivide)
-        dout.add(key, beat_sync(dset.get(key), boundaries))
+        dout.add(key, beat_sync(dset.get(key),
+                                boundaries,
+                                pool_func=args.pool_func))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
     dout.close()
@@ -99,4 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--subdivide",
                         metavar="--subdivide", type=int, default=1,
                         help="Subdivisions per interval.")
+    parser.add_argument("--pool_func",
+                        metavar="--pool_func", type=str, default='median',
+                        help="Method of pooling numerical data.")
     main(parser.parse_args())
