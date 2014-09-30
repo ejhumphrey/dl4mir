@@ -253,10 +253,65 @@ def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0,
     return FX.map_to_chroma(stream, bins_per_pitch)
 
 
-def create_uniform_chord_stream(stash, win_length, lexicon,
-                                pitch_shift=0, working_size=4,
-                                partition_labels=None, valid_idx=None):
+def create_uniform_chord_index_stream(stash, win_length, lexicon,
+                                      index_mapper=map_chord_labels,
+                                      sample_func=slice_cqt_entity,
+                                      pitch_shift_func=FX.pitch_shift_cqt,
+                                      max_pitch_shift=0, working_size=4,
+                                      partition_labels=None, valid_idx=None):
     """Return a stream of chord samples, with uniform quality presentation.
+
+    Parameters
+    ----------
+    stash : biggie.Stash
+        A collection of chord entities.
+    win_length : int
+        Length of a given tile slice.
+    lexicon : lexicon.Lexicon
+        Instantiated chord lexicon for mapping labels to indices.
+    working_size : int
+        Number of open streams at a time.
+    pitch_shift : int
+        Maximum number of semitones (+/-) to rotate an observation.
+    partition_labels : dict
+
+
+    Returns
+    -------
+    stream : generator
+        Data stream of windowed chord entities.
+    """
+    if partition_labels is None:
+        partition_labels = util.partition(stash, index_mapper, lexicon)
+
+    if valid_idx is None:
+        valid_idx = range(lexicon.num_classes)
+
+    chord_pool = []
+    for chord_idx in valid_idx:
+        subindex = util.index_partition_arrays(partition_labels, [chord_idx])
+        entity_pool = [pescador.Streamer(chord_sampler, key, stash,
+                                         win_length, subindex,
+                                         sample_func=sample_func)
+                       for key in subindex.keys()]
+        if len(entity_pool) == 0:
+            continue
+        stream = pescador.mux(
+            entity_pool, n_samples=None, k=working_size, lam=20)
+        chord_pool.append(pescador.Streamer(stream))
+
+    stream = pescador.mux(chord_pool, n_samples=None, k=lexicon.vocab_dim,
+                          lam=None, with_replacement=False)
+    if max_pitch_shift > 0:
+        stream = pitch_shift_func(stream, max_pitch_shift=max_pitch_shift)
+
+    return FX.map_to_class_index(stream, index_mapper, lexicon)
+
+
+def create_uniform_chroma_stream(stash, win_length, lexicon, working_size=5,
+                                 bins_per_pitch=1, max_pitch_shift=0,
+                                 partition_labels=None, valid_idx=None):
+    """Return an unconstrained stream of chord samples with class indexes.
 
     Parameters
     ----------
@@ -282,13 +337,14 @@ def create_uniform_chord_stream(stash, win_length, lexicon,
         partition_labels = util.partition(stash, map_chord_labels, lexicon)
 
     if valid_idx is None:
-        valid_idx = range(lexicon.vocab_dim)
+        valid_idx = range(lexicon.num_classes)
 
     chord_pool = []
     for chord_idx in valid_idx:
         subindex = util.index_partition_arrays(partition_labels, [chord_idx])
         entity_pool = [pescador.Streamer(chord_sampler, key, stash,
-                                         win_length, subindex)
+                                         win_length, subindex,
+                                         sample_func=slice_cqt_entity)
                        for key in subindex.keys()]
         if len(entity_pool) == 0:
             continue
@@ -298,10 +354,11 @@ def create_uniform_chord_stream(stash, win_length, lexicon,
 
     stream = pescador.mux(chord_pool, n_samples=None, k=lexicon.vocab_dim,
                           lam=None, with_replacement=False)
-    if pitch_shift:
-        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
-    return FX.map_to_chord_index(stream, lexicon)
+    if max_pitch_shift > 0:
+        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=max_pitch_shift)
+
+    return FX.map_to_chroma(stream, bins_per_pitch)
 
 
 def muxed_uniform_chord_stream(stash, synth_stash, win_length, vocab_dim=157,

@@ -312,13 +312,36 @@ def slice_tile(x_in, idx, length):
 
 
 def gibbs(energy, beta):
-    """Normalize
-    """
+    """Normalize an energy vector as a Gibbs distribution."""
     axis = {1: None, 2: 1}[energy.ndim]
     y = np.exp(-beta * energy)
     return y / y.sum(axis=axis)
 
 
 def categorical_sample(pdf):
+    """Randomly select a categorical index of a given PDF."""
     pdf = pdf / pdf.sum()
     return int(np.random.multinomial(1, pdf).nonzero()[0])
+
+
+def boundaries_to_durations(boundaries):
+    """Return the durations in a monotonically-increasing set of boundaries.
+
+    Parameters
+    ----------
+    boundaries : array_like, shape=(N,)
+        Monotonically-increasing scalar boundaries.
+
+    Returns
+    -------
+    durations : array_like, shape=(N-1,)
+        Non-negative durations.
+    """
+    if boundaries != np.sort(boundaries).tolist():
+        raise ValueError("Input `boundaries` is not monotonically increasing.")
+    return np.abs(np.diff(boundaries))
+
+
+def find_closest_idx(x, y):
+    """Find the closest indexes in `x` to the values in `y`."""
+    return np.array([np.abs(x - v).argmin() for v in y])
