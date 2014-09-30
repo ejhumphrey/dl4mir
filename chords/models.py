@@ -4256,8 +4256,9 @@ def iXc3_mse12_dropout(n_in, size='large'):
         med=(12, 24, 48),
         large=(16, 32, 64))[size]
 
-    n0, n1, k2 = {
+    n0, n1, n2 = {
         1: (1, 1, 1),
+        4: (3, 2, 1),
         20: (5, 5, 1)}[n_in]
 
     p0, p1, p2 = {
@@ -4287,21 +4288,21 @@ def iXc3_mse12_dropout(n_in, size='large'):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(k0, None, 5, 13),
+        weight_shape=(k0, None, n0, 13),
         pool_shape=(p0, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(k1, None, 5, 37),
+        weight_shape=(k1, None, n1, 37),
         pool_shape=(p1, 1),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(k2, None, 1, 33),
+        weight_shape=(k2, None, n2, 33),
         pool_shape=(p2, 1),
         act_type='relu')
 
@@ -4316,10 +4317,9 @@ def iXc3_mse12_dropout(n_in, size='large'):
         act_type='sigmoid')
 
     flatten = optimus.Flatten('flatten', 2)
-    dimshuffle = optimus.Dimshuffle('chroma_reshape', axes=('x', 0, 1))
 
     param_nodes = [layer0, layer1, layer2, chroma_estimator]
-    misc_nodes = [flatten, dimshuffle]
+    misc_nodes = [flatten]
 
     # 1.1 Create Loss
     error = optimus.SquaredEuclidean(name='squared_error')
@@ -4336,8 +4336,7 @@ def iXc3_mse12_dropout(n_in, size='large'):
         (layer1.output, layer2.input),
         (layer2.output, chroma_estimator.input),
         (chroma_estimator.output, flatten.input),
-        (flatten.output, dimshuffle.input),
-        (dimshuffle.output, chroma)]
+        (flatten.output, chroma)]
 
     trainer_edges = optimus.ConnectionManager(
         base_edges + [
@@ -4698,4 +4697,5 @@ MODELS = {
     'i6x24_c3_nll_dropout_S': lambda: i6x24_c3_nll_dropout('small'),
     'i20c3_mse12_L': lambda: i20c3_mse12('large'),
     'i20c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(20, 'large'),
+    'i4c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(4, 'large'),
     'i1x24_c3_nll_dropout_L': lambda: i1x24_c3_nll_dropout('large')}
