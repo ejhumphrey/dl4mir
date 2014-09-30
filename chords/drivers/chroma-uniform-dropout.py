@@ -29,7 +29,7 @@ def main(args):
     stash = biggie.Stash(args.training_file, cache=True)
     stream = S.minibatch(
         D.create_uniform_chroma_stream(
-            stash, time_dim, max_pitch_shift=0,
+            stash, time_dim, VOCAB, max_pitch_shift=0,
             bins_per_pitch=1, working_size=3),
         batch_size=BATCH_SIZE)
 
