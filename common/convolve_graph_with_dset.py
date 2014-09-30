@@ -9,7 +9,7 @@ import marl.fileutils as futils
 import time
 
 
-def convolve(entity, graph, data_key='cqt', chunk_size=250):
+def convolve(entity, graph, input_key, axis=1, chunk_size=250):
     """Convolve a given network over an entity.
 
     TODO: Use pescador.
@@ -31,15 +31,15 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
     new_entity
     """
     # TODO(ejhumphrey): Make this more stable, super fragile as-is
-    time_dim = graph.inputs.values()[0].shape[2]
-    data = entity.values()
-    data_stepper = optimus.array_stepper(
-        data.pop(data_key), time_dim, axis=1, mode='same')
+    time_dim = graph.inputs[input_key].shape[2]
+    values = entity.values()
+    input_stepper = optimus.array_stepper(
+        values.pop(input_key), time_dim, axis=axis, mode='same')
     results = dict([(k, list()) for k in graph.outputs])
     if chunk_size:
         chunk = []
-        for value in data_stepper:
-            chunk.append(value)
+        for x in input_stepper:
+            chunk.append(x)
             if len(chunk) == chunk_size:
                 for k, v in graph(np.array(chunk)).items():
                     results[k].append(v)
@@ -48,13 +48,13 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
             for k, v in graph(np.array(chunk)).items():
                 results[k].append(v)
     else:
-        for value in data_stepper:
-            for k, v in graph(value[np.newaxis, ...]).items():
+        for x in input_stepper:
+            for k, v in graph(x[np.newaxis, ...]).items():
                 results[k].append(v)
     for k in results:
         results[k] = np.concatenate(results[k], axis=0)
-    data.update(results)
-    return biggie.Entity(**data)
+    values.update(results)
+    return biggie.Entity(**values)
 
 
 def main(args):
