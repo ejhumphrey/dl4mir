@@ -6,12 +6,13 @@ from os import path
 
 import dl4mir.chords.data as D
 import dl4mir.common.streams as S
+import dl4mir.chords.lexicon as lex
 from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
-DRIVER_ARGS['max_iter'] = 500000
-VOCAB = 157
-LEARNING_RATE = 0.01
+DRIVER_ARGS['max_iter'] = 1000000
+VOCAB = lex.Strict(157)
+LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 DROPOUT = 0.5
 
@@ -27,7 +28,7 @@ def main(args):
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=3,)
+        stash, time_dim, pitch_shift=0, lexicon=VOCAB, working_size=3,)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
