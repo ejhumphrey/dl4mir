@@ -4697,4 +4697,5 @@ MODELS = {
     'i6x24_c3_nll_dropout_M': lambda: i6x24_c3_nll_dropout('med'),
     'i6x24_c3_nll_dropout_S': lambda: i6x24_c3_nll_dropout('small'),
     'i20c3_mse12_L': lambda: i20c3_mse12('large'),
-    'i20c3_mse12_dropout_L': lambda: i20c3_mse12_dropout('large')}
+    'i20c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(20, 'large'),
+    'i1x24_c3_nll_dropout_L': lambda: i1x24_c3_nll_dropout('large')}
