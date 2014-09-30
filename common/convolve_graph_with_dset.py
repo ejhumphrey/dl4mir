@@ -69,7 +69,7 @@ def main(args):
     total_count = len(in_stash.keys())
     for idx, key in enumerate(in_stash.keys()):
         out_stash.add(
-            key, convolve(in_stash.get(key), transform, data_key='cqt'))
+            key, convolve(in_stash.get(key), transform, input_key='cqt'))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
     out_stash.close()
@@ -82,12 +82,15 @@ if __name__ == "__main__":
     parser.add_argument("data_file",
                         metavar="data_file", type=str,
                         help="Path to an optimus file for validation.")
+    parser.add_argument("input_key",
+                        metavar="input_key", type=str,
+                        help="Entity field to transform with the graph.")
     parser.add_argument("transform_file",
                         metavar="transform_file", type=str,
-                        help="Validator graph definition.")
+                        help="Transformation graph definition.")
     parser.add_argument("param_file",
                         metavar="param_file", type=str,
-                        help="Path to the parameters for this graph.")
+                        help="Path to a parameter archive for the graph.")
     # Outputs
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
