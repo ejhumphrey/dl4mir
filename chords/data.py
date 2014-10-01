@@ -36,6 +36,29 @@ def slice_cqt_entity(entity, length, idx=None):
     return biggie.Entity(data=cqt, chord_label=entity.chord_labels[idx])
 
 
+def slice_note_entity(entity, length, idx=None):
+    """Return a windowed slice of a chord Entity.
+
+    Parameters
+    ----------
+    entity : Entity, with at least {cqt, chord_labels} fields
+        Observation to window.
+        Note that entity.cqt is shaped (num_channels, num_frames, num_bins).
+    length : int
+        Length of the sliced array.
+    idx : int, or None
+        Centered frame index for the slice, or random if not provided.
+
+    Returns
+    -------
+    sample: biggie.Entity with fields {data, chord_label}
+        The windowed chord observation.
+    """
+    idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
+    cqt = np.array([util.slice_tile(x, idx, length) for x in entity.cqt])
+    return biggie.Entity(data=cqt, note_numbers=entity.note_numbers[idx])
+
+
 def slice_chroma_entity(entity, length, idx=None):
     """Return a windowed slice of a chord Entity.
 
@@ -87,7 +110,9 @@ def chord_sampler(key, stash, win_length=20, index=None, max_samples=None,
         The windowed chord observation.
     """
     entity = stash.get(key)
-    num_samples = len(entity.chord_labels)
+    has_labels = hasattr(entity, 'chord_labels')
+    label_key = 'note_numbers' if not has_labels else 'chord_labels'
+    num_samples = len(getattr(entity, label_key))
     if index is None:
         index = {key: np.arange(num_samples)}
 
@@ -220,7 +245,8 @@ def create_chord_index_stream(stash, win_length, lexicon,
 
 
 def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0,
-                         bins_per_pitch=1):
+                         bins_per_pitch=1, sample_func=slice_cqt_entity,
+                         chroma_mapper=FX.map_to_chroma):
     """Return an unconstrained stream of chord samples with class indexes.
 
     Parameters
@@ -243,14 +269,15 @@ def create_chroma_stream(stash, win_length, working_size=50, pitch_shift=0,
     stream : generator
         Data stream of windowed chord entities.
     """
-    entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length)
+    entity_pool = [pescador.Streamer(chord_sampler, key, stash, win_length,
+                                     sample_func=sample_func)
                    for key in stash.keys()]
 
     stream = pescador.mux(entity_pool, None, working_size, lam=25)
     if pitch_shift > 0:
         stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
 
-    return FX.map_to_chroma(stream, bins_per_pitch)
+    return chroma_mapper(stream, bins_per_pitch)
 
 
 def create_uniform_chord_index_stream(stash, win_length, lexicon,

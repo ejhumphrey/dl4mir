@@ -135,6 +135,21 @@ def map_to_chroma(stream, bins_per_pitch=1):
         yield biggie.Entity(data=data, target=chroma)
 
 
+def note_numbers_to_chroma(stream, bins_per_pitch=1):
+    """
+    vocab_dim: int
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        pitches = set([_ % 12 for _ in eval(str(entity.note_numbers))])
+        chroma = np.zeros(12*bins_per_pitch)
+        for p in pitches:
+            chroma[p*bins_per_pitch] = 1.0
+        yield biggie.Entity(data=entity.data, target=chroma)
+
+
 def chord_index_to_tonnetz(stream, vocab_dim):
     chord_labels = [labels.index_to_chord_label(n, vocab_dim)
                     for n in range(vocab_dim)]
