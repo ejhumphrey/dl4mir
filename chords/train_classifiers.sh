@@ -97,8 +97,9 @@ then
         for split in valid test train
         do
             echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
-            python ${SRC}/common/convolve_graph_with_dset.py \
+            python ${SRC}/common/transform_stash.py \
 ${BIGGIE}/${DATA_SOURCE}/${idx}/${split}.hdf5 \
+"cqt" \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
 ${OUTPUTS}/${TRIAL_NAME}/${idx}/${split}.hdf5

@@ -319,7 +319,9 @@ def gibbs(energy, beta):
     """Normalize an energy vector as a Gibbs distribution."""
     axis = {1: None, 2: 1}[energy.ndim]
     y = np.exp(-beta * energy)
-    return y / y.sum(axis=axis)
+    scalar = y.sum(axis=axis)
+    scalar = scalar.reshape(-1, 1) if axis == 1 else scalar
+    return y / scalar
 
 
 def categorical_sample(pdf):

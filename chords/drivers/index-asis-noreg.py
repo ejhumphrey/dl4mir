@@ -8,11 +8,12 @@ import dl4mir.chords.data as D
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
+from dl4mir.chords import lexicon as lex
 
-DRIVER_ARGS['max_iter'] = 200000
+DRIVER_ARGS['max_iter'] = 500000
+VOCAB = lex.Strict(157)
 LEARNING_RATE = 0.02
-BATCH_SIZE = 100
-DROPOUT = 0.5
+BATCH_SIZE = 50
 
 
 def main(args):
@@ -25,10 +26,10 @@ def main(args):
 
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = S.minibatch(
-        D.create_chroma_stream(
-            stash, time_dim, pitch_shift=0, bins_per_pitch=1),
-        batch_size=BATCH_SIZE)
+    stream = D.create_chord_index_stream(
+        stash, time_dim, max_pitch_shift=0, lexicon=VOCAB)
+
+    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -36,7 +37,7 @@ def main(args):
         name=args.trial_name,
         output_directory=args.output_directory)
 
-    hyperparams = dict(learning_rate=LEARNING_RATE, dropout=DROPOUT)
+    hyperparams = dict(learning_rate=LEARNING_RATE)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
