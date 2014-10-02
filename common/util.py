@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats
+from itertools import groupby
 
 
 def mode(*args, **kwargs):
@@ -10,11 +11,12 @@ def mode2(x_in, axis):
     value_to_idx = dict()
     idx_to_value = dict()
     for x in x_in:
-        if not x in value_to_idx:
+        obj = buffer(x)
+        if not obj in value_to_idx:
             idx = len(value_to_idx)
-            value_to_idx[x] = idx
+            value_to_idx[obj] = idx
             idx_to_value[idx] = x
-    counts = np.bincount([value_to_idx[x] for x in x_in])
+    counts = np.bincount([value_to_idx[buffer(x)] for x in x_in])
     return idx_to_value[counts.argmax()]
 
 
@@ -38,8 +40,14 @@ def inarray(ar1, ar2):
     """
     ar1 = np.asarray(ar1)
     out = np.zeros(ar1.shape, dtype=bool)
-    for val in np.asarray(ar2).flatten():
-        out |= np.equal(ar1, val)
+    unique1 = np.unique(ar1)
+    unique2 = np.unique(ar2)
+    if len(unique1) > len(unique2):
+        for val in unique2:
+            out |= np.equal(ar1, val)
+    else:
+        for val in unique1:
+            out |= np.equal(ar1, val) * (val in unique2)
     return out
 
 
@@ -51,10 +59,10 @@ def partition(obj, mapper, *args, **kwargs):
     obj : dict_like
         Data collection to partition.
     mapper : function
-        A partition labeling function.
+        A partition labeling function; consumes entities, returns integers.
     *args, **kwargs
           Additional positional arguments or keyword arguments to pass
-          through to ``generator()``
+          through to ``mapper()``
 
     Returns
     -------
@@ -235,3 +243,107 @@ def fold_array(x_in, length, stride):
     num_tiles = int((x_in.shape[1] - (length-stride)) / float(stride))
     return np.array([x_in[:, n*stride:n*stride + length]
                      for n in range(num_tiles)])
+
+
+def run_length_encode(seq):
+    """Run-length encode a sequence of items.
+
+    Parameters
+    ----------
+    seq : array_like
+        Sequence to compress.
+
+    Returns
+    -------
+    comp_seq : list
+        Compressed sequence containing (item, count) tuples.
+    """
+    return [(obj, len(list(group))) for obj, group in groupby(seq)]
+
+
+def run_length_decode(comp_seq):
+    """Run-length decode a sequence of (item, count) tuples.
+
+    Parameters
+    ----------
+    comp_seq : array_like
+        Sequence of (item, count) pairs to decompress.
+
+    Returns
+    -------
+    seq : list
+        Expanded sequence.
+    """
+    seq = list()
+    for obj, count in seq:
+        seq.extend([obj]*count)
+    return seq
+
+
+def slice_tile(x_in, idx, length):
+    """Extract a padded tile from a matrix, along the first dimension.
+
+    Parameters
+    ----------
+    x_in : np.ndarray, ndim=2
+        2D Matrix to slice.
+    idx : int
+        Centered index for the resulting tile.
+    length : int
+        Total length for the output tile.
+
+    Returns
+    -------
+    z_out : np.ndarray, ndim=2
+        The extracted tile.
+    """
+    start_idx = idx - length / 2
+    end_idx = start_idx + length
+    tile = np.zeros([length, x_in.shape[1]])
+    x_in = np.concatenate([x_in, tile], axis=0)
+    if start_idx < 0:
+        tile[np.abs(start_idx):, :] = x_in[:end_idx, :]
+    elif end_idx > x_in.shape[0]:
+        end_idx = x_in.shape[0] - start_idx
+        tile[:end_idx, :] = x_in[start_idx:, :]
+    else:
+        tile[:, :] = x_in[start_idx:end_idx, :]
+    return tile
+
+
+def gibbs(energy, beta):
+    """Normalize an energy vector as a Gibbs distribution."""
+    axis = {1: None, 2: 1}[energy.ndim]
+    y = np.exp(-beta * energy)
+    scalar = y.sum(axis=axis)
+    scalar = scalar.reshape(-1, 1) if axis == 1 else scalar
+    return y / scalar
+
+
+def categorical_sample(pdf):
+    """Randomly select a categorical index of a given PDF."""
+    pdf = pdf / pdf.sum()
+    return int(np.random.multinomial(1, pdf).nonzero()[0])
+
+
+def boundaries_to_durations(boundaries):
+    """Return the durations in a monotonically-increasing set of boundaries.
+
+    Parameters
+    ----------
+    boundaries : array_like, shape=(N,)
+        Monotonically-increasing scalar boundaries.
+
+    Returns
+    -------
+    durations : array_like, shape=(N-1,)
+        Non-negative durations.
+    """
+    if boundaries != np.sort(boundaries).tolist():
+        raise ValueError("Input `boundaries` is not monotonically increasing.")
+    return np.abs(np.diff(boundaries))
+
+
+def find_closest_idx(x, y):
+    """Find the closest indexes in `x` to the values in `y`."""
+    return np.array([np.abs(x - v).argmin() for v in y])

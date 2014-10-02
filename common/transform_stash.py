@@ -9,7 +9,7 @@ import marl.fileutils as futils
 import time
 
 
-def convolve(entity, graph, data_key='cqt', chunk_size=250):
+def convolve(entity, graph, input_key, axis=1, chunk_size=250):
     """Convolve a given network over an entity.
 
     TODO: Use pescador.
@@ -32,14 +32,14 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
     """
     # TODO(ejhumphrey): Make this more stable, super fragile as-is
     time_dim = graph.inputs.values()[0].shape[2]
-    data = entity.values()
-    data_stepper = optimus.array_stepper(
-        data.pop(data_key), time_dim, axis=1, mode='same')
+    values = entity.values()
+    input_stepper = optimus.array_stepper(
+        values.pop(input_key), time_dim, axis=axis, mode='same')
     results = dict([(k, list()) for k in graph.outputs])
     if chunk_size:
         chunk = []
-        for value in data_stepper:
-            chunk.append(value)
+        for x in input_stepper:
+            chunk.append(x)
             if len(chunk) == chunk_size:
                 for k, v in graph(np.array(chunk)).items():
                     results[k].append(v)
@@ -48,13 +48,13 @@ def convolve(entity, graph, data_key='cqt', chunk_size=250):
             for k, v in graph(np.array(chunk)).items():
                 results[k].append(v)
     else:
-        for value in data_stepper:
-            for k, v in graph(value[np.newaxis, ...]).items():
+        for x in input_stepper:
+            for k, v in graph(x[np.newaxis, ...]).items():
                 results[k].append(v)
     for k in results:
         results[k] = np.concatenate(results[k], axis=0)
-    data.update(results)
-    return biggie.Entity(**data)
+    values.update(results)
+    return biggie.Entity(**values)
 
 
 def main(args):
@@ -69,7 +69,7 @@ def main(args):
     total_count = len(in_stash.keys())
     for idx, key in enumerate(in_stash.keys()):
         out_stash.add(
-            key, convolve(in_stash.get(key), transform, data_key='cqt'))
+            key, convolve(in_stash.get(key), transform, input_key='cqt'))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
     out_stash.close()
@@ -82,12 +82,15 @@ if __name__ == "__main__":
     parser.add_argument("data_file",
                         metavar="data_file", type=str,
                         help="Path to an optimus file for validation.")
+    parser.add_argument("input_key",
+                        metavar="input_key", type=str,
+                        help="Entity field to transform with the graph.")
     parser.add_argument("transform_file",
                         metavar="transform_file", type=str,
-                        help="Validator graph definition.")
+                        help="Transformation graph definition.")
     parser.add_argument("param_file",
                         metavar="param_file", type=str,
-                        help="Path to the parameters for this graph.")
+                        help="Path to a parameter archive for the graph.")
     # Outputs
     parser.add_argument("output_file",
                         metavar="output_file", type=str,

@@ -6,12 +6,10 @@ from os import path
 
 import dl4mir.chords.data as D
 import dl4mir.common.streams as S
-import dl4mir.chords.lexicon as lex
 from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
-DRIVER_ARGS['max_iter'] = 1000000
-VOCAB = lex.Strict(157)
+DRIVER_ARGS['max_iter'] = 200000
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 DROPOUT = 0.5
@@ -19,7 +17,7 @@ DROPOUT = 0.5
 
 def main(args):
     trainer, predictor = models.MODELS[args.model_name]()
-    time_dim = trainer.inputs['cqt'].shape[2]
+    time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
         print "Loading parameters: %s" % args.init_param_file
@@ -27,10 +25,10 @@ def main(args):
 
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, lexicon=VOCAB, working_size=3,)
-
-    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
+    stream = S.minibatch(
+        D.create_chroma_stream(
+            stash, time_dim, pitch_shift=0, bins_per_pitch=1),
+        batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(

@@ -11,7 +11,7 @@ from dl4mir.chords import DRIVER_ARGS
 from dl4mir.chords import models
 
 DRIVER_ARGS['max_iter'] = 1000000
-VOCAB = lex.Strict(157)
+VOCAB = lex.StrictBigram()
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 DROPOUT = 0.5
@@ -27,8 +27,9 @@ def main(args):
 
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file)
-    stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, lexicon=VOCAB, working_size=3,)
+    stream = D.create_stream(
+        stash, time_dim, pitch_shift=0, lexicon=VOCAB, working_size=50,
+        index_mapper=D.map_bigrams)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 

@@ -10,30 +10,9 @@ import time
 import dl4mir.common.util as util
 
 
-def boundaries_to_durations(boundaries):
-    """Return the durations in a monotonically-increasing set of boundaries.
-
-    Parameters
-    ----------
-    boundaries : array_like, shape=(N,)
-        Monotonically-increasing scalar boundaries.
-
-    Returns
-    -------
-    durations : array_like, shape=(N-1,)
-        Non-negative durations.
-    """
-    if boundaries != np.sort(boundaries).tolist():
-        raise ValueError("Input `boundaries` is not monotonically increasing.")
-    return np.abs(np.diff(boundaries))
-
-
-def find_closest_idx(x, y):
-    return np.array([np.abs(x - v).argmin() for v in y])
-
-
 def subdivide_boundaries(time_boundaries, num_per_interval):
-    durations = boundaries_to_durations(time_boundaries)
+    """Evenly subdivide a list of boundaries in time."""
+    durations = util.boundaries_to_durations(time_boundaries)
 
     offsets = np.arange(num_per_interval, dtype=float) / num_per_interval
     new_boundaries = list()
@@ -43,7 +22,25 @@ def subdivide_boundaries(time_boundaries, num_per_interval):
     return new_boundaries + [time_boundaries[-1]]
 
 
-def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
+def beat_sync(entity, time_boundaries, new_labels=None, pool_func='median'):
+    """Beat-synchronize an entity to a set of boundaries in time.
+
+    Parameters
+    ----------
+    entity : biggie.Entity
+        Required fields {time_points, chord_labels}
+    time_boundaries : array_like, shape=(N,)
+        List of boundary points over which to pool data.
+    new_labels : array_like
+        Set of pre-aligned labels to over-ride the current ones.
+    pool_func : str
+        Method of pooling data; one of ['mean', 'median'].
+
+    Returns
+    -------
+    new_entity : biggie.Entity
+        Same fields as input entity, with additional `durations` field.
+    """
     time_boundaries = list(time_boundaries)
     if time_boundaries[0] != 0.0:
         raise ValueError("Time boundaries should really start from 0.")
@@ -52,7 +49,7 @@ def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
     time_points = data.pop('time_points')
     chord_labels = data.pop('chord_labels')
 
-    idxs = find_closest_idx(time_points, time_boundaries).tolist()
+    idxs = util.find_closest_idx(time_points, time_boundaries).tolist()
     if new_labels is None:
         chord_labels = util.boundary_pool(chord_labels, idxs, pool_func='mode')
     else:
@@ -62,13 +59,16 @@ def beat_sync(entity, time_boundaries, new_labels=None, mode='median'):
         data_shape = list(data[key].shape)
         if len(time_points) in data_shape:
             axis = data_shape.index(len(time_points))
+            dtype = data[key].dtype.type
+            pool_func = 'mode' if dtype == np.string_ else pool_func
             data[key] = util.boundary_pool(data[key], idxs,
-                                           pool_func=mode, axis=axis)
+                                           pool_func=pool_func, axis=axis)
 
-    return biggie.Entity(time_points=time_boundaries[:-1],
-                         chord_labels=chord_labels,
-                         durations=boundaries_to_durations(time_boundaries),
-                         **data)
+    return biggie.Entity(
+        time_points=time_boundaries[:-1],
+        chord_labels=chord_labels,
+        durations=util.boundaries_to_durations(time_boundaries),
+        **data)
 
 
 def main(args):
@@ -79,7 +79,9 @@ def main(args):
     total_count = len(dset)
     for idx, key in enumerate(dset.keys()):
         boundaries = subdivide_boundaries(beat_times[key], args.subdivide)
-        dout.add(key, beat_sync(dset.get(key), boundaries))
+        dout.add(key, beat_sync(dset.get(key),
+                                boundaries,
+                                pool_func=args.pool_func))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
 
     dout.close()
@@ -100,4 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--subdivide",
                         metavar="--subdivide", type=int, default=1,
                         help="Subdivisions per interval.")
+    parser.add_argument("--pool_func",
+                        metavar="--pool_func", type=str, default='median',
+                        help="Method of pooling numerical data.")
     main(parser.parse_args())

@@ -2,7 +2,6 @@
 
 import argparse
 import numpy as np
-from itertools import groupby
 import json
 from marl.chords.utils import viterbi_alg
 from scipy import signal
@@ -12,17 +11,14 @@ import marl.fileutils as futils
 import time
 
 from dl4mir.chords.labels import index_to_chord_label
-
-
-def encode(l):
-    return [(len(list(group)), name) for name, group in groupby(l)]
+from dl4mir.common.util import run_length_encode
 
 
 def compress_samples_to_intervals(labels, framerate):
     framerate = float(framerate)
     intervals, new_labels = [], []
     last_end = -1.0/framerate
-    for duration, l in encode(labels):
+    for l, duration in run_length_encode(labels):
         intervals += [[last_end, last_end + duration / framerate]]
         last_end = intervals[-1][-1]
         new_labels += [l]

@@ -11,9 +11,28 @@ import dl4mir.common.util as util
 from scipy.spatial.distance import cdist
 
 
-def _pitch_circshift(entity, pitch_shift, bins_per_pitch):
+def _circshift(entity, pitch_shift, bins_per_pitch):
     values = entity.values()
-    cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
+    data, chord_label = values.pop('data'), str(values.pop('chord_label'))
+
+    # Change the chord label if it has a harmonic root.
+    if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
+        root, quality, exts, bass = labels.split(chord_label)
+        root = (labels.pitch_class_to_semitone(root) + pitch_shift) % 12
+        new_root = labels.semitone_to_pitch_class(root)
+        new_label = labels.join(new_root, quality, exts, bass)
+        # print "Input %12s // Shift: %3s // Output %12s" % \
+        #     (chord_label, pitch_shift, new_label)
+        chord_label = new_label
+
+    # Always rotate the CQT.
+    data = circshift(data, 0, pitch_shift)
+    return biggie.Entity(data=data, chord_label=chord_label, **values)
+
+
+def _padshift(entity, pitch_shift, bins_per_pitch, fill_value=0.0):
+    values = entity.values()
+    data, chord_label = values.pop('data'), str(values.pop('chord_label'))
 
     # Change the chord label if it has a harmonic root.
     if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
@@ -27,31 +46,11 @@ def _pitch_circshift(entity, pitch_shift, bins_per_pitch):
 
     # Always rotate the CQT.
     bin_shift = pitch_shift*bins_per_pitch
-    cqt = circshift(cqt[0], 0, bin_shift)[np.newaxis, ...]
-    return biggie.Entity(cqt=cqt, chord_label=chord_label, **values)
+    data = translate(data[0], 0, bin_shift, fill_value)[np.newaxis, ...]
+    return biggie.Entity(data=data, chord_label=chord_label, **values)
 
 
-def _pitch_shift(entity, pitch_shift, bins_per_pitch, fill_value=0.0):
-    values = entity.values()
-    cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
-
-    # Change the chord label if it has a harmonic root.
-    if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
-        root, quality, exts, bass = labels.split(chord_label)
-        root = (labels.pitch_class_to_semitone(root) + pitch_shift) % 12
-        new_root = labels.semitone_to_pitch_class(root)
-        new_label = labels.join(new_root, quality, exts, bass)
-        # print "Input %12s // Shift: %3s // Output %12s" % \
-        #     (chord_label, pitch_shift, new_label)
-        chord_label = new_label
-
-    # Always rotate the CQT.
-    bin_shift = pitch_shift*bins_per_pitch
-    cqt = translate(cqt[0], 0, bin_shift, fill_value)[np.newaxis, ...]
-    return biggie.Entity(cqt=cqt, chord_label=chord_label, **values)
-
-
-def pitch_shift(stream, max_pitch_shift=6, bins_per_pitch=3):
+def pitch_shift_cqt(stream, max_pitch_shift=6, bins_per_pitch=3):
     """Apply a random circular shift to the CQT, and rotate the root."""
     for entity in stream:
         if entity is None:
@@ -61,10 +60,66 @@ def pitch_shift(stream, max_pitch_shift=6, bins_per_pitch=3):
         # Determine the amount of pitch-shift.
         shift = np.random.randint(low=-max_pitch_shift,
                                   high=max_pitch_shift)
-        yield _pitch_shift(entity, shift, bins_per_pitch)
+        yield _padshift(entity, shift, bins_per_pitch)
 
 
-def map_to_chord_index(stream, vocab_dim):
+def pitch_shift_chroma(stream, max_pitch_shift=12):
+    """Apply a random circular shift to the CQT, and rotate the root."""
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+
+        # Determine the amount of pitch-shift.
+        shift = np.random.randint(low=-max_pitch_shift,
+                                  high=max_pitch_shift)
+        yield _circshift(entity, shift, 1)
+
+
+def map_to_class_index(stream, index_mapper, *args, **kwargs):
+    """
+    vocab_dim: int
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        class_idx = index_mapper(entity, *args, **kwargs)
+        yield None if class_idx is None else biggie.Entity(data=entity.data,
+                                                           class_idx=class_idx)
+
+
+def concatenate(stream, key='data', axis=-1):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.concatenate([values.pop(key)]*2, axis=axis)
+        yield biggie.Entity(**values)
+
+
+def reshape(stream, newshape, key):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.reshape(values.pop(key), newshape)
+        yield biggie.Entity(**values)
+
+
+def transpose(stream, axes, key):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        values = entity.values()
+        values[key] = np.transpose(values.pop(key), axes)
+        yield biggie.Entity(**values)
+
+
+def map_to_chroma(stream, bins_per_pitch=1):
     """
     vocab_dim: int
     """
@@ -73,13 +128,14 @@ def map_to_chord_index(stream, vocab_dim):
             yield entity
             continue
         values = entity.values()
-        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
-        chord_idx = labels.chord_label_to_class_index(chord_label, vocab_dim)
-        yield None if chord_idx is None else biggie.Entity(cqt=cqt,
-                                                           chord_idx=chord_idx)
+        data, chord_label = values.pop('data'), str(values.pop('chord_label'))
+        chroma = labels.chord_label_to_chroma(chord_label, bins_per_pitch)
+        if (chroma < 0).any():
+            yield None
+        yield biggie.Entity(data=data, target=chroma)
 
 
-def map_to_chroma(stream):
+def note_numbers_to_chroma(stream, bins_per_pitch=1):
     """
     vocab_dim: int
     """
@@ -87,10 +143,11 @@ def map_to_chroma(stream):
         if entity is None:
             yield entity
             continue
-        values = entity.values()
-        cqt, chord_label = values.pop('cqt'), str(values.pop('chord_label'))
-        chroma = labels.chord_label_to_chroma(chord_label)
-        yield biggie.Entity(cqt=cqt, target_chroma=chroma.squeeze())
+        pitches = set([_ % 12 for _ in eval(str(entity.note_numbers))])
+        chroma = np.zeros(12*bins_per_pitch)
+        for p in pitches:
+            chroma[p*bins_per_pitch] = 1.0
+        yield biggie.Entity(data=entity.data, target=chroma)
 
 
 def chord_index_to_tonnetz(stream, vocab_dim):
@@ -237,8 +294,8 @@ def binomial_mask(stream, max_dropout=0.25):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.shape)
-        entity.cqt = entity.cqt * mask
+        mask = np.random.binomial(1, p, entity.data.shape)
+        entity.data = entity.data * mask
         yield entity
 
 
@@ -247,8 +304,8 @@ def awgn(stream, mu=0.0, sigma=0.1):
         if entity is None:
             yield entity
             continue
-        noise = np.random.normal(mu, sigma, entity.cqt.shape)
-        entity.cqt = entity.cqt + noise * np.random.normal(0, 0.25)
+        noise = np.random.normal(mu, sigma, entity.data.shape)
+        entity.data = entity.data + noise * np.random.normal(0, 0.25)
         yield entity
 
 
@@ -258,9 +315,9 @@ def drop_frames(stream, max_dropout=0.1):
             yield entity
             continue
         p = 1.0 - np.random.uniform(0, max_dropout)
-        mask = np.random.binomial(1, p, entity.cqt.shape[1])
+        mask = np.random.binomial(1, p, entity.data.shape[1])
         mask[len(mask)/2] = 1.0
-        entity.cqt = entity.cqt * mask[np.newaxis, :, np.newaxis]
+        entity.data = entity.data * mask[np.newaxis, :, np.newaxis]
         yield entity
 
 

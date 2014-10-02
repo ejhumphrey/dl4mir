@@ -6,6 +6,7 @@ from os.path import join
 
 def main(args):
     files = glob.glob(join(args.input_directory, args.file_pattern))
+    files.sort()
     futils.dump_textlist(files, args.output_file)
 
 
