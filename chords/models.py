@@ -659,11 +659,11 @@ def i1c3_nll(size='large'):
         large=(16, 32, 64))[size]
 
     input_data = optimus.Input(
-        name='cqt',
+        name='data',
         shape=(None, 1, 1, 252))
 
     chord_idx = optimus.Input(
-        name='chord_idx',
+        name='class_idx',
         shape=(None,),
         dtype='int32')
 
@@ -779,14 +779,15 @@ def i1c3_nll_dropout(size='large'):
     k0, k1, k2 = dict(
         small=(10, 20, 40),
         med=(12, 24, 48),
-        large=(16, 32, 64))[size]
+        large=(16, 32, 64),
+        xlarge=(64, 64, 64))[size]
 
     input_data = optimus.Input(
-        name='cqt',
+        name='data',
         shape=(None, 1, 1, 252))
 
     chord_idx = optimus.Input(
-        name='chord_idx',
+        name='class_idx',
         shape=(None,),
         dtype='int32')
 
@@ -4676,6 +4677,7 @@ MODELS = {
     'i1c3_nll_L': lambda: i1c3_nll('large'),
     'i1c3_nll_M': lambda: i1c3_nll('med'),
     'i1c3_nll_S': lambda: i1c3_nll('small'),
+    'i1c3_nll_dropout_XL': lambda: i1c3_nll_dropout('xlarge'),
     'i1c3_nll_dropout_L': lambda: i1c3_nll_dropout('large'),
     'i1c3_nll_dropout_M': lambda: i1c3_nll_dropout('med'),
     'i1c3_nll_dropout_S': lambda: i1c3_nll_dropout('small'),

@@ -23,7 +23,7 @@ def main(args):
         trainer.load_param_values(args.init_param_file)
 
     print "Opening %s" % args.training_file
-    stash = biggie.Stash(args.training_file, cache=True)
+    stash = biggie.Stash(args.training_file)
     stream = S.minibatch(
         D.create_chroma_stream(stash, time_dim, pitch_shift=0),
         batch_size=BATCH_SIZE)
