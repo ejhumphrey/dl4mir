@@ -3,6 +3,10 @@ import scipy.stats
 from itertools import groupby
 
 
+def hwr(x):
+    return x * (x > 0.0)
+
+
 def mode(*args, **kwargs):
     return scipy.stats.mode(*args, **kwargs)[0]
 
