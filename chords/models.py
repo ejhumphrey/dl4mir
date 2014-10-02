@@ -1138,7 +1138,7 @@ def i1c3_bigram762_nll(size='large'):
 
     null_classifier = optimus.Affine(
         name='null_classifier',
-        input_shape=layer2.output.shape,
+        input_shape=bottleneck.output.shape,
         output_shape=(None, 1),
         act_type='linear')
 
