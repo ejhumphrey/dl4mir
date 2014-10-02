@@ -31,7 +31,7 @@ def convolve(entity, graph, input_key, axis=1, chunk_size=250):
     new_entity
     """
     # TODO(ejhumphrey): Make this more stable, super fragile as-is
-    time_dim = graph.inputs[input_key].shape[2]
+    time_dim = graph.inputs.values()[0].shape[2]
     values = entity.values()
     input_stepper = optimus.array_stepper(
         values.pop(input_key), time_dim, axis=axis, mode='same')
