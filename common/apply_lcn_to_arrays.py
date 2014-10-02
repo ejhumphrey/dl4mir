@@ -17,6 +17,9 @@ from scipy.signal.windows import gaussian
 import marl.fileutils as futils
 import time
 
+import dl4mir.common.util as util
+
+
 NUM_CPUS = None  # Use None for system max.
 
 # Global dict
@@ -43,8 +46,8 @@ def lcn(X, kernel):
         raise ValueError("Input must be a 2D matrix.")
     Xh = convolve2d(X, kernel, mode='same', boundary='symm')
     V = X - Xh
-    S = np.sqrt(
-        convolve2d(np.power(V, 2.0), kernel, mode='same', boundary='symm'))
+    S = np.sqrt(convolve2d(np.power(V, 2.0),
+                kernel, mode='same', boundary='symm'))
     S2 = np.zeros(S.shape) + S.mean()
     S2[S > S.mean()] = S[S > S.mean()]
     if S2.sum() == 0.0:
@@ -52,8 +55,31 @@ def lcn(X, kernel):
     return V / S2
 
 
-def hwr(x):
-    return 0.5 * (x + np.abs(x))
+def lcn2(X, kernel, mean_scalar=1.0):
+    """Apply Local Contrast Normalization (LCN) to an array.
+
+    Parameters
+    ----------
+    X : np.ndarray, ndim=2
+        Input representation.
+    kernel : np.ndarray
+        Convolution kernel (should be roughly low-pass).
+
+    Returns
+    -------
+    Z : np.ndarray
+        The processed output.
+    """
+    if X.ndim != 2:
+        raise ValueError("Input must be a 2D matrix.")
+    Xh = convolve2d(X, kernel, mode='same', boundary='symm')
+    V = X - Xh
+    S = np.sqrt(convolve2d(np.power(V, 2.0),
+                kernel, mode='same', boundary='symm'))
+    thresh = np.exp(np.log(S + np.power(2.0, -5)).mean(axis=-1))
+    S = S*np.greater(S - thresh.reshape(-1, 1), 0)
+    S += 1.0*np.equal(S, 0.0)
+    return V / S
 
 
 def mm_lcn(X, kernel=None, rho=0):
@@ -65,7 +91,7 @@ def mm_lcn(X, kernel=None, rho=0):
 
     kernel /= kernel.sum()
     Xh = convolve2d(X, kernel, mode='same', boundary='symm')
-    V = hwr(X - Xh)
+    V = util.hwr(X - Xh)
     S = np.sqrt(
         convolve2d(np.power(V, 2.0), kernel, mode='same', boundary='symm'))
     S2 = np.zeros(S.shape) + S.mean()
@@ -74,6 +100,68 @@ def mm_lcn(X, kernel=None, rho=0):
         S2 += 1.0
     return V / S2**rho
 
+
+def highpass(X, kernel):
+    """
+
+    Parameters
+    ----------
+    X : np.ndarray, ndim=2
+        Input representation.
+    kernel : np.ndarray
+        Convolution kernel (should be roughly low-pass).
+
+    Returns
+    -------
+    Z : np.ndarray
+        The processed output.
+    """
+    if X.ndim != 2:
+        raise ValueError("Input must be a 2D matrix.")
+    Xh = convolve2d(X, kernel, mode='same', boundary='symm')
+    return X - Xh
+
+
+def local_l2norm(X, kernel):
+    local_mag = np.sqrt(convolve2d(np.power(X, 2.0),
+                        kernel, mode='same', boundary='symm'))
+    local_mag = local_mag + 1.0*(local_mag == 0.0)
+    return X / local_mag
+
+
+def lcn3(X, kernel):
+    x_hp = highpass(X, kernel)
+    x_73 = local_l2norm(x_hp, np.hanning(73).reshape(1, -1))
+    x_37 = local_l2norm(x_hp, np.hanning(37).reshape(1, -1))
+    x_19 = local_l2norm(x_hp, np.hanning(19).reshape(1, -1))
+    # x_11 = local_l2norm(x_hp, np.hanning(11).reshape(1, -1))
+    x_multi = np.array([x_73, x_37, x_19]).transpose(1, 2, 0)
+    w = create_mask()**2.0
+    return (x_multi * w).sum(axis=-1)
+
+
+def create_mask():
+    w = np.sin(np.pi*np.arange(36)/36.)
+    w_73 = np.zeros(252)
+    w_37 = np.zeros(252)
+    w_19 = np.zeros(252)
+    # w_11 = np.zeros(252)
+
+    w_73[:18] = 1.0
+    w_73[18:36] = w[18:]
+
+    w_37[18:36] = w[:18]
+    w_37[36:72] = 1.0
+    w_37[72:90] = w[18:]
+
+    w_19[72:90] = w[:18]
+    w_19[90:] = 1.0
+    # w_19[90:162] = 1.0
+    # w_19[162:180] = w[18:]
+
+    # w_11[162:180] = w[:18]
+    # w_11[180:] = 1.0
+    return np.array([w_73, w_37, w_19]).T.reshape(1, 252, 3)
 
 
 def create_kernel(dim0, dim1):
@@ -107,9 +195,9 @@ def apply_lcn(file_pair, key='cqt'):
     """
     data = dict(**np.load(file_pair.first))
     if data[key].ndim == 2:
-        data[key] = lcn(data[key], transform["kernel"])
+        data[key] = lcn3(data[key], transform["kernel"])
     elif data[key].ndim == 3:
-        data[key] = np.array([lcn(x, transform["kernel"]) for x in data[key]])
+        data[key] = np.array([lcn3(x, transform["kernel"]) for x in data[key]])
     else:
         raise ValueError("Cannot transform a %d-dim array." % data[key].ndim)
     print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
