@@ -52,17 +52,13 @@ def sweep_param_files(param_files, stash, transform, p_vals):
 
 def main(args):
     transform = optimus.load(args.transform_file)
-
+    transform.nodes['prior'].weight.value = np.load("one_over_prior.npy")
     stash = biggie.Stash(args.validation_file, cache=True)
 
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     param_stats = sweep_param_files(
-<<<<<<< HEAD
-        param_files[4::5], stash, transform, PENALTY_VALUES)
-=======
-        param_files[4::10], stash, transform, PENALTY_VALUES)
->>>>>>> cd8c8ad7a06d54ad32dc4d211cf5643964c79d54
+    param_files[4::10], stash, transform, PENALTY_VALUES)
 
     with open(args.stats_file, 'w') as fp:
         json.dump(param_stats, fp, indent=2)

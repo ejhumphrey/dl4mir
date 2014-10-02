@@ -11,7 +11,7 @@ from dl4mir.chords import models
 
 DRIVER_ARGS['max_iter'] = 500000
 VOCAB = 157
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 DROPOUT = 0.5
 
@@ -27,7 +27,7 @@ def main(args):
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file)
     stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=3,)
+        stash, time_dim, pitch_shift=0, vocab_dim=VOCAB, working_size=5,)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
