@@ -64,13 +64,6 @@ def main(args):
 
     stash = biggie.Stash(args.validation_file, cache=True)
     transform = optimus.load(args.transform_file)
-    if "-asis-" in args.transform_file:
-        stats_file = os.path.join(os.path.split(args.validation_file)[0],
-                                  "train.json")
-        prior = np.array(json.load(open(stats_file))['prior'])
-        if prior.ndim == 1:
-            prior = prior.reshape(1, -1)
-        transform.nodes['prior'].weight.value = 1. / prior
 
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
