@@ -8,7 +8,8 @@ import marl.fileutils as futil
 import sklearn.metrics as metrics
 import warnings
 
-from dl4mir.chords import labels
+import dl4mir.chords.labels as L
+import dl4mir.chords.lexicon as lex
 
 
 def collapse_estimations(estimations):
@@ -35,8 +36,7 @@ def collapse_estimations(estimations):
     return total
 
 
-def confusion_matrix(results, num_classes,
-                     label_to_index=labels.chord_label_to_class_index):
+def confusion_matrix(results, num_classes, lexicon):
     """Deprecated: Don't use.
 
     Note: Confusion matrix is actual x estimations.
@@ -48,14 +48,14 @@ def confusion_matrix(results, num_classes,
     raise NotImplementedError("Get outta here!")
     classifications = np.zeros([num_classes, num_classes])
     for label, counts in results.items():
-        idx = label_to_index(label, num_classes)
+        idx = lexicon.label_to_index(label, num_classes)
         if idx is None:
             continue
         classifications[idx, :] += counts
     return classifications
 
 
-def quality_confusion_matrix(results):
+def quality_confusion_matrix(results, lexicon):
     """Populate a quality-rotated confusion matrix.
 
     Parameters
@@ -70,18 +70,18 @@ def quality_confusion_matrix(results):
     """
     num_classes = 157
     qual_conf = np.zeros([num_classes, num_classes])
-    chord_idxs = labels.chord_label_to_class_index(results.keys(), num_classes)
+    chord_idxs = lexicon.label_to_index(results.keys())
     for chord_idx, counts in zip(chord_idxs, results.values()):
         if chord_idx is None:
             continue
         quality_idx = int(chord_idx) / 12
         root = chord_idx % 12
-        counts = labels.rotate(counts, root) if quality_idx != 13 else counts
+        counts = L.rotate(counts, root) if quality_idx != 13 else counts
         qual_conf[quality_idx*12, :] += counts
     return qual_conf
 
 
-def confusions_to_str(confusions, top_k=5):
+def confusions_to_str(confusions, lexicon, top_k=5):
     """Render the confusion matrix to human-readable text.
 
     Parameters
@@ -102,7 +102,7 @@ def confusions_to_str(confusions, top_k=5):
     outputs = []
     for idx, row in enumerate(confusions):
         row /= float(row.sum())
-        line = "%7s (%7.4f) ||" % (labels.index_to_chord_label(idx*12, 157),
+        line = "%7s (%7.4f) ||" % (lexicon.index_to_label(idx*12),
                                    row[idx*12]*100)
         sidx = row.argsort()[::-1]
         k = 0
@@ -110,7 +110,7 @@ def confusions_to_str(confusions, top_k=5):
         while count < top_k:
             if sidx[k] != idx*12:
                 line += " %7s (%7.4f) |" % \
-                    (labels.index_to_chord_label(sidx[k], 157),
+                    (lexicon.index_to_label(sidx[k]),
                      row[sidx[k]]*100)
                 count += 1
             k += 1
@@ -119,7 +119,7 @@ def confusions_to_str(confusions, top_k=5):
     return "\n".join(outputs) + "\n"
 
 
-def compute_scores(estimations):
+def compute_scores(estimations, lexicon):
     """Compute scores over a dataset.
 
     Parameters
@@ -135,7 +135,7 @@ def compute_scores(estimations):
         Confusion matrix over the estimations.
     """
     results = collapse_estimations(estimations)
-    confusions = quality_confusion_matrix(results)
+    confusions = quality_confusion_matrix(results, lexicon)
     quality_true, quality_est = confusions_to_comparisons(confusions)
     stats = dict()
     with warnings.catch_warnings():
@@ -216,8 +216,10 @@ def main(args):
     if not os.path.exists(args.estimation_file):
         print "File does not exist: %s" % args.estimation_file
         return
-    stats, confusions = compute_scores(json.load(open(args.estimation_file)))
-    res_str = stats_to_string(stats) + confusions_to_str(confusions)
+    vocab = lex.Strict(157)
+    stats, confusions = compute_scores(
+        json.load(open(args.estimation_file)), lexicon=vocab)
+    res_str = stats_to_string(stats) + confusions_to_str(confusions, vocab)
     futil.create_directory(os.path.split(args.stats_file)[0])
     with open(args.stats_file, 'w') as fp:
         fp.write(res_str)
