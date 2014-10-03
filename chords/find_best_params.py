@@ -4,6 +4,7 @@ import optimus
 import json
 import biggie
 import time
+import os
 
 # import shutil
 
@@ -37,31 +38,40 @@ def sweep_stash(stash, transform, p_vals):
     return stash_estimations
 
 
-def sweep_param_files(param_files, stash, transform, p_vals):
+def sweep_param_files(param_files, stash, transform, p_vals, log_file):
     param_stats = dict([(f, dict()) for f in param_files])
-    for f in param_files:
-        transform.load_param_values(f)
-        stash_estimations = sweep_stash(stash, transform, p_vals)
-        for p in p_vals:
-            param_stats[f][p] = SE.compute_scores(stash_estimations[p])[0]
-            stat_str = SE.stats_to_string(param_stats[f][p])
-            print "[%s] %s (%0.3f) \n%s" % (time.asctime(), f, p, stat_str)
+    for count, f in enumerate(param_files):
+        try:
+            transform.load_param_values(f)
+            stash_estimations = sweep_stash(stash, transform, p_vals)
+            for p in p_vals:
+                param_stats[f][p] = SE.compute_scores(stash_estimations[p])[0]
+                stat_str = SE.stats_to_string(param_stats[f][p])
+                print "[%s] %s (%0.3f) \n%s" % (time.asctime(), f, p, stat_str)
+            with open(log_file, 'w') as fp:
+                json.dump(param_stats, fp, indent=2)
+        except KeyboardInterrupt:
+            print "Stopping early after %d parameter archives." % count
 
     return param_stats
 
 
 def main(args):
-    transform = optimus.load(args.transform_file)
-    transform.nodes['prior'].weight.value = np.load("one_over_prior.npy")
+
     stash = biggie.Stash(args.validation_file, cache=True)
+    transform = optimus.load(args.transform_file)
+    if "-asis-" in args.transform_file:
+        stats_file = os.path.join(os.path.split(args.validation_file)[0],
+                                  "train.json")
+        prior = np.array(json.load(open(stats_file))['prior'])
+        if prior.ndim == 1:
+            prior = prior.reshape(1, -1)
+        transform.nodes['prior'].weight.value = prior
 
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     param_stats = sweep_param_files(
-    param_files[4::10], stash, transform, PENALTY_VALUES)
-
-    with open(args.stats_file, 'w') as fp:
-        json.dump(param_stats, fp, indent=2)
+        param_files[4::10], stash, transform, PENALTY_VALUES, args.stats_file)
 
     # shutil.copyfile(best_params, args.param_file)
 

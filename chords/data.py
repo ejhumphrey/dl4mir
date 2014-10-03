@@ -676,3 +676,20 @@ def ideal_chroma_ss(ref_set, stash):
             chroma=chroma, chord_labels=chord_labels,
             time_points=intervals[:, 0], durations=durations), overwrite=True)
         print k
+
+
+def class_prior_v157(stash, lexicon):
+    """writeme."""
+    assert lexicon.num_classes == 157
+    total_count = np.zeros(lexicon.num_classes, dtype=float)
+    for k in stash.keys():
+        entity = stash.get(k)
+        chord_idx = lexicon.label_to_index(entity.chord_labels)
+        y_true = chord_idx[np.not_equal(chord_idx, None)].astype(int)
+        counts = np.bincount(y_true)
+        total_count[:len(counts)] += counts
+
+    for q in range(13):
+        total_count[12*q:(q+1)*12] = total_count[12*q:(q+1)*12].sum()
+
+    return total_count / total_count.sum()
