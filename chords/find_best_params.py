@@ -10,6 +10,7 @@ import os
 
 import dl4mir.chords.aggregate_likelihood_estimations as ALE
 import dl4mir.chords.score_estimations as SE
+import dl4mir.chords.lexicon as lex
 import dl4mir.common.convolve_graph_with_dset as C
 
 import numpy as np
@@ -38,20 +39,23 @@ def sweep_stash(stash, transform, p_vals):
     return stash_estimations
 
 
-def sweep_param_files(param_files, stash, transform, p_vals, log_file):
+def sweep_param_files(param_files, stash, transform, p_vals,
+                      lexicon, log_file):
     param_stats = dict([(f, dict()) for f in param_files])
     for count, f in enumerate(param_files):
         try:
             transform.load_param_values(f)
             stash_estimations = sweep_stash(stash, transform, p_vals)
             for p in p_vals:
-                param_stats[f][p] = SE.compute_scores(stash_estimations[p])[0]
+                param_stats[f][p] = SE.compute_scores(stash_estimations[p],
+                                                      lexicon)[0]
                 stat_str = SE.stats_to_string(param_stats[f][p])
                 print "[%s] %s (%0.3f) \n%s" % (time.asctime(), f, p, stat_str)
             with open(log_file, 'w') as fp:
                 json.dump(param_stats, fp, indent=2)
         except KeyboardInterrupt:
             print "Stopping early after %d parameter archives." % count
+            break
 
     return param_stats
 
@@ -70,8 +74,10 @@ def main(args):
 
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
+    vocab = lex.Strict(157)
     param_stats = sweep_param_files(
-        param_files[4::10], stash, transform, PENALTY_VALUES, args.stats_file)
+        param_files[4::10], stash, transform, PENALTY_VALUES,
+        vocab, args.stats_file)
 
     # shutil.copyfile(best_params, args.param_file)
 
