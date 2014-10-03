@@ -70,7 +70,7 @@ def main(args):
         prior = np.array(json.load(open(stats_file))['prior'])
         if prior.ndim == 1:
             prior = prior.reshape(1, -1)
-        transform.nodes['prior'].weight.value = prior
+        transform.nodes['prior'].weight.value = 1. / prior
 
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
