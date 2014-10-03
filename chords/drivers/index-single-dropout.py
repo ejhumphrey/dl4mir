@@ -19,16 +19,17 @@ DROPOUT = 0.5
 
 def main(args):
     trainer, predictor = models.MODELS[args.model_name]()
-    time_dim = trainer.inputs['cqt'].shape[2]
+    time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
         print "Loading parameters: %s" % args.init_param_file
         trainer.load_param_values(args.init_param_file)
 
     print "Opening %s" % args.training_file
-    stash = biggie.Stash(args.training_file)
-    stream = D.create_uniform_chord_stream(
-        stash, time_dim, pitch_shift=0, lexicon=VOCAB, working_size=3,)
+    stash = biggie.Stash(args.training_file, cache=True)
+    stream = D.create_uniform_chord_index_stream(
+        stash, time_dim, max_pitch_shift=0,
+        lexicon=VOCAB, working_size=3,)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
