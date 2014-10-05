@@ -158,7 +158,7 @@ def note_numbers_to_pitch(stream, bins_per_pitch=1, max_pitch=84):
         if entity is None:
             yield entity
             continue
-        pitches = set([_ % 12 for _ in eval(str(entity.note_numbers))])
+        pitches = set(eval(str(entity.note_numbers)))
         pitch_vec = np.zeros(max_pitch+1)
         for p in pitches:
             pitch_vec[p] = 1.0

@@ -28,7 +28,7 @@ def main(args):
 
     stream = S.minibatch(
         D.create_target_stream(
-            stash, time_dim, pitch_shift=0, bins_per_pitch=1,
+            stash, time_dim, max_pitch_shift=0, bins_per_pitch=1,
             mapper=D.FX.note_numbers_to_pitch,
             sample_func=D.slice_note_entity),
         batch_size=BATCH_SIZE)
