@@ -244,7 +244,7 @@ def create_chord_index_stream(stash, win_length, lexicon,
     return FX.map_to_class_index(stream, index_mapper, lexicon)
 
 
-def create_target_stream(stash, win_length, working_size=50, pitch_shift=0,
+def create_target_stream(stash, win_length, working_size=50, max_pitch_shift=0,
                          bins_per_pitch=1, sample_func=slice_cqt_entity,
                          mapper=FX.map_to_chroma):
     """Return an unconstrained stream of chord samples with class indexes.
@@ -259,7 +259,7 @@ def create_target_stream(stash, win_length, working_size=50, pitch_shift=0,
         Instantiated chord lexicon for mapping labels to indices.
     working_size : int
         Number of open streams at a time.
-    pitch_shift : int
+    max_pitch_shift : int
         Maximum number of semitones (+/-) to rotate an observation.
     partition_labels : dict
 
@@ -274,8 +274,8 @@ def create_target_stream(stash, win_length, working_size=50, pitch_shift=0,
                    for key in stash.keys()]
 
     stream = pescador.mux(entity_pool, None, working_size, lam=25)
-    if pitch_shift > 0:
-        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=pitch_shift)
+    if max_pitch_shift > 0:
+        stream = FX.pitch_shift_cqt(stream, max_pitch_shift=max_pitch_shift)
 
     return mapper(stream, bins_per_pitch)
 
