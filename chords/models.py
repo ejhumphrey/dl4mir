@@ -4394,6 +4394,110 @@ def iXc3_mse12_dropout(n_in, size='large'):
     return trainer, predictor
 
 
+def i1_mse84_dropout(size='large'):
+    input_data = optimus.Input(
+        name='data',
+        shape=(None, 1, 1, 252))
+
+    target = optimus.Input(
+        name='target',
+        shape=(None, 84))
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Affine(
+        name='layer0',
+        input_shape=input_data.shape,
+        output_shape=(None, 2048),
+        act_type='relu')
+
+    layer1 = optimus.Affine(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        output_shape=(None, 2048),
+        act_type='relu')
+
+    layer2 = optimus.Affine(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        output_shape=(None, 2048),
+        act_type='relu')
+
+    layer0.enable_dropout()
+    layer1.enable_dropout()
+    layer2.enable_dropout()
+
+    pitch_estimator = optimus.Affine(
+        name='pitch_estimator',
+        input_shape=layer2.output.shape,
+        output_shape=(None, 84),
+        act_type='sigmoid')
+
+    param_nodes = [layer0, layer1, layer2, pitch_estimator]
+
+    # 1.1 Create Loss
+    error = optimus.SquaredEuclidean(name='squared_error')
+    loss = optimus.Mean(name='mean_squared_error')
+    loss_nodes = [error, loss]
+
+    pitch = optimus.Output(name='pitch')
+    total_loss = optimus.Output(name='total_loss')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, pitch_estimator.input),
+        (pitch_estimator.output, pitch)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + [
+            (dropout, layer0.dropout),
+            (dropout, layer1.dropout),
+            (dropout, layer2.dropout),
+            (pitch_estimator.output, error.input_a),
+            (target, error.input_b),
+            (error.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data, target, learning_rate, dropout],
+        nodes=param_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss, pitch],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    layer0.disable_dropout()
+    layer1.disable_dropout()
+    layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[pitch])
+
+    return trainer, predictor
+
+
 def i6x24_c3_nll_dropout(size='large'):
     k0, k1, k2 = dict(
         small=(20, 20, 24),
@@ -4699,4 +4803,5 @@ MODELS = {
     'i20c3_mse12_L': lambda: i20c3_mse12('large'),
     'i20c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(20, 'large'),
     'i4c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(4, 'large'),
-    'i1x24_c3_nll_dropout_L': lambda: i1x24_c3_nll_dropout('large')}
+    'i1x24_c3_nll_dropout_L': lambda: i1x24_c3_nll_dropout('large'),
+    'i1_mse84_dropout_L': lambda: i1_mse84_dropout('large')}
