@@ -27,9 +27,9 @@ def main(args):
     stash = biggie.Stash(args.training_file, cache=True)
 
     stream = S.minibatch(
-        D.create_chroma_stream(
+        D.create_target_stream(
             stash, time_dim, pitch_shift=0, bins_per_pitch=1,
-            chroma_mapper=D.FX.note_numbers_to_chroma,
+            mapper=D.FX.note_numbers_to_pitch,
             sample_func=D.slice_note_entity),
         batch_size=BATCH_SIZE)
 
