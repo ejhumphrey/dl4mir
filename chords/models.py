@@ -4394,14 +4394,14 @@ def iXc3_mse12_dropout(n_in, size='large'):
     return trainer, predictor
 
 
-def i1_mse84_dropout(size='large'):
+def i1_mse85_dropout(size='large'):
     input_data = optimus.Input(
         name='data',
         shape=(None, 1, 1, 252))
 
     target = optimus.Input(
         name='target',
-        shape=(None, 84))
+        shape=(None, 85))
 
     learning_rate = optimus.Input(
         name='learning_rate',
@@ -4437,7 +4437,7 @@ def i1_mse84_dropout(size='large'):
     pitch_estimator = optimus.Affine(
         name='pitch_estimator',
         input_shape=layer2.output.shape,
-        output_shape=(None, 84),
+        output_shape=(None, 85),
         act_type='sigmoid')
 
     param_nodes = [layer0, layer1, layer2, pitch_estimator]
@@ -4804,4 +4804,4 @@ MODELS = {
     'i20c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(20, 'large'),
     'i4c3_mse12_dropout_L': lambda: iXc3_mse12_dropout(4, 'large'),
     'i1x24_c3_nll_dropout_L': lambda: i1x24_c3_nll_dropout('large'),
-    'i1_mse84_dropout_L': lambda: i1_mse84_dropout('large')}
+    'i1_mse85_dropout_L': lambda: i1_mse85_dropout('large')}
