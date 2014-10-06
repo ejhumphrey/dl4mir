@@ -168,6 +168,35 @@ def normalize(x, axis=None):
     return x / scalar
 
 
+def lp_scale(x, p=2.0, axis=None):
+    """Scale the values of `x` by the lp-norm of each vector.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input multidimensional array to normalize.
+    p : scalar
+        Lp space for scaling.
+    axis : int, default=None
+        Axis to normalize along, otherwise performed over the full array.
+
+    Returns
+    -------
+    z : np.ndarray, shape=x.shape
+        Normalized array.
+    """
+    if not axis is None:
+        shape = list(x.shape)
+        shape[axis] = 1
+        scalar = np.power(np.power(np.abs(x.astype(float)), p).sum(axis=axis),
+                          1.0/p).reshape(shape)
+        scalar[scalar == 0] = 1.0
+    else:
+        scalar = np.power(np.power(np.abs(x.astype(float)), p).sum(), 1.0/p)
+        scalar = 1 if scalar == 0 else scalar
+    return x / scalar
+
+
 def viterbi(posterior, transition_matrix=None, prior=None, penalty=0,
             scaled=True):
     """Find the optimal Viterbi path through a posteriorgram.
