@@ -4,6 +4,9 @@ import biggie
 import optimus
 from os import path
 
+import numpy as np
+import json
+
 import dl4mir.chords.data as D
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS
@@ -29,6 +32,11 @@ def main(args):
     stash = biggie.Stash(args.training_file, cache=True)
     stream = D.create_chord_index_stream(
         stash, time_dim, max_pitch_shift=0, lexicon=VOCAB)
+
+    # Load prior
+    stat_file = "%s.json" % path.splitext(args.training_file)[0]
+    prior = np.array(json.load(open(stat_file))['prior'], dtype=float)
+    trainer.nodes['prior'].weight.value = 1.0 / prior.reshape(1, -1)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
