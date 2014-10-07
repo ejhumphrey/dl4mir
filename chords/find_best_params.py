@@ -49,13 +49,12 @@ def sweep_param_files(param_files, stash, transform, p_vals,
     for count, f in enumerate(param_files):
         try:
             transform.load_param_values(f)
-            stash_estimations = sweep_stash(stash, transform, p_vals)
+            if not param_stats[f] or overwrite:
+                print "Sweeping parameters: %s" % f
+                stash_estimations = sweep_stash(stash, transform, p_vals)
             for p in p_vals:
-                if not param_stats[f].get(p, False) or overwrite:
-                    param_stats[f][p] = SE.compute_scores(stash_estimations[p],
-                                                          lexicon)[0]
-                else:
-                    print "key exists: %s" % f
+                param_stats[f][p] = SE.compute_scores(stash_estimations[p],
+                                                      lexicon)[0]
                 stat_str = SE.stats_to_string(param_stats[f][p])
                 print "[%s] %s (%0.3f) \n%s" % (time.asctime(), f, p, stat_str)
             with open(log_file, 'w') as fp:
