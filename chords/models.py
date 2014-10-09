@@ -652,15 +652,30 @@ def i8c4b10_nll_dropout(size='large'):
     return trainer, predictor
 
 
-def i1c3_nll(size='large'):
+def iXc3_nll(n_in, size='large'):
     k0, k1, k2 = dict(
         small=(10, 20, 40),
         med=(12, 24, 48),
-        large=(16, 32, 64))[size]
+        large=(16, 32, 64),
+        xlarge=(20, 40, 80),
+        xxlarge=(24, 48, 96))[size]
+
+    n0, n1, n2 = {
+        1: (1, 1, 1),
+        4: (3, 2, 1),
+        10: (3, 3, 1),
+        20: (5, 5, 1)}[n_in]
+
+    p0, p1, p2 = {
+        1: (1, 1, 1),
+        4: (1, 1, 1),
+        10: (2, 2, 1),
+        12: (2, 2, 1),
+        20: (2, 2, 2)}[n_in]
 
     input_data = optimus.Input(
         name='data',
-        shape=(None, 1, 1, 252))
+        shape=(None, 1, n_in, 252))
 
     chord_idx = optimus.Input(
         name='class_idx',
@@ -675,20 +690,22 @@ def i1c3_nll(size='large'):
     layer0 = optimus.Conv3D(
         name='layer0',
         input_shape=input_data.shape,
-        weight_shape=(k0, None, 1, 13),
-        pool_shape=(1, 3),
+        weight_shape=(k0, None, n0, 13),
+        pool_shape=(p0, 3),
         act_type='relu')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
-        weight_shape=(k1, None, 1, 37),
+        weight_shape=(k1, None, n1, 37),
+        pool_shape=(p1, 1),
         act_type='relu')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
-        weight_shape=(k2, None, 1, 33),
+        weight_shape=(k2, None, n2, 33),
+        pool_shape=(p2, 1),
         act_type='relu')
 
     chord_classifier = optimus.Conv3D(
@@ -4784,9 +4801,12 @@ def i1x24_c3_nll_dropout(size='large'):
 
 
 MODELS = {
-    'i1c3_nll_L': lambda: i1c3_nll('large'),
-    'i1c3_nll_M': lambda: i1c3_nll('med'),
-    'i1c3_nll_S': lambda: i1c3_nll('small'),
+    'i1c3_nll_L': lambda: iXc3_nll(1, 'large'),
+    'i1c3_nll_M': lambda: iXc3_nll(1, 'med'),
+    'i1c3_nll_S': lambda: iXc3_nll(1, 'small'),
+    'i20c3_nll_L': lambda: iXc3_nll(20, 'large'),
+    'i20c3_nll_XL': lambda: iXc3_nll(20, 'xlarge'),
+    'i20c3_nll_XXL': lambda: iXc3_nll(20, 'xxlarge'),
     'i1c3_nll_dropout_L': lambda: iXc3_nll_dropout(1, 'large'),
     'i1c3_nll_dropout_M': lambda: iXc3_nll_dropout(1, 'med'),
     'i1c3_nll_dropout_S': lambda: iXc3_nll_dropout(1, 'small'),
