@@ -797,7 +797,8 @@ def iXc3_nll_dropout(n_in, size='large'):
         small=(10, 20, 40),
         med=(12, 24, 48),
         large=(16, 32, 64),
-        xlarge=(64, 64, 64))[size]
+        xlarge=(20, 40, 80),
+        xxlarge=(24, 48, 96))[size]
 
     n0, n1, n2 = {
         1: (1, 1, 1),
@@ -4816,6 +4817,8 @@ MODELS = {
     'i10c3_nll_dropout_L': lambda: iXc3_nll_dropout(10, 'large'),
     'i10c3_nll_dropout_M': lambda: iXc3_nll_dropout(10, 'med'),
     'i10c3_nll_dropout_S': lambda: iXc3_nll_dropout(10, 'small'),
+    'i20c3_nll_dropout_XXL': lambda: iXc3_nll_dropout(20, 'xxlarge'),
+    'i20c3_nll_dropout_XL': lambda: iXc3_nll_dropout(20, 'xlarge'),
     'i20c3_nll_dropout_L': lambda: iXc3_nll_dropout(20, 'large'),
     'i20c3_nll_dropout_M': lambda: iXc3_nll_dropout(20, 'med'),
     'i20c3_nll_dropout_S': lambda: iXc3_nll_dropout(20, 'small'),
