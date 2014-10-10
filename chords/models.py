@@ -804,14 +804,16 @@ def iXc3_nll_dropout(n_in, size='large'):
         1: (1, 1, 1),
         4: (3, 2, 1),
         10: (3, 3, 1),
-        20: (5, 5, 1)}[n_in]
+        20: (5, 5, 1),
+        100: (5, 5, 1)}[n_in]
 
     p0, p1, p2 = {
         1: (1, 1, 1),
         4: (1, 1, 1),
         10: (2, 2, 1),
         12: (2, 2, 1),
-        20: (2, 2, 2)}[n_in]
+        20: (2, 2, 2),
+        100: (6, 6, 1),}[n_in]
 
     input_data = optimus.Input(
         name='data',
@@ -4822,6 +4824,7 @@ MODELS = {
     'i20c3_nll_dropout_L': lambda: iXc3_nll_dropout(20, 'large'),
     'i20c3_nll_dropout_M': lambda: iXc3_nll_dropout(20, 'med'),
     'i20c3_nll_dropout_S': lambda: iXc3_nll_dropout(20, 'small'),
+    'i100c3_nll_dropout_L': lambda: iXc3_nll_dropout(100, 'large'),
     'i1c6_nll_dropout_L': lambda: i1c6_nll_dropout('large'),
     'i6x24_c3_nll_dropout_L': lambda: i6x24_c3_nll_dropout('large'),
     'i6x24_c3_nll_dropout_M': lambda: i6x24_c3_nll_dropout('med'),
