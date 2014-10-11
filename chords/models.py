@@ -527,7 +527,7 @@ def i8x1c3T_nll2(size, use_dropout=False):
 
     layer0 = optimus.Conv3D(
         name='layer0',
-        input_shape=(None, 1, n_in, 252),
+        input_shape=(None, 1, 8, 252),
         weight_shape=(k0, None, n0, 13),
         pool_shape=(p0, 3),
         act_type='relu')
