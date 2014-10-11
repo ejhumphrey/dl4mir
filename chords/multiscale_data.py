@@ -7,8 +7,11 @@ import biggie
 import time
 from scipy import signal
 
+import dl4mir.common.util as util
 
-def multiscale_pool(x_in, lags, axis=0, mode='mean'):
+
+def lag_filter(x_in, lags, axis=0, mode='mean'):
+    x_in = x_in.squeeze()
     output = [x_in]
     for l in lags:
         if mode == 'median':
@@ -21,14 +24,12 @@ def multiscale_pool(x_in, lags, axis=0, mode='mean'):
         else:
             raise ValueError("Filter mode `%s` unsupported." % mode)
         output.append(z)
-    # axes = range(1, x_in.ndim + 1)
-    return np.array(output)
-    # return np.transpose(np.array(output), axes)
+    return util.lp_scale(np.array(output), axis=-1)
 
 
 def pool_entity(entity, key, *args, **kwargs):
     values = entity.values()
-    values[key] = multiscale_pool(values.pop(key), *args, **kwargs)
+    values[key] = lag_filter(values.pop(key), *args, **kwargs)
     return biggie.Entity(**values)
 
 
@@ -37,7 +38,7 @@ def main(args):
     futils.create_directory(path.split(args.output_file)[0])
     stash_out = biggie.Stash(args.output_file)
     total_count = len(stash)
-    args = ['chroma', [4, 8, 16, 32, 64], 0, 'mean']
+    args = ['cqt', [2, 4, 8, 16, 32, 64, 128], 0, 'mean']
     for idx, key in enumerate(stash.keys()):
         stash_out.add(key, pool_entity(stash.get(key), *args))
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
