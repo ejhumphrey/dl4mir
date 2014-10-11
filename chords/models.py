@@ -492,7 +492,7 @@ def iXc3_nll2(n_in, size='large', use_dropout=False):
     return trainer, predictor
 
 
-def iXc3T_nll2(n_in, size, use_dropout=False):
+def i8x1c3T_nll2(size, use_dropout=False):
     k0, k1, k2 = dict(
         small=(10, 20, 40),
         med=(12, 24, 48),
@@ -500,15 +500,12 @@ def iXc3T_nll2(n_in, size, use_dropout=False):
         xlarge=(20, 40, 80),
         xxlarge=(24, 48, 96))[size]
 
-    n0, n1, n2 = {
-        8: (3, 3, 4)}[n_in]
-
-    p0, p1, p2 = {
-        8: (1, 1, 1)}[n_in]
+    n0, n1, n2 = (3, 3, 4)
+    p0, p1, p2 = (1, 1, 1)
 
     input_data = optimus.Input(
         name='data',
-        shape=(None, n_in, 1, 252))
+        shape=(None, 8, 1, 252))
 
     chord_idx = optimus.Input(
         name='class_idx',
@@ -1032,5 +1029,5 @@ MODELS = {
     'i20c3_nll_dropout_L': lambda: iXc3_nll(20, 'large', True),
     'i20c3_nll_dropout_M': lambda: iXc3_nll(20, 'med', True),
     'i20c3_nll_dropout_S': lambda: iXc3_nll(20, 'small', True),
-    'i8c3T_nll2_L': lambda: iXc3T_nll2(8, 'large', False),
-    'i8c3T_nll2_dropout_L': lambda: iXc3T_nll2(8, 'large', True)}
+    'i8x1c3T_nll2_L': lambda: i8x1c3T_nll2(8, 'large', False),
+    'i8x1c3T_nll2_dropout_L': lambda: i8x1c3T_nll2(8, 'large', True)}
