@@ -647,6 +647,148 @@ def i8x1c3T_nll2(size, use_dropout=False):
     return trainer, predictor
 
 
+def i8x1a3T_nll2(size, use_dropout=False):
+    k0, k1, k2 = dict(
+        large=(2048, 2048, 40),)[size]
+
+    input_data = optimus.Input(
+        name='data',
+        shape=(None, 8, 1, 252))
+
+    chord_idx = optimus.Input(
+        name='class_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    inputs = [input_data, chord_idx, learning_rate]
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Affine(
+        name='layer0',
+        input_shape=input_data.shape,
+        output_shape=(None, k0),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        output_shape=(None, k1),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        output_shape=(None, k2, 1, 12),
+        act_type='relu')
+
+    dropout_edges = []
+    if use_dropout:
+        layer0.enable_dropout()
+        layer1.enable_dropout()
+        layer2.enable_dropout()
+        inputs += [dropout]
+        dropout_edges += [(dropout, layer0.dropout),
+                          (dropout, layer1.dropout),
+                          (dropout, layer2.dropout)]
+
+    chord_classifier = optimus.Conv3D(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        weight_shape=(13, None, 1, 1),
+        act_type='linear')
+
+    flatten = optimus.Flatten('flatten', 2)
+
+    null_classifier = optimus.Affine(
+        name='null_classifier',
+        input_shape=layer0.output.shape,
+        output_shape=(None, 1),
+        act_type='linear')
+
+    cat = optimus.Concatenate('concatenate', num_inputs=2, axis=1)
+    softmax = optimus.Softmax('softmax')
+    prior = optimus.Multiply("prior", weight_shape=(1, 157), broadcast=[0])
+    prior.weight.value = np.ones([1, 157])
+
+    param_nodes = [layer0, layer1, layer2, null_classifier, chord_classifier]
+    misc_nodes = [flatten, cat, softmax, prior]
+
+    # 1.1 Create Loss
+    likelihoods = optimus.SelectIndex(name='likelihoods')
+
+    log = optimus.Log(name='log')
+    neg = optimus.Multiply(name='gain', weight_shape=None)
+    neg.weight.value = -1.0
+
+    loss = optimus.Mean(name='negative_log_likelihood')
+    loss_nodes = [likelihoods, log, neg, loss]
+    total_loss = optimus.Output(name='total_loss')
+
+    posterior = optimus.Output(name='posterior')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chord_classifier.input),
+        (layer0.output, null_classifier.input),
+        (chord_classifier.output, flatten.input),
+        (flatten.output, cat.input_0),
+        (null_classifier.output, cat.input_1),
+        (cat.output, softmax.input),
+        (softmax.output, prior.input),
+        (prior.output, posterior)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + dropout_edges + [
+            (softmax.output, likelihoods.input),
+            (chord_idx, likelihoods.index),
+            (likelihoods.output, log.input),
+            (log.output, neg.input),
+            (neg.output, loss.input),
+            (loss.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=inputs,
+        nodes=param_nodes + misc_nodes + loss_nodes,
+        connections=trainer_edges.connections,
+        outputs=[total_loss, posterior],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    if use_dropout:
+        layer0.disable_dropout()
+        layer1.disable_dropout()
+        layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[posterior],
+        verbose=True)
+
+    return trainer, predictor
+
+
 def i8c3_pwmse(size='large'):
     k0, k1, k2 = dict(
         small=(8, 16, 20),
