@@ -1172,4 +1172,6 @@ MODELS = {
     'i20c3_nll_dropout_M': lambda: iXc3_nll(20, 'med', True),
     'i20c3_nll_dropout_S': lambda: iXc3_nll(20, 'small', True),
     'i8x1c3T_nll2_L': lambda: i8x1c3T_nll2('large', False),
-    'i8x1c3T_nll2_dropout_L': lambda: i8x1c3T_nll2('large', True)}
+    'i8x1c3T_nll2_dropout_L': lambda: i8x1c3T_nll2('large', True),
+    'i8x1a3T_nll2_dropout_L': lambda: i8x1a3T_nll2('large', True),
+    'i8x1a3T_nll2_L': lambda: i8x1a3T_nll2('large', True)}
