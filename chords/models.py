@@ -677,13 +677,13 @@ def i8x1a3T_nll2(size, use_dropout=False):
         output_shape=(None, k0),
         act_type='relu')
 
-    layer1 = optimus.Conv3D(
+    layer1 = optimus.Affine(
         name='layer1',
         input_shape=layer0.output.shape,
         output_shape=(None, k1),
         act_type='relu')
 
-    layer2 = optimus.Conv3D(
+    layer2 = optimus.Affine(
         name='layer2',
         input_shape=layer1.output.shape,
         output_shape=(None, k2, 1, 12),
