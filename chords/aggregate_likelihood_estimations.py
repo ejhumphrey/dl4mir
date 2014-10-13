@@ -20,7 +20,7 @@ def medfilt_mle(posterior, shape=[41, 1]):
     return mle(signal.medfilt(posterior, shape))
 
 
-def viterbi(posterior, penalty=-25):
+def viterbi(posterior, penalty=-20):
     transmat = np.ones([posterior.shape[1]] * 2)
     return util.viterbi(posterior, transmat, penalty=penalty)
 
@@ -62,12 +62,12 @@ def main(args):
     if not os.path.exists(args.posterior_file):
         print "File does not exist: %s" % args.posterior_file
         return
-    dset = biggie.Stash(args.posterior_file)
+    stash = biggie.Stash(args.posterior_file)
     fx = PRED_FXS.get(args.prediction_fx)
     estimations = dict()
-    for idx, key in enumerate(dset.keys()):
-        estimations[key] = estimate_classes(dset.get(key), fx)
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
+    for idx, key in enumerate(stash.keys()):
+        estimations[key] = estimate_classes(stash.get(key), fx)
+        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
     with open(args.estimation_file, 'w') as fp:
