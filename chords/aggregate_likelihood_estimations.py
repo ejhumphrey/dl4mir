@@ -20,7 +20,8 @@ def medfilt_mle(posterior, shape=[41, 1]):
     return mle(signal.medfilt(posterior, shape))
 
 
-def viterbi(posterior, penalty=-20):
+def viterbi(posterior, penalty):
+    # TODO: this is unnecessary now.
     transmat = np.ones([posterior.shape[1]] * 2)
     return util.viterbi(posterior, transmat, penalty=penalty)
 
@@ -58,16 +59,33 @@ def estimate_classes(entity, prediction_fx, **kwargs):
 PRED_FXS = dict(mle=mle, medfilt_mle=medfilt_mle, viterbi=viterbi)
 
 
+def process_one(stash, key, idx, prediction_fx, **kwargs):
+    estimations = estimate_classes(stash.get(key), prediction_fx, **kwargs)
+    print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
+    return key, estimations
+
+
 def main(args):
     if not os.path.exists(args.posterior_file):
         print "File does not exist: %s" % args.posterior_file
         return
-    stash = biggie.Stash(args.posterior_file)
-    fx = PRED_FXS.get(args.prediction_fx)
+    dset = biggie.Stash(args.posterior_file)
+    pred_fx = args.prediction_fx
+    pred_args = dict()
+    if ':' in pred_fx:
+        pred_fx, extra_args = pred_fx.split(':')
+        for eq in extra_args.split(","):
+            l, r = eq.split("=")
+            pred_args[l] = float(r)
+    fx = PRED_FXS.get(pred_fx)
     estimations = dict()
-    for idx, key in enumerate(stash.keys()):
-        estimations[key] = estimate_classes(stash.get(key), fx)
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
+    for idx, key in enumerate(dset.keys()):
+        estimations[key] = estimate_classes(dset.get(key), fx, **pred_args)
+        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
+
+    futil.create_directory(os.path.split(args.estimation_file)[0])
+    with open(args.estimation_file, 'w') as fp:
+        json.dump(estimations, fp, indent=2)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
     with open(args.estimation_file, 'w') as fp:
