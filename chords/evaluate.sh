@@ -12,6 +12,7 @@ META=${BASEDIR}/metadata
 #   ${DSETS}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
 DSETS=${BASEDIR}/biggie/chord_dsets
 OUTPUTS=${BASEDIR}/outputs
+MODELS=${BASEDIR}/models
 ESTIMATIONS=${BASEDIR}/estimations
 RESULTS=${BASEDIR}/results
 NUM_FOLDS=5
@@ -20,7 +21,7 @@ SPLIT_FILE=${META}/data_splits.json
 
 if [ -z "$3" ]; then
     echo "Usage:"
-    echo "evaluate.sh driver model data_source penalty {fold|all} {aggregate|score|all}"
+    echo "evaluate.sh driver model data_source {fold|all} {aggregate|score|all}"
     echo $'\taggregate - Collects output classes over posteriors'
     echo $'\tscore - Scores flattened predictions'
     echo $'\tall - Do everything, in order'
@@ -32,28 +33,19 @@ MODEL_NAME="$2"
 DATA_SOURCE="$3"
 TRIAL_NAME="${DRIVER}-${MODEL_NAME}-${DATA_SOURCE}"
 
-if [ -z "$4" ]
-then
-    echo "Must provide a penalty value"
-    exit 0 
-else
-    PREDICTION_FX="viterbi"
-    PENALTY_VALUE="$4"
-fi
-
-if [ -z "$5" ];
+if [ -z "$4" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
 else
-    FOLD_IDXS=$5
+    FOLD_IDXS=$4
 fi
 
-if [ -z "$6" ]
+if [ -z "$5" ]
 then
     MODE="all"
 else
-    MODE="$6"
+    MODE="$5"
 fi
 
 
@@ -68,8 +60,8 @@ then
             echo $TRIAL_NAME
             python ${SRC}/chords/aggregate_likelihood_estimations.py \
 ${OUTPUTS}/${TRIAL_NAME}/${idx}/${split}.hdf5 \
-${PREDICTION_FX}:penalty=${PENALTY_VALUE} \
-${ESTIMATIONS}/${TRIAL_NAME}/${idx}/${split}_${PENALTY_VALUE}.json \
+${MODELS}/${TRIAL_NAME}/${idx}/validation_stats.json \
+${ESTIMATIONS}/${TRIAL_NAME}/${idx}/${split}.json \
 
         done
     done
@@ -83,8 +75,8 @@ then
         for split in train valid test
         do
             python ${SRC}/chords/score_estimations.py \
-${ESTIMATIONS}/${TRIAL_NAME}/${idx}/${split}_${PENALTY_VALUE}.json \
-${RESULTS}/${TRIAL_NAME}/${idx}/${split}_${PENALTY_VALUE}.txt
+${ESTIMATIONS}/${TRIAL_NAME}/${idx}/${split}.json \
+${RESULTS}/${TRIAL_NAME}/${idx}/${split}.txt
         done
     done
 fi

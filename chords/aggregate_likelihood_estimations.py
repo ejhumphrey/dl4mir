@@ -70,17 +70,12 @@ def main(args):
         print "File does not exist: %s" % args.posterior_file
         return
     dset = biggie.Stash(args.posterior_file)
-    pred_fx = args.prediction_fx
-    pred_args = dict()
-    if ':' in pred_fx:
-        pred_fx, extra_args = pred_fx.split(':')
-        for eq in extra_args.split(","):
-            l, r = eq.split("=")
-            pred_args[l] = float(r)
-    fx = PRED_FXS.get(pred_fx)
+    stats = json.load(open(args.validation_file))
+    penalty = float(stats['best_config']['penalty'])
+    fx = PRED_FXS.get('viterbi')
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
-        estimations[key] = estimate_classes(dset.get(key), fx, **pred_args)
+        estimations[key] = estimate_classes(dset.get(key), fx, penalty=penalty)
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
@@ -99,9 +94,9 @@ if __name__ == "__main__":
     parser.add_argument("posterior_file",
                         metavar="posterior_file", type=str,
                         help="Path to an optimus file of chord posteriors.")
-    parser.add_argument("prediction_fx",
-                        metavar="prediction_fx", type=str,
-                        help="Prediction function to use during aggregation.")
+    parser.add_argument("validation_file",
+                        metavar="validation_file", type=str,
+                        help="")
     # Outputs
     parser.add_argument("estimation_file",
                         metavar="estimation_file", type=str,
