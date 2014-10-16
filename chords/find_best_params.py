@@ -14,7 +14,7 @@ import dl4mir.chords.aggregate_likelihood_estimations as ALE
 import dl4mir.chords.score_estimations as SE
 import dl4mir.chords.lexicon as lex
 import dl4mir.common.transform_stash as TS
-import dl4mir.chords.util as util
+import dl4mir.common.util as util
 
 
 PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5,
@@ -107,9 +107,10 @@ def select_best(validation_stats):
     smat = stats_to_matrix(validation_stats)
     hmeans = 2.0 / (1.0 / smat[:, :, :2]).sum(axis=-1)
     key_idx = hmeans.argmax() / hmeans.shape[1]
+    pval_idx = hmeans.argmax() % hmeans.shape[1]
     keys = validation_stats.keys()
     keys.sort()
-    return keys[key_idx]
+    return keys[key_idx], PENALTY_VALUES[pval_idx], smat[key_idx, pval_idx]
 
 
 def main(args):
@@ -122,8 +123,13 @@ def main(args):
     param_stats = sweep_param_files(
         param_files[4::10], stash, transform, PENALTY_VALUES,
         vocab, args.stats_file)
-    best_param_file = select_best(param_stats)
-    shutil.copyfile(best_param_file, args.param_file)
+    param_file, penalty, stats = select_best(param_stats)
+    shutil.copyfile(param_file, args.param_file)
+    param_stats['best_config'] = dict(param_file=param_file,
+                                      penalty=penalty,
+                                      stats=stats.tolist())
+    with open(args.stats_file, 'w') as fp:
+        json.dump(param_stats, fp, indent=2)
 
 
 if __name__ == "__main__":
