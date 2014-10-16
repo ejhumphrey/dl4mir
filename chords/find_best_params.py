@@ -41,7 +41,7 @@ def stats_to_matrix(validation_stats):
 
 def sweep_penalty(entity, transform, p_vals):
     """Predict an entity over a set of penalty values."""
-    z = TS.convolve(entity, transform)
+    z = TS.convolve(entity, transform, 'cqt')
     estimations = dict()
     for p in p_vals:
         estimations[p] = ALE.estimate_classes(
@@ -50,10 +50,11 @@ def sweep_penalty(entity, transform, p_vals):
 
 
 def parallel_sweep_penalty(entity, transform, p_vals):
-    z = TS.convolve(entity, transform)
+    z = TS.convolve(entity, transform, 'cqt')
     pool = Pool(processes=NUM_CPUS)
     threads = [pool.apply_async(ALE.estimate_classes,
-                                (biggie.Entity(**z.values()), ),
+                                (biggie.Entity(posterior=z.posterior,
+                                               chord_labels=z.chord_labels), ),
                                 dict(prediction_fx=ALE.viterbi, penalty=p))
                for p in p_vals]
     pool.close()
@@ -112,7 +113,7 @@ def select_best(validation_stats):
 
 
 def main(args):
-    stash = biggie.Stash(args.validation_file, cache=True)
+    stash = biggie.Stash(args.validation_file)
     transform = optimus.load(args.transform_file)
 
     param_files = futils.load_textlist(args.param_textlist)
