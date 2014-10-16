@@ -243,6 +243,8 @@ def viterbi(posterior, transition_matrix=None, prior=None, penalty=0,
     if transition_matrix is None:
         transition_matrix = np.ones([num_states]*2)
 
+    transition_matrix = normalize(transition_matrix, axis=1)
+
     # Apply the off-axis penalty.
     offset = np.ones([num_states]*2, dtype=float)
     offset -= np.eye(num_states, dtype=np.float)
@@ -380,3 +382,12 @@ def boundaries_to_durations(boundaries):
 def find_closest_idx(x, y):
     """Find the closest indexes in `x` to the values in `y`."""
     return np.array([np.abs(x - v).argmin() for v in y])
+
+
+def filter_empty_values(obj):
+    """Filter empty objects from a dictionary."""
+    result = dict()
+    for k in obj:
+        if obj[k]:
+            result[k] = obj[k]
+    return result

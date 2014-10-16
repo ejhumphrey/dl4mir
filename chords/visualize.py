@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.pyplot import figure, show
 import dl4mir.chords.labels as L
 import dl4mir.common.util as util
+import dl4mir.chords.find_best_params as FBP
 
 
 COLORS = [
@@ -111,11 +112,6 @@ def filter_empty_values(obj):
     return result
 
 
-def sort_pvals(pvals):
-    pidx = np.argsort(np.array(pvals, dtype=float))
-    return [pvals[i] for i in pidx[::-1]]
-
-
 def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
                           metric='recall'):
     if ax is None:
@@ -131,7 +127,7 @@ def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
     keys.sort()
 
     if pvals is None:
-        pvals = sort_pvals(stats[keys[0]].keys())
+        pvals = FBP.sort_pvals(stats[keys[0]].keys())
 
     n_iter = [int(k.split('-')[iter_idx]) for k in keys]
 
@@ -159,7 +155,7 @@ def stats_to_matrix(validation_stats):
     keys = stats.keys()
     keys.sort()
 
-    pvals = sort_pvals(stats[keys[0]].keys())
+    pvals = FBP.sort_pvals(stats[keys[0]].keys())
     metrics = stats[keys[0]].values()[0].keys()
     metrics.sort()
     return np.array([[[stats[k][p][m] for m in metrics] for p in pvals]

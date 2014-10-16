@@ -5,24 +5,43 @@ import optimus
 import json
 import biggie
 import time
+import numpy as np
 import os
 
-# import shutil
+import shutil
 
 import dl4mir.chords.aggregate_likelihood_estimations as ALE
 import dl4mir.chords.score_estimations as SE
 import dl4mir.chords.lexicon as lex
-import dl4mir.common.convolve_graph_with_dset as C
+import dl4mir.common.transform_stash as TS
+import dl4mir.chords.util as util
 
 
-PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5, -15.0, -20.0, -25, -30, -40]
-# PENALTY_VALUES = -1.5 - np.arange(10, dtype=float)/5.0
+PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5,
+                  -15.0, -20.0, -25, -30, -40]
 NUM_CPUS = None
+
+
+def sort_pvals(pvals):
+    pidx = np.argsort(np.array(pvals, dtype=float))
+    return [pvals[i] for i in pidx[::-1]]
+
+
+def stats_to_matrix(validation_stats):
+    stats = util.filter_empty_values(validation_stats)
+    keys = stats.keys()
+    keys.sort()
+
+    pvals = sort_pvals(stats[keys[0]].keys())
+    metrics = stats[keys[0]].values()[0].keys()
+    metrics.sort()
+    return np.array([[[stats[k][p][m] for m in metrics] for p in pvals]
+                     for k in keys])
 
 
 def sweep_penalty(entity, transform, p_vals):
     """Predict an entity over a set of penalty values."""
-    z = C.convolve(entity, transform)
+    z = TS.convolve(entity, transform)
     estimations = dict()
     for p in p_vals:
         estimations[p] = ALE.estimate_classes(
@@ -31,7 +50,7 @@ def sweep_penalty(entity, transform, p_vals):
 
 
 def parallel_sweep_penalty(entity, transform, p_vals):
-    z = C.convolve(entity, transform)
+    z = TS.convolve(entity, transform)
     pool = Pool(processes=NUM_CPUS)
     threads = [pool.apply_async(ALE.estimate_classes,
                                 (biggie.Entity(**z.values()), ),
@@ -83,6 +102,15 @@ def sweep_param_files(param_files, stash, transform, p_vals,
     return param_stats
 
 
+def select_best(validation_stats):
+    smat = stats_to_matrix(validation_stats)
+    hmeans = 2.0 / (1.0 / smat[:, :, :2]).sum(axis=-1)
+    key_idx = hmeans.argmax() / hmeans.shape[1]
+    keys = validation_stats.keys()
+    keys.sort()
+    return keys[key_idx]
+
+
 def main(args):
     stash = biggie.Stash(args.validation_file, cache=True)
     transform = optimus.load(args.transform_file)
@@ -93,8 +121,8 @@ def main(args):
     param_stats = sweep_param_files(
         param_files[4::10], stash, transform, PENALTY_VALUES,
         vocab, args.stats_file)
-
-    # shutil.copyfile(best_params, args.param_file)
+    best_param_file = select_best(param_stats)
+    shutil.copyfile(best_param_file, args.param_file)
 
 
 if __name__ == "__main__":
@@ -111,9 +139,9 @@ if __name__ == "__main__":
                         metavar="param_textlist", type=str,
                         help="Path to save the training results.")
     # Outputs
-    # parser.add_argument("param_file",
-    #                     metavar="param_file", type=str,
-    #                     help="Path for renaming best parameters.")
+    parser.add_argument("param_file",
+                        metavar="param_file", type=str,
+                        help="Path for renaming best parameters.")
     parser.add_argument("stats_file",
                         metavar="stats_file", type=str,
                         help="Path for saving performance statistics.")

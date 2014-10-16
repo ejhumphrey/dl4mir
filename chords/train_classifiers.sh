@@ -85,6 +85,7 @@ ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 ${BIGGIE}/${DATA_SOURCE}/${idx}/valid.hdf5 \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
 ${MODELS}/${TRIAL_NAME}/${idx}/validation_stats.json
     done
 fi
