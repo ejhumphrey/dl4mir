@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.stats
+import os
+import shutil
 from itertools import groupby
 
 
@@ -391,3 +393,11 @@ def filter_empty_values(obj):
         if obj[k]:
             result[k] = obj[k]
     return result
+
+
+def copy_filedirs(src, dest):
+    """Safely copy `src` to `dest`, making all necessary directories."""
+    dest_dir = os.path.split(src)[0]
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    shutil.copyfile(src, dest)
