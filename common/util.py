@@ -397,7 +397,7 @@ def filter_empty_values(obj):
 
 def copy_filedirs(src, dest):
     """Safely copy `src` to `dest`, making all necessary directories."""
-    dest_dir = os.path.split(src)[0]
+    dest_dir = os.path.split(dest)[0]
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     shutil.copyfile(src, dest)
