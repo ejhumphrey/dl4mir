@@ -12,17 +12,17 @@ import os
 import dl4mir.chords.aggregate_likelihood_estimations as ALE
 import dl4mir.chords.score_estimations as SE
 import dl4mir.chords.lexicon as lex
-import dl4mir.common.convolve_graph_with_dset as C
+import dl4mir.common.transform_stash as TS
 
 
 PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5, -15.0, -20.0, -25, -30, -40]
 # PENALTY_VALUES = -1.5 - np.arange(10, dtype=float)/5.0
-NUM_CPUS = None
+NUM_CPUS = 12
 
 
 def sweep_penalty(entity, transform, p_vals):
     """Predict an entity over a set of penalty values."""
-    z = C.convolve(entity, transform)
+    z = TS.convolve(entity, transform, 'cqt')
     estimations = dict()
     for p in p_vals:
         estimations[p] = ALE.estimate_classes(
@@ -31,10 +31,11 @@ def sweep_penalty(entity, transform, p_vals):
 
 
 def parallel_sweep_penalty(entity, transform, p_vals):
-    z = C.convolve(entity, transform)
+    z = TS.convolve(entity, transform, 'cqt')
     pool = Pool(processes=NUM_CPUS)
     threads = [pool.apply_async(ALE.estimate_classes,
-                                (biggie.Entity(**z.values()), ),
+                                (biggie.Entity(posterior=z.posterior,
+                                               chord_labels=z.chord_labels), ),
                                 dict(prediction_fx=ALE.viterbi, penalty=p))
                for p in p_vals]
     pool.close()
@@ -84,7 +85,7 @@ def sweep_param_files(param_files, stash, transform, p_vals,
 
 
 def main(args):
-    stash = biggie.Stash(args.validation_file, cache=True)
+    stash = biggie.Stash(args.validation_file)
     transform = optimus.load(args.transform_file)
 
     param_files = futils.load_textlist(args.param_textlist)
