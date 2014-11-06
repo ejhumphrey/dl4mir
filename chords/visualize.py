@@ -2,9 +2,13 @@ import numpy as np
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.pyplot import figure, show
+from matplotlib import gridspec
+
+from scipy.spatial import distance
 import dl4mir.chords.labels as L
 import dl4mir.common.util as util
 import dl4mir.chords.find_best_params as FBP
+
 
 
 COLORS = [
@@ -104,14 +108,6 @@ def draw_posterior(posterior, chord_idx, pred_idx):
     ax.set_ylabel("Chord Index")
 
 
-def filter_empty_values(obj):
-    result = dict()
-    for k in obj:
-        if obj[k]:
-            result[k] = obj[k]
-    return result
-
-
 def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
                           metric='recall'):
     if ax is None:
@@ -148,18 +144,6 @@ def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
     ax.set_ylim(0.25, 0.75)
 
     return ax
-
-
-def stats_to_matrix(validation_stats):
-    stats = filter_empty_values(validation_stats)
-    keys = stats.keys()
-    keys.sort()
-
-    pvals = FBP.sort_pvals(stats[keys[0]].keys())
-    metrics = stats[keys[0]].values()[0].keys()
-    metrics.sort()
-    return np.array([[[stats[k][p][m] for m in metrics] for p in pvals]
-                     for k in keys])
 
 
 def draw_chord_boundaries(entity, ax, ymin, ymax):
@@ -209,6 +193,50 @@ def plot_piano_roll(entity, ax=None):
               aspect='auto', origin='lower')
     return draw_chord_boundaries(entity, ax, ymin=-0.5, ymax=84.5)
 
+
+def plot_chord_regions(index_map, vocab, colorspace=None):
+    if colorspace is None:
+        x = np.linspace(0.5, 0.9, 4)
+        colorspace = [_.flatten()
+                      for _ in np.meshgrid(x, x, x, xindexing='ij')]
+        colorspace = np.array(colorspace).T
+
+    X = np.zeros(list(index_map.shape) + [3], dtype=float)
+    uidx = np.unique(index_map).tolist()
+    if 156 in uidx:
+        uidx.remove(156)
+
+    best_dist = 0.0
+    best_colorspace = None
+    for n in range(50):
+        np.random.shuffle(colorspace)
+        dist_mat = distance.cdist(*([colorspace[:len(uidx)]]*2))
+        if dist_mat.mean() > best_dist:
+            best_dist = dist_mat.mean()
+            best_colorspace = np.array(colorspace[:len(uidx)])
+    colorspace = best_colorspace
+
+    for n, i in enumerate(uidx):
+        X[index_map == i] = colorspace[n]
+    X[index_map == 156] = 0.25, 0.25, 0.25
+
+    fig = figure()
+    ax = fig.gca()
+    ax.imshow(X, aspect='auto', interpolation='nearest')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel("Time")
+
+    fig = figure()
+    legend = fig.gca()
+
+    for n in range(len(uidx)):
+        legend.bar(n, 1.0, color=colorspace[n], width=1.0)
+
+    legend.set_xticks(np.arange(len(uidx)) + 0.5)
+    legend.set_xticklabels(vocab.index_to_label(uidx))
+    legend.set_yticks([])
+    return ax, legend
 
 """
 plt.plot(a_iter, a[0,5,:], 'g');plt.plot(a_iter, a[1,5,:], 'g--')
