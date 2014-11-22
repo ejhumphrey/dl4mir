@@ -7,6 +7,7 @@ import mir_eval
 from dl4mir.chords import labels as L
 import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
+import dl4mir.chords.lexicon as lex
 
 
 def intervals_to_durations(intervals):
@@ -528,19 +529,23 @@ def chroma_stepper(key, stash, index=None):
         count += 1
 
 
-def count_transitions(stash, vocab_dim=157):
+def count_transitions_v157(stash):
     """writeme."""
-    transitions = np.zeros([(vocab_dim / 12) + 1, vocab_dim])
+    vocab = lex.Strict(157)
+    transitions = np.zeros([14, 157])
     for k in stash.keys():
         chord_labels = stash.get(k).chord_labels
-        chord_idx = L.chord_label_to_class_index(chord_labels, vocab_dim)
+        chord_idx = vocab.label_to_index(chord_labels)
         for n in range(len(chord_idx) - 1):
             if chord_idx[n] is None or chord_idx[n + 1] is None:
                 continue
-            c_idx = int(chord_idx[n]) / 12
-            rel_idx = L.relative_chord_index(
-                chord_idx[n], chord_idx[n+1], vocab_dim)
-            transitions[c_idx, rel_idx] += 1
+            from_idx = int(chord_idx[n]) / 12
+            if 156 in chord_idx[n:n+2]:
+                to_idx = chord_idx[n + 1]
+            else:
+                to_idx = L.subtract_mod(chord_idx[n], chord_idx[n + 1], 12)
+
+            transitions[from_idx, to_idx] += 1
 
     trans_mat = []
     for row in transitions[:-1]:
