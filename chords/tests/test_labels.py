@@ -44,5 +44,28 @@ class LabelsTests(unittest.TestCase):
         np.testing.assert_array_equal(res[0], np.array([[0, 2.0], [2.0, 4.0]]))
         self.assertEqual(res[1], ['a', 'b'])
 
+    def test_relative_transpose(self):
+        self.assertEqual(
+            L.relative_transpose("C:maj", "C:maj"),
+            ("C:maj", "C:maj"))
+        self.assertEqual(
+            L.relative_transpose("Db:maj", "C#:maj"),
+            ("C:maj", "C:maj"))
+        self.assertEqual(
+            L.relative_transpose("C:maj", "G:min"),
+            ("C:maj", "G:min"))
+        self.assertEqual(
+            L.relative_transpose("F:maj", "C:maj"),
+            ("C:maj", "G:maj"))
+        self.assertEqual(
+            L.relative_transpose("B:maj", "G#:min"),
+            ("C:maj", "A:min"))
+        self.assertEqual(
+            L.relative_transpose("B:maj", "Ab:min"),
+            ("C:maj", "A:min"))
+        self.assertEqual(
+            L.relative_transpose("C:maj", "G#:min"),
+            ("C:maj", "Ab:min"))
+
 if __name__ == "__main__":
     unittest.main()

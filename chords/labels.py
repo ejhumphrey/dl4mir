@@ -19,8 +19,8 @@ _QINDEX = dict([(v, dict([(tuple(mir_eval.chord.QUALITIES[q]), i)
                           for i, q in enumerate(QUALITIES[v])]))
                 for v in QUALITIES])
 
-NO_CHORD = "N"
-SKIP_CHORD = "X"
+NO_CHORD = mir_eval.chord.NO_CHORD
+SKIP_CHORD = mir_eval.chord.X_CHORD
 
 encode = mir_eval.chord.encode
 split = mir_eval.chord.split
@@ -235,6 +235,15 @@ def load_labeled_intervals(label_file, compress=True):
     return intervals, labels
 
 
+def relative_transpose(ref_chord, obs_chord):
+    ref_root = encode(ref_chord)[0]
+    obs_root = encode(obs_chord)[0]
+    ref_parts = list(split(ref_chord))[1:]
+    obs_parts = list(split(obs_chord))[1:]
+    obs_root = (obs_root - ref_root) % 12
+    return join('C', *ref_parts), join(ROOTS[obs_root], *obs_parts)
+
+
 _AFFINITY_VECTORS = [
     [(0, 1.0)],
     [(12, 1.0)],
@@ -243,11 +252,13 @@ _AFFINITY_VECTORS = [
     [(0, 0.75), (48, 1.0), (88, 0.5)],
     [(0, 0.75), (21, 0.25), (45, 0.5), (60, 1.0)],
     [(12, 0.75), (72, 1.0), (93, 0.25), (153, 0.5)],
-    [(56, 0.25), (75, 0.25), (84, 1.0), (132, 0.75), (135, 0.5), (138, 0.5), (141, 0.5), (144, 0.75)],
+    [(56, 0.25), (75, 0.25), (84, 1.0), (132, 0.75),
+     (135, 0.5), (138, 0.5), (141, 0.5), (144, 0.75)],
     [(96, 1.0), (100, 0.5), (104, 0.5)],
     [(108, 1.0), (125, 0.5)],
     [(115, 0.5), (120, 1.0)],
-    [(84, 0.75), (87, 0.25), (90, 0.25), (93, 0.25), (132, 1.0), (135, 0.75), (138, 0.75), (141, 0.75)],
+    [(84, 0.75), (87, 0.25), (90, 0.25), (93, 0.25),
+     (132, 1.0), (135, 0.75), (138, 0.75), (141, 0.75)],
     [(15, 0.25), (75, 0.75), (84, 0.5), (144, 1.0)]]
 
 
