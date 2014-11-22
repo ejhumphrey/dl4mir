@@ -13,10 +13,12 @@ from dl4mir.common.util import viterbi
 
 
 def compress_samples_to_intervals(labels, time_points):
+    assert len(labels) == len(time_points)
     intervals, new_labels = [], []
     idx = 0
     for label, count in run_length_encode(labels):
-        start, end = time_points[idx], time_points[idx + count]
+        start = time_points[idx]
+        end = time_points[min([idx + count, len(labels) - 1])]
         idx += count
         intervals += [(start, end)]
         new_labels += [label]
