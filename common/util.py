@@ -240,12 +240,12 @@ def viterbi(posterior, transition_matrix=None, prior=None, penalty=0,
     # Define the scaling function
     scaler = normalize if scaled else lambda x: x
     # Normalize the posterior.
-    posterior = normalize(posterior, axis=1)
+    # posterior = normalize(posterior, axis=1)
 
     if transition_matrix is None:
         transition_matrix = np.ones([num_states]*2)
 
-    transition_matrix = normalize(transition_matrix, axis=1)
+    # transition_matrix = normalize(transition_matrix, axis=1)
 
     # Apply the off-axis penalty.
     offset = np.ones([num_states]*2, dtype=float)
