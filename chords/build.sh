@@ -1,34 +1,42 @@
 #!/bin/bash
-BASEDIR=/Volumes/megatron/dl4mir/chord_estimation/chords_synth
+BASEDIR=/Volumes/megatron/dl4mir/chord_estimation/rock_corpus
 SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Flat directory of all audio
 AUDIO=${BASEDIR}/audio
 CQTS=${BASEDIR}/features/cqts
-LCNCQTS=${BASEDIR}/features/lcn_cqts
+LCNCQTS=${BASEDIR}/features/l2n_cqts
 LABS=${BASEDIR}/labs
 META=${BASEDIR}/metadata
 # Directory of biggie Stashes, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-STASH=${BASEDIR}/biggie/chords
-WSTASH=${BASEDIR}/biggie/chords_wrap
+STASH=${BASEDIR}/biggie/chords_l2n
+WSTASH=${STASH}_wrap
 
-AUDIO_EXT="mp3"
+AUDIO_EXT="wav"
 AUDIO_FILES=${AUDIO}/filelist.txt
 CQT_FILES=${CQTS}/filelist.txt
 CQT_PARAMS=${META}/cqt_params.json
 
+# LCN params
 LCNCQT_FILES=${LCNCQTS}/filelist.txt
 LCN_DIM0=21
 LCN_DIM1=11
 
+# Split params
 NUM_FOLDS=5
 VALID_RATIO=0.15
 SPLIT_FILE=${META}/data_splits.json
 REFERENCE_FILE=${META}/reference_chords.json
 
+# Wrapping params
 LENGTH=40
 STRIDE=36
+
+# Beat-sync params
+BEAT_TIMES=${META}/beat_times.json
+SUBDIVIDE=2
+BS_STASH=${STASH}_bs${SUBDIVIDE}_med
 
 if [ -z "$1" ]; then
     echo "Usage:"
@@ -110,12 +118,27 @@ ${LCNCQTS} \
 ${LCNCQT_FILES}
 
     echo "Building the Biggie files"
-    python ${SRC}/chords/file_importer.py \
+    python ${SRC}/chords/pitch_file_importer.py \
 ${SPLIT_FILE} \
 ${LCNCQTS} \
 ${LABS} \
 ${STASH}
 fi
+
+
+if [ "$1" == "stats" ] || [ "$1" == "all" ]; then
+    echo "Computing dataset statistics..."
+    for ((idx=0; idx<NUM_FOLDS; idx++))
+    do
+        for split in valid test train
+        do
+            python ${SRC}/chords/compute_dataset_stats.py \
+${STASH}/${idx}/${split}.hdf5 \
+${STASH}/${idx}/${split}.json
+        done
+    done
+fi
+
 
 # -- Wrap CQT octaves Files --
 if [ "$1" == "wrap" ] || [ "$1" == "all" ]; then
@@ -132,6 +155,38 @@ ${STASH}/${idx}/${split}.hdf5 \
 ${LENGTH} \
 ${STRIDE} \
 ${WSTASH}/${idx}/${split}.hdf5
+        done
+    done
+fi
+
+# -- Beat-sync Biggie files --
+if [ "$1" == "beatsync" ] || [ "$1" == "all" ]; then
+    if [ -d ${BS_STASH} ]; then
+        rm -r ${BS_STASH}
+    fi
+    echo "Beat-synchronizing the CQTs..."
+    for ((idx=0; idx<NUM_FOLDS; idx++))
+    do
+        for split in valid test train
+        do
+            python ${SRC}/chords/beat_sync_entities.py \
+${STASH}/${idx}/${split}.hdf5 \
+${BEAT_TIMES} \
+${BS_STASH}/${idx}/${split}.hdf5 \
+--subdivide=${SUBDIVIDE}
+        done
+    done
+fi
+
+if [ "$1" == "beatsync-stats" ] || [ "$1" == "all" ]; then
+    echo "Computing dataset statistics..."
+    for ((idx=0; idx<NUM_FOLDS; idx++))
+    do
+        for split in valid test train
+        do
+            python ${SRC}/chords/compute_dataset_stats.py \
+${BS_STASH}/${idx}/${split}.hdf5 \
+${BS_STASH}/${idx}/${split}.json
         done
     done
 fi
