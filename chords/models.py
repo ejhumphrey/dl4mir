@@ -271,6 +271,7 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
     loss_nodes = [likelihoods, log, neg, loss]
     total_loss = optimus.Output(name='total_loss')
 
+    features = optimus.Output(name='features')
     posterior = optimus.Output(name='posterior')
 
     # 2. Define Edges
@@ -280,6 +281,7 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
         (layer1.output, layer2.input),
         (layer2.output, chord_classifier.input),
         (layer2.output, null_classifier.input),
+        (layer2.output, features),
         (chord_classifier.output, flatten.input),
         (flatten.output, cat.input_0),
         (null_classifier.output, cat.input_1),
@@ -307,7 +309,7 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
         inputs=inputs,
         nodes=param_nodes + misc_nodes + loss_nodes,
         connections=trainer_edges.connections,
-        outputs=[total_loss, posterior],
+        outputs=[total_loss, posterior, features],
         loss=total_loss,
         updates=update_manager.connections,
         verbose=True)
@@ -322,7 +324,7 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
         inputs=[input_data],
         nodes=param_nodes + misc_nodes,
         connections=optimus.ConnectionManager(base_edges).connections,
-        outputs=[posterior],
+        outputs=[posterior, features],
         verbose=True)
 
     return trainer, predictor
