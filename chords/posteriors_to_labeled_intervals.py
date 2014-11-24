@@ -46,6 +46,7 @@ def main(args):
         with open(output_file, 'w') as fp:
             json.dump(dict(intervals=intervals, labels=labels), fp, indent=2)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
 
