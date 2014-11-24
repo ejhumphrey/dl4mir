@@ -7,11 +7,12 @@ import marl.fileutils as futil
 import glob
 from pyechonest import track as T
 from os import path
+import socket
 import time
 
 
 class Throttle(object):
-    def __init__(self, delay=5.0):
+    def __init__(self, delay=5.5):
         self.last_check = time.time()
         self.delay = delay
 
@@ -89,8 +90,9 @@ def fetch_data(filepaths, result=None, overwrite=False, checkpoint_file=''):
                 filepaths.add(fpath)
             elif err.http_status >= 500:
                 print "Server error; moving on, dropping key: %s" % key
-            else:
-                print "Caught unexpected error? %s" % err
+        except socket.error as err:
+            print "Socket Error %s" % err
+            filepaths.add(fpath)
             throttle.wait(10)
     return result
 
