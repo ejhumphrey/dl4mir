@@ -7,7 +7,7 @@ import glob
 import mir_eval
 import os
 import marl.fileutils as futil
-from dl4mir.chords import labels
+import dl4mir.chords.labels as L
 import time
 
 TMC_EXT = '.mp3.txt'
@@ -33,20 +33,19 @@ def align_estimation_to_reference(est_file, ref_file, num_classes=157):
     ref_intervals, ref_labels = mir_eval.io.load_labeled_intervals(ref_file)
     t_min = ref_intervals.min()
     t_max = ref_intervals.max()
-    ref_intervals, ref_labels = mir_eval.util.filter_labeled_intervals(
-        *mir_eval.util.adjust_intervals(
-            ref_intervals, ref_labels, t_min, t_max, "N", "N"))
+    ref_intervals, ref_labels = mir_eval.util.adjust_intervals(
+        ref_intervals, ref_labels, t_min, t_max, L.NO_CHORD, L.NO_CHORD)
 
-    est_intervals, est_labels = mir_eval.util.filter_labeled_intervals(
-        *mir_eval.util.adjust_intervals(
-            est_intervals, est_labels, t_min, t_max, "N", "N"))
+    est_intervals, est_labels = mir_eval.util.adjust_intervals(
+        est_intervals, est_labels, t_min, t_max, L.NO_CHORD, L.NO_CHORD)
 
     # Merge the time-intervals
     intervals, ref_labels, est_labels = mir_eval.util.merge_labeled_intervals(
         ref_intervals, ref_labels, est_intervals, est_labels)
 
-    indexes = [labels.chord_label_to_class_index(l, num_classes)
+    indexes = [L.chord_label_to_class_index(l, num_classes)
                for l in est_labels]
+
     for interval, label, idx in zip(intervals, ref_labels, indexes):
         if idx is None:
             raise ValueError(
