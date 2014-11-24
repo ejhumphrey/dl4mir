@@ -236,6 +236,22 @@ def load_labeled_intervals(label_file, compress=True):
 
 
 def relative_transpose(ref_chord, obs_chord):
+    """Rotate a pair of chord names to the equivalent relationship in C.
+
+    Parameters
+    ----------
+    ref_chord : str
+        Reference chord name; will return C:*.
+    obs_chord : str
+        Observed chord name.
+
+    Returns
+    -------
+    new_ref : str
+        Equivalent reference chord in C.
+    new_obs : str
+        Equivalent relationship to the reference.
+    """
     ref_root = encode(ref_chord)[0]
     obs_root = encode(obs_chord)[0]
     ref_parts = list(split(ref_chord))[1:]
