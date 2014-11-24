@@ -27,7 +27,7 @@ def entity_to_mdict(entity, labseg):
         time_points=time_points[:L].reshape(L, 1),
         chroma=chroma_obj,
         labseg=labseg[:L],
-        endT=float(entity.endT))
+        endT=float(entity.time_points[-1] + entity.durations[-1]))
 
 
 def main(args):

@@ -14,7 +14,7 @@ from dl4mir.chords import labels
 
 def generate_templates(vocab=157):
     chord_labels = []
-    for qual in labels.QUALITIES[vocab]:
+    for qual in labels.QUALITIES[vocab][:-1]:
         for root in labels.ROOTS:
             chord_labels.append("%s:%s" % (root, qual))
     chord_labels.append("N")
