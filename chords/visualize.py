@@ -1,13 +1,13 @@
 import numpy as np
 
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.pyplot import figure, show
+from matplotlib.pyplot import figure, subplot
 from matplotlib import gridspec
 
 from scipy.spatial import distance
 import dl4mir.chords.labels as L
 import dl4mir.common.util as util
-import dl4mir.chords.find_best_params as FBP
+# import dl4mir.chords.find_best_params as FBP
 
 
 
@@ -196,15 +196,16 @@ def plot_piano_roll(entity, ax=None):
 
 def plot_chord_regions(index_map, vocab, colorspace=None):
     if colorspace is None:
-        x = np.linspace(0.5, 0.9, 4)
+        x = np.linspace(0.5, 0.9, 5)
         colorspace = [_.flatten()
                       for _ in np.meshgrid(x, x, x, xindexing='ij')]
         colorspace = np.array(colorspace).T
 
     X = np.zeros(list(index_map.shape) + [3], dtype=float)
     uidx = np.unique(index_map).tolist()
-    if 156 in uidx:
-        uidx.remove(156)
+    for holdout in 156, None:
+        if holdout in uidx:
+            uidx.remove(holdout)
 
     best_dist = 0.0
     best_colorspace = None
@@ -219,22 +220,23 @@ def plot_chord_regions(index_map, vocab, colorspace=None):
     for n, i in enumerate(uidx):
         X[index_map == i] = colorspace[n]
     X[index_map == 156] = 0.25, 0.25, 0.25
+    X[np.equal(index_map, None)] = 1.0, 1.0, 1.0
 
-    fig = figure()
-    ax = fig.gca()
+    gs = gridspec.GridSpec(2, 1, height_ratios=[4, 1])
+
+    ax = subplot(gs[0])
     ax.imshow(X, aspect='auto', interpolation='nearest')
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlabel("Time")
 
-    fig = figure()
-    legend = fig.gca()
-
+    legend = subplot(gs[1])
     for n in range(len(uidx)):
         legend.bar(n, 1.0, color=colorspace[n], width=1.0)
 
     legend.set_xticks(np.arange(len(uidx)) + 0.5)
     legend.set_xticklabels(vocab.index_to_label(uidx))
+    legend.set_xlim(0, len(uidx))
     legend.set_yticks([])
     return ax, legend
 
@@ -246,3 +248,21 @@ plt.plot(e_iter, e[0,0,:], 'm');plt.plot(e_iter, e[1,0,:], 'm--')
 plt.plot(f_iter, f[0,-3,:], 'y');plt.plot(f_iter, f[1,-3,:], 'y--')
 
 """
+
+
+def cqt_compare(a, b, fig=None, cmap='jet'):
+    if fig is None:
+        fig = figure()
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+    for ax, x in zip([ax1, ax2], [a, b]):
+        ax.imshow(x.T, interpolation='nearest', aspect='auto', origin='lower',
+                  cmap=cmap)
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+        ax.set_yticks([])
+        ax.set_yticklabels([])
+        ax.set_ylabel("Frequency")
+        ax.set_xlabel("Time")
+
+
