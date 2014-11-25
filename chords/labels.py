@@ -23,6 +23,7 @@ NO_CHORD = mir_eval.chord.NO_CHORD
 SKIP_CHORD = mir_eval.chord.X_CHORD
 
 encode = mir_eval.chord.encode
+encode_many = mir_eval.chord.encode_many
 split = mir_eval.chord.split
 join = mir_eval.chord.join
 pitch_class_to_semitone = mir_eval.chord.pitch_class_to_semitone
@@ -235,29 +236,45 @@ def load_labeled_intervals(label_file, compress=True):
     return intervals, labels
 
 
-def relative_transpose(ref_chord, obs_chord):
-    """Rotate a pair of chord names to the equivalent relationship in C.
+def relative_transpose(reference, relative):
+    """Rotate a pair of chord names to the equivalent relationships in C.
 
     Parameters
     ----------
-    ref_chord : str
-        Reference chord name; will return C:*.
-    obs_chord : str
-        Observed chord name.
+    reference : str or list
+        Reference chord names; will return {'C:*', 'N', 'X'}.
+    relative : str or list
+        Relative chord names.
 
     Returns
     -------
-    new_ref : str
-        Equivalent reference chord in C.
-    new_obs : str
-        Equivalent relationship to the reference.
+    new_references : str
+        Equivalent reference chords in C.
+    new_relatives : str
+        Equivalent relationship to the references.
     """
-    ref_root = encode(ref_chord)[0]
-    obs_root = encode(obs_chord)[0]
-    ref_parts = list(split(ref_chord))[1:]
-    obs_parts = list(split(obs_chord))[1:]
-    obs_root = (obs_root - ref_root) % 12
-    return join('C', *ref_parts), join(ROOTS[obs_root], *obs_parts)
+    singleton = False
+    if not np.shape(reference) and not np.shape(relative):
+        reference = [str(reference)]
+        relative = [str(relative)]
+        singleton = True
+    elif np.shape(reference) != np.shape(relative):
+        raise ValueError("Inputs must have same shape")
+
+    ref_roots = encode_many(reference)[0]
+    rel_roots = encode_many(relative)[0]
+    new_roots = (rel_roots - ref_roots) % 12
+
+    new_refs, new_rels = list(), list()
+    for ref, rel, root in zip(reference, relative, new_roots):
+        if not ref in [NO_CHORD, SKIP_CHORD]:
+            ref = join('C', *list(split(ref)[1:]))
+        if not rel in [NO_CHORD, SKIP_CHORD]:
+            rel = join(ROOTS[root], *list(split(rel)[1:]))
+        new_refs.append(ref)
+        new_rels.append(rel)
+
+    return (new_refs[0], new_rels[0]) if singleton else (new_refs, new_rels)
 
 
 _AFFINITY_VECTORS = [

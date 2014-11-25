@@ -66,6 +66,10 @@ class LabelsTests(unittest.TestCase):
         self.assertEqual(
             L.relative_transpose("C:maj", "G#:min"),
             ("C:maj", "Ab:min"))
+        self.assertEqual(
+            L.relative_transpose(
+                ["C:maj", "G:maj"], ["G#:min", "G#:min"]),
+            (["C:maj", "C:maj"], ["Ab:min", "C#:min"]))
 
 if __name__ == "__main__":
     unittest.main()
