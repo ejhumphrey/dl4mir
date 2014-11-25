@@ -117,24 +117,27 @@ COMPARISONS = dict(
     v157_strict=v157_strict)
 
 
-class Scores(object):
+class Evaluator(object):
 
-    CORRECT = 'correct'
-    ERRORS = 'errors'
+    MATCH = 'match'
+    ERROR = 'error'
     TOTAL = 'total'
     LABELS = 'labels'
-    COUNTS = 'counts'
+    WEIGHTS = 'weights'
 
-    def __init__(self):
-        self.results = dict()
-        self.confusions = dict()
+    def __init__(self, metric):
+        self.correct_weight = 0.0
+        self.total_weight = 0.0
+        self.assignments = dict()
+        self.metric = metric
+        self.fx = COMPARISONS[metric]
         self.reset()
 
     def reset(self):
         """Clear out statistic accumulators."""
-        for metric in COMPARISONS:
-            self.results[metric] = dict(correct=0.0, total=0.0)
-            self.confusions[metric] = dict()
+        self.correct_weight *= 0.0
+        self.total_weight *= 0.0
+        self.assignments = dict()
 
     def accumulate(self, ref_labels, est_labels, weights=None):
         """Add a set of results to the score accumulator.
@@ -153,59 +156,48 @@ class Scores(object):
 
         assert len(ref_labels) == len(est_labels) == len(weights)
 
-        for metric, fx in COMPARISONS.items():
-            scores = fx(ref_labels, est_labels)
-            total_weight = ((scores >= 0.0) * weights).sum()
-            self.results[metric][Scores.TOTAL] = total_weight
-            for ref, est, v, w in zip(ref_labels, est_labels, scores, weights):
-                # Drop negatives
-                if v < 0:
-                    continue
+        scores = self.fx(ref_labels, est_labels)
+        self.total_weight = ((scores >= 0.0) * weights).sum()
+        for ref, est, s, w in zip(ref_labels, est_labels, scores, weights):
+            # Drop negatives
+            if s < 0:
+                continue
 
-                # Sanitize names for consistency
-                ref = L.join(*L.split(ref))
-                est = L.join(*L.split(est))
+            # Sanitize names for consistency
+            ref = L.join(*L.split(ref))
+            est = L.join(*L.split(est))
 
-                b = Scores.CORRECT if v else Scores.ERRORS
-                if not ref in self.confusions[metric]:
-                    self.confusions[metric][ref] = {Scores.CORRECT: dict(),
-                                                    Scores.ERRORS: dict()}
-                if not est in self.confusions[metric][ref][b]:
-                    self.confusions[metric][ref][b][est] = 0.0
-                self.confusions[metric][ref][b][est] += w
+            # Tally overall accuracy
+            self.correct_weight += w * float(s)
 
-                self.results[metric][Scores.CORRECT] += w * float(v)
-                self.results[metric][Scores.TOTAL] += w * float(v)
+            b = Evaluator.MATCH if s else Evaluator.ERROR
+            if not ref in self.assignments:
+                self.assignments[ref] = {Evaluator.MATCH: dict(),
+                                         Evaluator.ERROR: dict()}
+            if not est in self.assignments[ref][b]:
+                self.assignments[ref][b][est] = 0.0
+            self.assignments[ref][b][est] += w
 
-    def compute_score(self):
-        metrics = self.results.keys()
-        metrics.sort()
-        totals = dict()
-        for metric in metrics:
-            totals[metric] = self.results[metric][Scores.CORRECT]
-            totals[metric] /= float(self.results[metric][Scores.TOTAL])
-        return totals
+    def score(self):
+        return self.correct_weight / float(self.total_weight)
 
-    def compute_confusions(self, top_k=5, normalize=True):
-        metrics = self.confusions.keys()
-        metrics.sort()
+    def confusions(self, top_k=5, normalize=True):
         confusions = dict()
-        for metric in metrics:
-            confusions[metric] = dict()
-            for act_label, result in self.confusions[metric].items():
-                confs = dict()
-                total = np.sum([np.sum(_.values()) for _ in result.values()])
-                for k in Scores.CORRECT, Scores.ERRORS:
-                    confs[k] = {Scores.LABELS: list(), Scores.COUNTS: list()}
-                    labels = result[k].keys()
-                    counts = np.array([result[k][l] for l in labels])
-                    sorted_idx = np.argsort(counts)[::-1]
-                    for idx in sorted_idx[:top_k]:
-                        confs[k][Scores.LABELS].append(labels[idx])
-                        confs[k][Scores.COUNTS].append(counts[idx])
-                        if normalize:
-                            confs[k][Scores.COUNTS][-1] /= total
+        for ref_label, estimations in self.assignments.items():
+            confs = dict()
+            total = np.sum([np.sum(_.values()) for _ in estimations.values()])
+            for k in Evaluator.MATCH, Evaluator.ERROR:
+                confs[k] = {Evaluator.LABELS: list(),
+                            Evaluator.WEIGHTS: list()}
+                labels = estimations[k].keys()
+                counts = np.array([estimations[k][l] for l in labels])
+                sorted_idx = np.argsort(counts)[::-1]
+                for idx in sorted_idx[:top_k]:
+                    confs[k][Evaluator.LABELS].append(labels[idx])
+                    confs[k][Evaluator.WEIGHTS].append(counts[idx])
+                    if normalize:
+                        confs[k][Evaluator.WEIGHTS][-1] /= total
 
-                confusions[metric][act_label] = confs
+            confusions[ref_label] = confs
 
         return confusions
