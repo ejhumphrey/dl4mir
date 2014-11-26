@@ -1,25 +1,24 @@
-import pyjams
+"""Evaluation framework for chord estimation."""
+
 import mir_eval
 import dl4mir.chords.labels as L
 import numpy as np
 
 
-def align_intervals(ref_intervals, ref_labels, est_intervals, est_labels,
-                    transpose=False):
-    """
+def align_labeled_intervals(ref_intervals, ref_labels,
+                            est_intervals, est_labels):
+    """Align two sets of labeled intervals.
 
     Parameters
     ----------
-    est_intervals : np.ndarray, shape=(n, 2)
-        Estimated start and end times.
-    est_labels : list, shape=(n,)
-        Estimated labels.
     ref_intervals : np.ndarray, shape=(n, 2)
         Reference start and end times.
     ref_labels : list, shape=(n,)
         Reference labels.
-    transpose : bool, default=False
-        Transpose all chord pairs to the equivalent relationship in C.
+    est_intervals : np.ndarray, shape=(n, 2)
+        Estimated start and end times.
+    est_labels : list, shape=(n,)
+        Estimated labels.
 
     Returns
     -------
@@ -42,6 +41,36 @@ def align_intervals(ref_intervals, ref_labels, est_intervals, est_labels,
     intervals, ref_labels, est_labels = mir_eval.util.merge_labeled_intervals(
         ref_intervals, ref_labels, est_intervals, est_labels)
     durations = mir_eval.util.intervals_to_durations(intervals)
+    return durations, ref_labels, est_labels
+
+
+def align_chord_annotations(ref_annot, est_annot, transpose=False):
+    """Align two JAMS chord range annotations.
+
+    Parameters
+    ----------
+    ref_annot : pyjams.range_annotation
+        Range Annotation to use as a chord reference.
+    est_annot : pyjams.range_annotation
+        Range Annotation to use as a chord estimation.
+    transpose : bool, default=False
+        Transpose all chord pairs to the equivalent relationship in C.
+
+    Returns
+    -------
+    durations : np.ndarray, shape=(m, 2)
+        Time durations (weights) of each aligned interval.
+    ref_labels : list, shape=(m,)
+        Reference labels.
+    est_labels : list, shape=(m,)
+        Estimated labels.
+    """
+    durations, ref_labels, est_labels = align_labeled_intervals(
+        ref_intervals=ref_annot.intervals,
+        ref_labels=ref_annot.labels.value,
+        est_intervals=est_annot.intervals,
+        est_labels=est_annot.labels.value)
+
     if transpose:
         ref_labels, est_labels = L.relative_transpose(ref_labels, est_labels)
 
@@ -125,12 +154,13 @@ class Evaluator(object):
     LABELS = 'labels'
     WEIGHTS = 'weights'
 
-    def __init__(self, metric):
+    def __init__(self, metric, transpose=True):
         self.correct_weight = 0.0
         self.total_weight = 0.0
         self.assignments = dict()
         self.metric = metric
         self.fx = COMPARISONS[metric]
+        self.transpose = transpose
         self.reset()
 
     def reset(self):
@@ -139,8 +169,8 @@ class Evaluator(object):
         self.total_weight *= 0.0
         self.assignments = dict()
 
-    def accumulate(self, ref_labels, est_labels, weights=None):
-        """Add a set of results to the score accumulator.
+    def tally(self, ref_annot, est_annot):
+        """Tally a pair of chord annotations to the running scores.
 
         Parameters
         ----------
@@ -151,6 +181,9 @@ class Evaluator(object):
         weights : array_like, shape(n,); or None
             Relative contribution of each chord pair.
         """
+        weights, ref_labels, est_labels = align_chord_annotations(
+            ref_annot, est_annot, transpose=self.transpose)
+
         if weights is None:
             weights = np.ones(len(ref_labels), dtype=float)
 
