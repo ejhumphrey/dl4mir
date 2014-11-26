@@ -387,7 +387,10 @@ def find_closest_idx(x, y):
 
 
 def filter_empty_values(obj):
-    """Filter empty objects from a dictionary."""
+    """Filter empty objects from a dictionary.
+
+    TODO(ejhumphrey): deprecated, no? Isn't this what filter(None, iter) does?
+    """
     result = dict()
     for k in obj:
         if obj[k]:
@@ -401,3 +404,52 @@ def copy_filedirs(src, dest):
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     shutil.copyfile(src, dest)
+
+
+def equals_value(arr, value):
+    """Elementwise equals between a 1-d array of objects and a single value.
+
+    Parameters
+    ----------
+    arr : array_like, shape=(n,)
+        Set of values / objects to test for equivalence.
+    value : obj
+        Object to test against each element of the input iterable.
+
+    Returns
+    -------
+    out : {ndarray, bool}
+        Output array of bools.
+    """
+    return np.array([_ == value for _ in arr], dtype=bool)
+
+
+def join_endata(enmfp_data, track_data):
+    """Join the id-namespaces of different fetches of EchoNest data.
+
+    Parameters
+    ----------
+    enmfp_data : dict
+        Set of successful results from EchoNest Musical Fingerprint queries.
+    track_data : dict
+        Set of results from EchoNest track queries.
+
+    Returns
+    -------
+    result : dict
+        Merged set of tracks; preference is given to song IDs
+    """
+    result = dict()
+    for key in track_data:
+        if key in enmfp_data:
+            data = enmfp_data[key].copy()
+        else:
+            data = track_data[key].copy()
+        uid = data.pop('id')
+        data['local_key'] = key
+        if not uid in result:
+            result[uid] = list()
+        result[uid].append(data)
+    return result
+
+    return result
