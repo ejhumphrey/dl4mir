@@ -104,6 +104,27 @@ def sweep_param_files(param_files, stash, transform, p_vals,
 
 
 def select_best(validation_stats):
+    """Given a stats dictionary, return the best configuration.
+
+    Note: This currently finds the optimal trade-off between overall and
+    quality-wise averaged f-1 scores.
+
+    Parameters
+    ----------
+    validation_stats : dict
+        Dictionary of stats, keyed by parameter archive filepath and produced
+        by sweep_param_files.
+
+    Returns
+    -------
+    param_file : str
+        Path of the `best` parameter combination.
+    penalty : float
+        Best self-transition penalty found.
+    stats : ndarray, shape=(6,)
+        Vector of statistics, corresponding to overall and weighted fpr-scores,
+        respectively.
+    """
     smat = stats_to_matrix(validation_stats)
     hmeans = 2.0 / (1.0 / smat[:, :, :2]).sum(axis=-1)
     key_idx = hmeans.argmax() / hmeans.shape[1]
@@ -122,13 +143,13 @@ def main(args):
     vocab = lex.Strict(157)
     param_stats = sweep_param_files(
         param_files[4::10], stash, transform, PENALTY_VALUES,
-        vocab, args.stats_file)
+        vocab, args.validation_stats)
     param_file, penalty, stats = select_best(param_stats)
     shutil.copyfile(param_file, args.param_file)
     param_stats['best_config'] = dict(param_file=param_file,
                                       penalty=penalty,
                                       stats=stats.tolist())
-    with open(args.stats_file, 'w') as fp:
+    with open(args.validation_stats, 'w') as fp:
         json.dump(param_stats, fp, indent=2)
 
 
@@ -149,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument("param_file",
                         metavar="param_file", type=str,
                         help="Path for renaming best parameters.")
-    parser.add_argument("stats_file",
-                        metavar="stats_file", type=str,
+    parser.add_argument("validation_stats",
+                        metavar="validation_stats", type=str,
                         help="Path for saving performance statistics.")
     main(parser.parse_args())
