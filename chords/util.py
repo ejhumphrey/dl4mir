@@ -56,3 +56,24 @@ def posterior_to_labeled_intervals(entity, penalty, vocab, **viterbi_args):
     y_idx = viterbi(entity.posterior, penalty=penalty, **viterbi_args)
     labels = vocab.index_to_label(y_idx)
     return compress_samples_to_intervals(labels, entity.time_points)
+
+
+def join_params(model, regularization, fold_idx, split, delim='/'):
+    """Join model parameters into a single string."""
+    return delim.join([str(_) for _ in model, regularization, fold_idx, split])
+
+
+def split_params(name, delim='/'):
+    """Split a formatted model name into its parts.
+
+    Parameters
+    ----------
+    name : str
+        A properly formatted model name.
+
+    Returns
+    -------
+    model, regularization, fold_idx, split : str
+        Parts of the configuration name.
+    """
+    return name.split(delim)[-4:]
