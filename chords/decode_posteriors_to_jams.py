@@ -42,7 +42,8 @@ def main(args):
     results = pool.map(fx, arg_gen(stash, keys, penalty, vocab))
     pool.close()
     pool.join()
-
+    config_parts = cutil.split_params(os.path.splitext(args.posterior_file)[0])
+    model_name = cutil.join_params(*config_parts, delim='.')
     for key, res in zip(keys, results):
         intervals, labels = res
         output_file = os.path.join(output_dir, "%s.jams" % key)
@@ -55,6 +56,8 @@ def main(args):
             from_file=args.posterior_file,
             timestamp=time.asctime(),
             **stats['best_config'])
+
+        annot.sandbox.key = "machine.{name}".format(name=model_name)
         pyjams.save(jam, output_file)
 
 
