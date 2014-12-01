@@ -1,8 +1,10 @@
 """Evaluation framework for chord estimation."""
-
+import re
 import mir_eval
 import dl4mir.chords.labels as L
 import numpy as np
+import marl.fileutils as futil
+import pyjams
 
 
 def align_labeled_intervals(ref_intervals, ref_labels,
@@ -119,8 +121,10 @@ def v157_strict(reference_labels, estimated_labels):
     valid_semitones = np.array([mir_eval.chord.QUALITIES[name]
                                 for name in valid_qualities])
 
-    ref_roots, ref_semitones = L.encode_many(reference_labels, False)[:2]
-    est_roots, est_semitones = L.encode_many(estimated_labels, False)[:2]
+    (ref_roots, ref_semitones,
+        ref_basses) = L.encode_many(reference_labels, False)
+    (est_roots, est_semitones,
+        est_basses) = L.encode_many(estimated_labels, False)
 
     eq_root = ref_roots == est_roots
     eq_semitones = np.all(np.equal(ref_semitones, est_semitones), axis=1)
@@ -132,6 +136,7 @@ def v157_strict(reference_labels, estimated_labels):
     # Drop if NOR
     comparison_scores[np.sum(is_valid, axis=0) == 0] = -1
     comparison_scores[np.invert(valid_refs)] = -1
+    comparison_scores[np.not_equal(ref_basses, ref_roots)] = -1
     return comparison_scores
 
 
@@ -190,7 +195,7 @@ class Evaluator(object):
         assert len(ref_labels) == len(est_labels) == len(weights)
 
         scores = self.fx(ref_labels, est_labels)
-        self.total_weight = ((scores >= 0.0) * weights).sum()
+        self.total_weight += ((scores >= 0.0) * weights).sum()
         for ref, est, s, w in zip(ref_labels, est_labels, scores, weights):
             # Drop negatives
             if s < 0:
@@ -211,8 +216,15 @@ class Evaluator(object):
                 self.assignments[ref][b][est] = 0.0
             self.assignments[ref][b][est] += w
 
-    def score(self):
-        return self.correct_weight / float(self.total_weight)
+    def scores(self):
+        macro = self.correct_weight / float(self.total_weight)
+        class_scores = []
+        for assignments in self.confusions(10, True).values():
+            class_scores.append(
+                np.sum(assignments[Evaluator.MATCH][Evaluator.WEIGHTS]))
+        return dict(
+            macro=macro,
+            class_micro=np.mean(class_scores))
 
     def confusions(self, top_k=5, normalize=True):
         confusions = dict()
@@ -234,3 +246,58 @@ class Evaluator(object):
             confusions[ref_label] = confs
 
         return confusions
+
+
+def score_many(reference_files, estimated_files, metrics=None,
+               top_k_confusions=5, ref_pattern='', est_pattern=''):
+    """Tabulate overall scores for a collection of key-aligned annotations.
+
+    Parameters
+    ----------
+    reference_files : list
+        Filepaths to a set of reference annotations.
+    estimated_files : list
+        Filepaths to a set of estimated annotations.
+    metrics : list, or default=None
+        Metric names to compute overall scores; if None, use all.
+    top_k_confusions : int, default=5
+        Number of confusions to return, in descending order.
+    ref_pattern : str, default=''
+        Pattern to use for filtering reference annotation keys.
+    est_pattern : str, default=''
+        Pattern to use for filtering estimated annotation keys.
+
+    Returns
+    -------
+    scores : dict
+        Resulting overall scores, keyed by metric.
+    confusions : dict()
+        Top confusions for each reference chord label.
+    """
+    if metrics is None:
+        metrics = COMPARISONS.keys()
+
+    evaluators = dict([(metric, Evaluator(metric=metric))
+                       for metric in metrics])
+    for ref, est in zip(reference_files, estimated_files):
+        ref = pyjams.load(ref)
+        est = pyjams.load(est)
+        ref_key = futil.filebase(ref)
+        est_key = futil.filebase(est)
+        if ref_key != est_key:
+            raise ValueError(
+                "File keys do not match: %s != %s" % (ref_key, est_key))
+
+        # All reference annotations vs all estimated annotations.
+        for ref_annot in ref.chord:
+            # Match against the given reference key pattern.
+            if re.match(ref_pattern, ref_annot.sandbox.key) is None:
+                continue
+            for est_annot in est.chord:
+                # Match against the given estimation key pattern.
+                if re.match(est_pattern, est_annot.sandbox.key) is None:
+                    continue
+                for e in evaluators.values():
+                    e.tally(ref_annot, est_annot)
+
+    return dict([(metric, e.scores()) for metric, e in evaluators])
