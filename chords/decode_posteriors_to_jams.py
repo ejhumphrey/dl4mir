@@ -11,8 +11,8 @@ from multiprocessing import Pool
 import pyjams
 
 from dl4mir.chords.lexicon import Strict
+from dl4mir.chords.find_best_params import select_best
 from dl4mir.chords import util as cutil
-from dl4mir.common import util
 
 
 NUM_CPUS = 12
@@ -33,8 +33,15 @@ def arg_gen(stash, keys, penalty, vocab):
 def main(args):
     stash = biggie.Stash(args.posterior_file)
     output_dir = futils.create_directory(args.output_directory)
-    stats = json.load(open(args.validation_stats))
-    penalty = float(stats['best_config']['penalty'])
+    validation_stats = json.load(open(args.validation_stats))
+    if not 'best_config' in validation_stats:
+        param_file, penalty, stats = select_best(validation_stats)
+        validation_stats['best_config'] = dict(
+            param_file=param_file, penalty=penalty, stats=stats.tolist())
+        with open(args.validation_stats, 'w') as fp:
+            json.dump(validation_stats, fp, indent=2)
+
+    penalty = float(validation_stats['best_config']['penalty'])
     vocab = Strict(157)
 
     keys = stash.keys()
@@ -43,7 +50,7 @@ def main(args):
     pool.close()
     pool.join()
     config_parts = cutil.split_params(os.path.splitext(args.posterior_file)[0])
-    model_name = cutil.join_params(*config_parts, delim='.')
+    model_name = cutil.join_params(*config_parts, delim='/')
     for key, res in zip(keys, results):
         intervals, labels = res
         output_file = os.path.join(output_dir, "%s.jams" % key)
@@ -55,9 +62,9 @@ def main(args):
         annot.annotation_metadata.annotator = dict(
             from_file=args.posterior_file,
             timestamp=time.asctime(),
-            **stats['best_config'])
+            **validation_stats['best_config'])
 
-        annot.sandbox.key = "machine.{name}".format(name=model_name)
+        annot.sandbox.key = "machine/{name}".format(name=model_name)
         pyjams.save(jam, output_file)
 
 
