@@ -271,8 +271,6 @@ def score_many(reference_files, estimated_files, metrics=None,
     -------
     scores : dict
         Resulting overall scores, keyed by metric.
-    confusions : dict()
-        Top confusions for each reference chord label.
     """
     if metrics is None:
         metrics = COMPARISONS.keys()
@@ -280,13 +278,13 @@ def score_many(reference_files, estimated_files, metrics=None,
     evaluators = dict([(metric, Evaluator(metric=metric))
                        for metric in metrics])
     for ref, est in zip(reference_files, estimated_files):
-        ref = pyjams.load(ref)
-        est = pyjams.load(est)
         ref_key = futil.filebase(ref)
         est_key = futil.filebase(est)
         if ref_key != est_key:
             raise ValueError(
                 "File keys do not match: %s != %s" % (ref_key, est_key))
+        ref = pyjams.load(ref)
+        est = pyjams.load(est)
 
         # All reference annotations vs all estimated annotations.
         for ref_annot in ref.chord:
@@ -300,4 +298,4 @@ def score_many(reference_files, estimated_files, metrics=None,
                 for e in evaluators.values():
                     e.tally(ref_annot, est_annot)
 
-    return dict([(metric, e.scores()) for metric, e in evaluators])
+    return dict([(metric, e.scores()) for metric, e in evaluators.items()])
