@@ -1,6 +1,7 @@
 import numpy as np
 from dl4mir.common.util import run_length_encode
 from dl4mir.common.util import viterbi
+from dl4mir.common.util import boundary_pool
 
 
 def compress_samples_to_intervals(labels, time_points):
@@ -52,10 +53,19 @@ def posterior_to_labeled_intervals(entity, penalty, vocab, **viterbi_args):
         Start and end times, in seconds.
     labels : list, len=N
         String labels corresponding to the returned intervals.
+    confidence : list, len=N
+        Confidence values (ave. log-likelihoods) of the labels.
     """
     y_idx = viterbi(entity.posterior, penalty=penalty, **viterbi_args)
     labels = vocab.index_to_label(y_idx)
-    return compress_samples_to_intervals(labels, entity.time_points)
+    n_range = np.arange(len(y_idx))
+    likelihoods = np.log(entity.posterior[n_range, y_idx])
+    idx_intervals = compress_samples_to_intervals(y_idx, n_range)[0]
+    boundaries = np.sort(np.unique(idx_intervals.flatten()))
+    confidence = boundary_pool(likelihoods, boundaries, pool_func='mean')
+    intervals, labels = compress_samples_to_intervals(
+        labels, entity.time_points)
+    return intervals, labels, confidence.tolist()
 
 
 def join_params(model, regularization, fold_idx, split, delim='/'):

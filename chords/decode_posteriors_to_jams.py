@@ -52,12 +52,16 @@ def main(args):
     config_parts = cutil.split_params(os.path.splitext(args.posterior_file)[0])
     model_name = cutil.join_params(*config_parts, delim='/')
     for key, res in zip(keys, results):
-        intervals, labels = res
+        intervals, labels, confidences = res
         output_file = os.path.join(output_dir, "%s.jams" % key)
         jam = pyjams.JAMS()
         annot = jam.chord.create_annotation()
         pyjams.util.fill_range_annotation_data(
             intervals[:, 0], intervals[:, 1], labels, annot)
+
+        for obs, conf in zip(annot.data, confidences):
+            obs.label.confidence = conf
+
         annot.annotation_metadata.data_source = 'machine estimation'
         annot.annotation_metadata.annotator = dict(
             from_file=args.posterior_file,
