@@ -9,21 +9,6 @@ import marl.fileutils as futil
 import time
 
 import dl4mir.common.util as util
-import scipy.signal as signal
-
-
-def mle(posterior):
-    return posterior.argmax(axis=1)
-
-
-def medfilt_mle(posterior, shape=[41, 1]):
-    return mle(signal.medfilt(posterior, shape))
-
-
-def viterbi(posterior, penalty):
-    # TODO: this is unnecessary now.
-    transmat = np.ones([posterior.shape[1]] * 2)
-    return util.viterbi(posterior, transmat, penalty=penalty)
 
 
 def estimate_classes(entity, prediction_fx, **kwargs):
@@ -56,9 +41,6 @@ def estimate_classes(entity, prediction_fx, **kwargs):
     return estimations
 
 
-PRED_FXS = dict(mle=mle, medfilt_mle=medfilt_mle, viterbi=viterbi)
-
-
 def process_one(stash, key, idx, prediction_fx, **kwargs):
     estimations = estimate_classes(stash.get(key), prediction_fx, **kwargs)
     print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
@@ -72,10 +54,11 @@ def main(args):
     dset = biggie.Stash(args.posterior_file)
     stats = json.load(open(args.validation_file))
     penalty = float(stats['best_config']['penalty'])
-    fx = PRED_FXS.get('viterbi')
+
     estimations = dict()
     for idx, key in enumerate(dset.keys()):
-        estimations[key] = estimate_classes(dset.get(key), fx, penalty=penalty)
+        estimations[key] = estimate_classes(
+            dset.get(key), util.viterbi, penalty=penalty)
         print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(dset), key)
 
     futil.create_directory(os.path.split(args.estimation_file)[0])
