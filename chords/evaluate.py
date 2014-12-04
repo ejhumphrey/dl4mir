@@ -299,3 +299,88 @@ def score_many(reference_files, estimated_files, metrics=None,
                     e.tally(ref_annot, est_annot)
 
     return dict([(metric, e.scores()) for metric, e in evaluators.items()])
+
+
+def score_many_trackwise(reference_files, estimated_files, metrics=None,
+                         ref_pattern='', est_pattern=''):
+    """Tabulate overall scores for a collection of key-aligned annotations.
+
+    Parameters
+    ----------
+    reference_files : list
+        Filepaths to a set of reference annotations.
+    estimated_files : list
+        Filepaths to a set of estimated annotations.
+    metrics : list, or default=None
+        Metric names to compute overall scores; if None, use all.
+    ref_pattern : str, default=''
+        Pattern to use for filtering reference annotation keys.
+    est_pattern : str, default=''
+        Pattern to use for filtering estimated annotation keys.
+
+    Returns
+    -------
+    results : np.ndarray, shape=(n, i, j, k)
+        Resulting table of trackwise scores.
+    tracks : list of str, len=n
+        Track ids corresponding to the rows in the table.
+    ref_annotators : list of str, len=i
+        Annotator names corresponding to axis=1 in the table.
+    est_annotators : list of str, len=j
+        Annotator names corresponding to axis=2 in the table.
+    metrics : list of str, len=k
+        Metric names corresponding to axis=3 in the table.
+    """
+    if metrics is None:
+        metrics = COMPARISONS.keys()
+
+    results = list()
+    tracks = list()
+    ref_annotators = set()
+    est_annotators = set()
+
+    for ref, est in zip(reference_files, estimated_files):
+        ref_key = futil.filebase(ref)
+        est_key = futil.filebase(est)
+        if ref_key != est_key:
+            raise ValueError(
+                "File keys do not match: %s != %s" % (ref_key, est_key))
+        tracks.append(ref_key)
+        results.append(dict())
+        ref = pyjams.load(ref)
+        est = pyjams.load(est)
+
+        # All reference annotations vs all estimated annotations.
+        for ref_annot in ref.chord:
+            # Match against the given reference key pattern.
+            if re.match(ref_pattern, ref_annot.sandbox.key) is None:
+                continue
+            ra_name = ref_annot.sandbox.key
+            ref_annotators.add(ra_name)
+            if not ra_name in results[-1]:
+                results[-1][ra_name] = dict()
+
+            for est_annot in est.chord:
+                # Match against the given estimation key pattern.
+                if re.match(est_pattern, est_annot.sandbox.key) is None:
+                    continue
+                ea_name = est_annot.sandbox.key
+                est_annotators.add(ea_name)
+                if not ea_name in results[-1][ra_name]:
+                    results[-1][ra_name][ea_name] = dict()
+
+                for metric in metrics:
+                    e = Evaluator(metric=metric)
+                    e.tally(ref_annot, est_annot)
+                    results[-1][ra_name][ea_name][metric] = e.scores()['macro']
+
+    table = np.zeros([len(tracks), len(ref_annotators),
+                      len(est_annotators), len(metrics)], dtype=np.float)
+    ref_annotators, est_annotators = list(ref_annotators), list(est_annotators)
+    for n, res in enumerate(results):
+        for i, ra_name in enumerate(ref_annotators):
+            for j, ea_name in enumerate(est_annotators):
+                for k, metric in enumerate(metrics):
+                    table[n, i, j, k] = res.get(
+                        ra_name, {}).get(ea_name, {}).get(metric, np.nan)
+    return table, tracks, ref_annotators, est_annotators, metrics
