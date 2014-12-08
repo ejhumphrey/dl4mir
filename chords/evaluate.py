@@ -140,6 +140,16 @@ def v157_strict(reference_labels, estimated_labels):
     return comparison_scores
 
 
+class SparseCounter(dict):
+
+    def update(self, obj):
+        for key, value in obj.iteritems():
+            if not key in self:
+                self[key] = 0.0
+            self[key] += value
+        return
+
+
 COMPARISONS = dict(
     thirds=mir_eval.chord.thirds,
     triads=mir_eval.chord.triads,
@@ -248,20 +258,44 @@ class Evaluator(object):
         return confusions
 
 
-def score_many(reference_files, estimated_files, metrics=None,
-               top_k_confusions=5, ref_pattern='', est_pattern=''):
-    """Tabulate overall scores for a collection of key-aligned annotations.
+def pairwise_score(ref_annot, est_annot, compare_func):
+    """Tabulate the score and weight for a pair of annotation labels.
 
     Parameters
     ----------
-    reference_files : list
-        Filepaths to a set of reference annotations.
-    estimated_files : list
-        Filepaths to a set of estimated annotations.
-    metrics : list, or default=None
-        Metric names to compute overall scores; if None, use all.
-    top_k_confusions : int, default=5
-        Number of confusions to return, in descending order.
+    ref_annot : pyjams.RangeAnnotation
+        Chord annotation to use as a reference.
+    est_annot : pyjams.RangeAnnotation
+        Chord annotation to use as a estimation.
+    compare_func : method
+        Function to use for comparing a pair of chord labels.
+
+    Returns
+    -------
+    score : float
+        Average score, in [0, 1].
+    weight : float
+        Relative weight of the comparison, >= 0.
+    """
+    (weights, ref_labels,
+        est_labels) = align_chord_annotations(ref_annot, est_annot)
+
+    scores = compare_func(ref_labels, est_labels)
+    valid_idx = scores >= 0
+    total_weight = weights[valid_idx].sum()
+    correct_weight = np.dot(scores[valid_idx], weights[valid_idx])
+    return correct_weight / total_weight, total_weight
+
+
+def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
+    """Align annotations given a collection of jams and regex patterns.
+
+    Parameters
+    ----------
+    ref_jams : list
+        A set of reference jams.
+    est_jams : list
+        A set of estimated jams.
     ref_pattern : str, default=''
         Pattern to use for filtering reference annotation keys.
     est_pattern : str, default=''
@@ -269,23 +303,11 @@ def score_many(reference_files, estimated_files, metrics=None,
 
     Returns
     -------
-    scores : dict
-        Resulting overall scores, keyed by metric.
+    ref_annots, est_annots : lists, len=n
+        Equal length lists of corresponding annotations.
     """
-    if metrics is None:
-        metrics = COMPARISONS.keys()
-
-    evaluators = dict([(metric, Evaluator(metric=metric))
-                       for metric in metrics])
-    for ref, est in zip(reference_files, estimated_files):
-        ref_key = futil.filebase(ref)
-        est_key = futil.filebase(est)
-        if ref_key != est_key:
-            raise ValueError(
-                "File keys do not match: %s != %s" % (ref_key, est_key))
-        ref = pyjams.load(ref)
-        est = pyjams.load(est)
-
+    ref_annots, est_annots = [], []
+    for ref, est in zip(ref_jams, est_jams):
         # All reference annotations vs all estimated annotations.
         for ref_annot in ref.chord:
             # Match against the given reference key pattern.
@@ -295,10 +317,38 @@ def score_many(reference_files, estimated_files, metrics=None,
                 # Match against the given estimation key pattern.
                 if re.match(est_pattern, est_annot.sandbox.key) is None:
                     continue
-                for e in evaluators.values():
-                    e.tally(ref_annot, est_annot)
+                ref_annots.append(ref_annot)
+                est_annots.append(est_annot)
 
-    return dict([(metric, e.scores()) for metric, e in evaluators.items()])
+    return ref_annots, est_annots
+
+
+def trackwise_scores(ref_annots, est_annots, metrics):
+    """Tabulate overall scores for two sets of annotations.
+
+    Parameters
+    ----------
+    ref_annots : list, len=n
+        Filepaths to a set of reference annotations.
+    est_annots : list, len=n
+        Filepaths to a set of estimated annotations.
+    metrics : list, len=k
+        Metric names to compute overall scores.
+
+    Returns
+    -------
+    scores : np.ndarray, shape=(n, k)
+        Resulting annotation-wise scores.
+    weights : np.ndarray
+        Relative weight of each score.
+    """
+    scores, weights = np.zeros([2, len(ref_annots), len(metrics)])
+    for n, (ref, est) in enumerate(zip(ref_annots, est_annots)):
+        for k, metric in enumerate(metrics):
+            scores[n, k], weights[n, k] = pairwise_score(
+                ref, est, COMPARISONS[metric])
+
+    return scores, weights
 
 
 def score_many_trackwise(reference_files, estimated_files, metrics=None,
