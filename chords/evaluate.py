@@ -151,103 +151,6 @@ COMPARISONS = dict(
     v157_strict=v157_strict)
 
 
-class Evaluator(object):
-
-    MATCH = 'match'
-    ERROR = 'error'
-    TOTAL = 'total'
-    LABELS = 'labels'
-    WEIGHTS = 'weights'
-
-    def __init__(self, metric, transpose=True):
-        self.correct_weight = 0.0
-        self.total_weight = 0.0
-        self.assignments = dict()
-        self.metric = metric
-        self.fx = COMPARISONS[metric]
-        self.transpose = transpose
-        self.reset()
-
-    def reset(self):
-        """Clear out statistic accumulators."""
-        self.correct_weight *= 0.0
-        self.total_weight *= 0.0
-        self.assignments = dict()
-
-    def tally(self, ref_annot, est_annot):
-        """Tally a pair of chord annotations to the running scores.
-
-        Parameters
-        ----------
-        ref_labels : array_like, shape=(n,)
-            Reference chord labels.
-        est_labels : array_like, shape=(n,)
-            Estimated chord labels.
-        weights : array_like, shape(n,); or None
-            Relative contribution of each chord pair.
-        """
-        weights, ref_labels, est_labels = align_chord_annotations(
-            ref_annot, est_annot, transpose=self.transpose)
-
-        if weights is None:
-            weights = np.ones(len(ref_labels), dtype=float)
-
-        assert len(ref_labels) == len(est_labels) == len(weights)
-
-        scores = self.fx(ref_labels, est_labels)
-        self.total_weight += ((scores >= 0.0) * weights).sum()
-        for ref, est, s, w in zip(ref_labels, est_labels, scores, weights):
-            # Drop negatives
-            if s < 0:
-                continue
-
-            # Sanitize names for consistency
-            ref = L.join(*L.split(ref))
-            est = L.join(*L.split(est))
-
-            # Tally overall accuracy
-            self.correct_weight += w * float(s)
-
-            b = Evaluator.MATCH if s else Evaluator.ERROR
-            if not ref in self.assignments:
-                self.assignments[ref] = {Evaluator.MATCH: dict(),
-                                         Evaluator.ERROR: dict()}
-            if not est in self.assignments[ref][b]:
-                self.assignments[ref][b][est] = 0.0
-            self.assignments[ref][b][est] += w
-
-    def scores(self):
-        macro = self.correct_weight / float(self.total_weight)
-        class_scores = []
-        for assignments in self.confusions(10, True).values():
-            class_scores.append(
-                np.sum(assignments[Evaluator.MATCH][Evaluator.WEIGHTS]))
-        return dict(
-            macro=macro,
-            class_micro=np.mean(class_scores))
-
-    def confusions(self, top_k=5, normalize=True):
-        confusions = dict()
-        for ref_label, estimations in self.assignments.items():
-            confs = dict()
-            total = np.sum([np.sum(_.values()) for _ in estimations.values()])
-            for k in Evaluator.MATCH, Evaluator.ERROR:
-                confs[k] = {Evaluator.LABELS: list(),
-                            Evaluator.WEIGHTS: list()}
-                labels = estimations[k].keys()
-                counts = np.array([estimations[k][l] for l in labels])
-                sorted_idx = np.argsort(counts)[::-1]
-                for idx in sorted_idx[:top_k]:
-                    confs[k][Evaluator.LABELS].append(labels[idx])
-                    confs[k][Evaluator.WEIGHTS].append(counts[idx])
-                    if normalize:
-                        confs[k][Evaluator.WEIGHTS][-1] /= total
-
-            confusions[ref_label] = confs
-
-        return confusions
-
-
 def pairwise_score_labels(ref_labels, est_labels, weights, compare_func):
     """Tabulate the score and weight for a pair of annotation labels.
 
@@ -390,7 +293,7 @@ def reduce_annotations(ref_annots, est_annots, metrics):
 
     Returns
     -------
-    label_counts : list of dicts
+    all_label_counts : list of dicts
     """
     label_counts = [dict() for _ in range(len(metrics))]
     for ref_annot, est_annot in zip(ref_annots, est_annots):
@@ -403,86 +306,32 @@ def reduce_annotations(ref_annots, est_annots, metrics):
     return label_counts
 
 
-def score_many_trackwise(reference_files, estimated_files, metrics=None,
-                         ref_pattern='', est_pattern=''):
-    """Tabulate overall scores for a collection of key-aligned annotations.
+def label_count_support(label_counts, sort=True):
+    """Tally the support of each reference label in the map.
 
     Parameters
     ----------
-    reference_files : list
-        Filepaths to a set of reference annotations.
-    estimated_files : list
-        Filepaths to a set of estimated annotations.
-    metrics : list, or default=None
-        Metric names to compute overall scores; if None, use all.
-    ref_pattern : str, default=''
-        Pattern to use for filtering reference annotation keys.
-    est_pattern : str, default=''
-        Pattern to use for filtering estimated annotation keys.
+    label_counts : dict
+        Map of reference labels to estimations, containing a `support` count.
+    sort : bool, default=True
+        Sort the results in descending order.
 
     Returns
     -------
-    results : np.ndarray, shape=(n, i, j, k)
-        Resulting table of trackwise scores.
-    tracks : list of str, len=n
-        Track ids corresponding to the rows in the table.
-    ref_annotators : list of str, len=i
-        Annotator names corresponding to axis=1 in the table.
-    est_annotators : list of str, len=j
-        Annotator names corresponding to axis=2 in the table.
-    metrics : list of str, len=k
-        Metric names corresponding to axis=3 in the table.
+    labels : list
+        Unique reference labels in the label_counts set.
+    support : np.ndarray
+        Support values corresponding the labels list.
     """
-    if metrics is None:
-        metrics = COMPARISONS.keys()
+    N = len(label_counts)
+    labels, supports = [''] * N, np.zeros(N, dtype=float)
+    for idx, (ref_label, estimations) in enumerate(label_counts.items()):
+        labels[idx] = ref_label
+        supports[idx] = sum([_['support'] for _ in estimations.values()])
 
-    results = list()
-    tracks = list()
-    ref_annotators = set()
-    est_annotators = set()
+    labels = np.asarray(labels)
+    if sort:
+        sorted_idx = np.argsort(supports)[::-1]
+        labels, supports = labels[sorted_idx], supports[sorted_idx]
 
-    for ref, est in zip(reference_files, estimated_files):
-        ref_key = futil.filebase(ref)
-        est_key = futil.filebase(est)
-        if ref_key != est_key:
-            raise ValueError(
-                "File keys do not match: %s != %s" % (ref_key, est_key))
-        tracks.append(ref_key)
-        results.append(dict())
-        ref = pyjams.load(ref)
-        est = pyjams.load(est)
-
-        # All reference annotations vs all estimated annotations.
-        for ref_annot in ref.chord:
-            # Match against the given reference key pattern.
-            if re.match(ref_pattern, ref_annot.sandbox.key) is None:
-                continue
-            ra_name = ref_annot.sandbox.key
-            ref_annotators.add(ra_name)
-            if not ra_name in results[-1]:
-                results[-1][ra_name] = dict()
-
-            for est_annot in est.chord:
-                # Match against the given estimation key pattern.
-                if re.match(est_pattern, est_annot.sandbox.key) is None:
-                    continue
-                ea_name = est_annot.sandbox.key
-                est_annotators.add(ea_name)
-                if not ea_name in results[-1][ra_name]:
-                    results[-1][ra_name][ea_name] = dict()
-
-                for metric in metrics:
-                    e = Evaluator(metric=metric)
-                    e.tally(ref_annot, est_annot)
-                    results[-1][ra_name][ea_name][metric] = e.scores()['macro']
-
-    table = np.zeros([len(tracks), len(ref_annotators),
-                      len(est_annotators), len(metrics)], dtype=np.float)
-    ref_annotators, est_annotators = list(ref_annotators), list(est_annotators)
-    for n, res in enumerate(results):
-        for i, ra_name in enumerate(ref_annotators):
-            for j, ea_name in enumerate(est_annotators):
-                for k, metric in enumerate(metrics):
-                    table[n, i, j, k] = res.get(
-                        ra_name, {}).get(ea_name, {}).get(metric, np.nan)
-    return table, tracks, ref_annotators, est_annotators, metrics
+    return labels.tolist(), supports
