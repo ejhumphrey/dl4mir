@@ -140,16 +140,6 @@ def v157_strict(reference_labels, estimated_labels):
     return comparison_scores
 
 
-class SparseCounter(dict):
-
-    def update(self, obj):
-        for key, value in obj.iteritems():
-            if not key in self:
-                self[key] = 0.0
-            self[key] += value
-        return
-
-
 COMPARISONS = dict(
     thirds=mir_eval.chord.thirds,
     triads=mir_eval.chord.triads,
@@ -258,7 +248,7 @@ class Evaluator(object):
         return confusions
 
 
-def pairwise_score(ref_annot, est_annot, compare_func):
+def pairwise_score_labels(ref_labels, est_labels, weights, compare_func):
     """Tabulate the score and weight for a pair of annotation labels.
 
     Parameters
@@ -277,14 +267,47 @@ def pairwise_score(ref_annot, est_annot, compare_func):
     weight : float
         Relative weight of the comparison, >= 0.
     """
-    (weights, ref_labels,
-        est_labels) = align_chord_annotations(ref_annot, est_annot)
-
     scores = compare_func(ref_labels, est_labels)
     valid_idx = scores >= 0
     total_weight = weights[valid_idx].sum()
     correct_weight = np.dot(scores[valid_idx], weights[valid_idx])
     return correct_weight / total_weight, total_weight
+
+
+def pairwise_reduce_labels(ref_labels, est_labels, weights, compare_func,
+                           label_counts=None):
+    """
+
+    Parameters
+    ----------
+    ref_annot : pyjams.RangeAnnotation
+        Chord annotation to use as a reference.
+    est_annot : pyjams.RangeAnnotation
+        Chord annotation to use as a estimation.
+    compare_func : method
+        Function to use for comparing a pair of chord labels.
+
+    Returns
+    -------
+    label_counts : dict
+        Map of reference labels to estimated label counts and support.
+    """
+    scores = compare_func(ref_labels, est_labels)
+
+    if label_counts is None:
+        label_counts = dict()
+
+    for ref, est, s, w in zip(ref_labels, est_labels, scores, weights):
+        if s < 0:
+            continue
+        if not ref in label_counts:
+            label_counts[ref] = dict()
+        if not est in label_counts[ref]:
+            label_counts[ref][est] = dict(count=0.0, support=0.0)
+        label_counts[ref][est]['count'] += s*w
+        label_counts[ref][est]['support'] += w
+
+    return label_counts
 
 
 def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
@@ -323,7 +346,7 @@ def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
     return ref_annots, est_annots
 
 
-def trackwise_scores(ref_annots, est_annots, metrics):
+def score_annotations(ref_annots, est_annots, metrics):
     """Tabulate overall scores for two sets of annotations.
 
     Parameters
@@ -342,13 +365,42 @@ def trackwise_scores(ref_annots, est_annots, metrics):
     weights : np.ndarray
         Relative weight of each score.
     """
-    scores, weights = np.zeros([2, len(ref_annots), len(metrics)])
-    for n, (ref, est) in enumerate(zip(ref_annots, est_annots)):
+    scores, support = np.zeros([2, len(ref_annots), len(metrics)])
+    for n, (ref_annot, est_annot) in enumerate(zip(ref_annots, est_annots)):
+        (weights, ref_labels,
+            est_labels) = align_chord_annotations(ref_annot, est_annot)
         for k, metric in enumerate(metrics):
-            scores[n, k], weights[n, k] = pairwise_score(
-                ref, est, COMPARISONS[metric])
+            scores[n, k], support[n, k] = pairwise_score_labels(
+                ref_labels, est_labels, weights, COMPARISONS[metric])
 
-    return scores, weights
+    return scores, support
+
+
+def reduce_annotations(ref_annots, est_annots, metrics):
+    """
+
+    Parameters
+    ----------
+    ref_annots : list, len=n
+        Filepaths to a set of reference annotations.
+    est_annots : list, len=n
+        Filepaths to a set of estimated annotations.
+    metrics : list, len=k
+        Metric names to compute overall scores.
+
+    Returns
+    -------
+    label_counts : list of dicts
+    """
+    label_counts = [dict() for _ in range(len(metrics))]
+    for ref_annot, est_annot in zip(ref_annots, est_annots):
+        weights, ref_labels, est_labels = align_chord_annotations(
+            ref_annot, est_annot, transpose=True)
+        for k, metric in enumerate(metrics):
+            pairwise_reduce_labels(ref_labels, est_labels, weights,
+                                   COMPARISONS[metric], label_counts[k])
+
+    return label_counts
 
 
 def score_many_trackwise(reference_files, estimated_files, metrics=None,
