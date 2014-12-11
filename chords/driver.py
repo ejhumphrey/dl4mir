@@ -17,7 +17,6 @@ DRIVER_ARGS['max_iter'] = 500000
 VOCAB = lex.Strict(157)
 LEARNING_RATE = 0.02
 BATCH_SIZE = 50
-DROPOUT = 0.5
 
 
 def main(args):
@@ -46,7 +45,9 @@ def main(args):
         name=args.trial_name,
         output_directory=args.output_directory)
 
-    hyperparams = dict(learning_rate=LEARNING_RATE, dropout=DROPOUT)
+    hyperparams = dict(learning_rate=LEARNING_RATE)
+    if args.dropout:
+        hyperparams.update(dropout=args.dropout)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
@@ -60,10 +61,13 @@ if __name__ == "__main__":
     # Inputs
     parser.add_argument("training_file",
                         metavar="training_file", type=str,
-                        help="Path to an optimus file for training.")
-    parser.add_argument("model_name",
-                        metavar="model_name", type=str,
-                        help="Name of a pre-defined model.")
+                        help="Path to a biggie Stash file for training.")
+    parser.add_argument("model_size",
+                        metavar="model_size", type=str,
+                        help="A model size, one of {X, XL, XXL}")
+    parser.add_argument("dropout",
+                        metavar="dropout", type=float,
+                        help="Dropout parameter")
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
@@ -78,7 +82,4 @@ if __name__ == "__main__":
                         metavar="--init_param_file", type=str, default='',
                         help="Path to a NPZ archive for initialization the "
                         "parameters of the graph.")
-    parser.add_argument("--secondary_source",
-                        metavar="--secondary_source", type=str, default='',
-                        help="Path to a secondary stash to use for training.")
     main(parser.parse_args())
