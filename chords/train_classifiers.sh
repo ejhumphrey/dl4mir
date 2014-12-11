@@ -36,9 +36,8 @@ fi
 
 ARCH_SIZE="$1"
 DROPOUT="$2"
-TRIAL_NAME="${ARCH_SIZE}_${DROPOUT}"
 
-if [ -z "$3"] || [ "$3" == "all" ];
+if [ -z "$3" ] || [ "$3" == "all" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
@@ -53,7 +52,7 @@ else
     PHASE=$4
 fi
 
-TRIAL_NAME=${ARCH_SIZE}/${DROPOUT}
+TRIAL_NAME="${ARCH_SIZE}/${DROPOUT}"
 
 # Fit networks
 if [ $PHASE == "all" ] || [ $PHASE == "fit" ];

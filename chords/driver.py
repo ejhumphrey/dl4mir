@@ -3,7 +3,7 @@ import argparse
 import biggie
 import optimus
 from os import path
-
+import marl.fileutils as futil
 import numpy as np
 import json
 
@@ -53,9 +53,11 @@ def main(args):
     if args.dropout:
         hyperparams.update(dropout=args.dropout)
 
+    futil.create_directory(args.output_directory)
     predictor_file = path.join(driver.output_directory, args.predictor_file)
-    optimus.save(predictor, def_file=predictor_file)
+    print predictor_file
     return
+    optimus.save(predictor, def_file=predictor_file)
     driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
