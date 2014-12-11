@@ -38,7 +38,7 @@ ARCH_SIZE="$1"
 DROPOUT="$2"
 TRIAL_NAME="${ARCH_SIZE}_${DROPOUT}"
 
-if [ -z "$3"] || ["$3" == "all"];
+if [ -z "$3"] || [ "$3" == "all" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
@@ -46,7 +46,7 @@ else
     FOLD_IDXS=$3
 fi
 
-if [ -z "$4"];
+if [ -z "$4" ];
 then
     PHASE="all"
 else
