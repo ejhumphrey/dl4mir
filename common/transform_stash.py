@@ -61,6 +61,7 @@ def main(args):
     transform = optimus.load(args.transform_file, args.param_file)
 
     in_stash = biggie.Stash(args.data_file)
+    return
     futils.create_directory(os.path.split(args.output_file)[0])
     if os.path.exists(args.output_file):
         os.remove(args.output_file)

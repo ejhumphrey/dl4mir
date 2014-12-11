@@ -1153,27 +1153,9 @@ def i20c3_mse12(size='large'):
 
 
 MODELS = {
-    'i1c3_nll_L': lambda: iXc3_nll(1, 'large'),
-    'i1c3_nll_M': lambda: iXc3_nll(1, 'med'),
-    'i1c3_nll_S': lambda: iXc3_nll(1, 'small'),
-    'i20c3_nll_L': lambda: iXc3_nll(20, 'large'),
-    'i20c3_nll_XL': lambda: iXc3_nll(20, 'xlarge'),
-    'i20c3_nll_XXL': lambda: iXc3_nll(20, 'xxlarge'),
-    'i1c3_nll_dropout_L': lambda: iXc3_nll(1, 'large', True),
-    'i1c3_nll_dropout_M': lambda: iXc3_nll(1, 'med', True),
-    'i1c3_nll_dropout_S': lambda: iXc3_nll(1, 'small', True),
-    'i4c3_nll_dropout_L': lambda: iXc3_nll(4, 'large', True),
-    'i4c3_nll_dropout_M': lambda: iXc3_nll(4, 'med', True),
-    'i4c3_nll_dropout_S': lambda: iXc3_nll(4, 'small', True),
-    'i10c3_nll_dropout_L': lambda: iXc3_nll(10, 'large', True),
-    'i10c3_nll_dropout_M': lambda: iXc3_nll(10, 'med', True),
-    'i10c3_nll_dropout_S': lambda: iXc3_nll(10, 'small', True),
-    'i20c3_nll_dropout_XXL': lambda: iXc3_nll(20, 'xxlarge', True),
-    'i20c3_nll_dropout_XL': lambda: iXc3_nll(20, 'xlarge', True),
-    'i20c3_nll_dropout_L': lambda: iXc3_nll(20, 'large', True),
-    'i20c3_nll_dropout_M': lambda: iXc3_nll(20, 'med', True),
-    'i20c3_nll_dropout_S': lambda: iXc3_nll(20, 'small', True),
-    'i8x1c3T_nll2_L': lambda: i8x1c3T_nll2('large', False),
-    'i8x1c3T_nll2_dropout_L': lambda: i8x1c3T_nll2('large', True),
-    'i8x1a3T_nll2_dropout_L': lambda: i8x1a3T_nll2('large', True),
-    'i8x1a3T_nll2_L': lambda: i8x1a3T_nll2('large', True)}
+    'L': lambda: iXc3_nll(20, 'large'),
+    'XL': lambda: iXc3_nll(20, 'xlarge'),
+    'XXL': lambda: iXc3_nll(20, 'xxlarge'),
+    'XXL_dropout': lambda: iXc3_nll(20, 'xxlarge', True),
+    'XL_dropout': lambda: iXc3_nll(20, 'xlarge', True),
+    'L_dropout': lambda: iXc3_nll(20, 'large', True)}

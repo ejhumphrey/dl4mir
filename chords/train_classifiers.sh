@@ -15,7 +15,7 @@ SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
-BIGGIE=${BASEDIR}/biggie
+BIGGIE=${BASEDIR}/biggie/chords_l2n
 INITS=${BASEDIR}/param_inits
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
@@ -26,47 +26,47 @@ PARAM_TEXTLIST="paramlist.txt"
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
-    echo "train.sh {driver} {model_name} {data} {[0-4]|all} {fit|select|transform|all} {}"
-    echo $'\tdriver - Name of the training driver.'
+    echo "train.sh {arch_size} {dropout} {[0-4]|*all} {fit|select|transform|*all} {}"
+    echo $'\tarch_size - Architecture size, one of {L, XL, XXL}.'
+    echo $'\tdropout - Dropout hyperparameter.'
     echo $'\tfold# - Number of the training fold, default=all.'
     echo $'\tphase - Name of training phase, default=all.'
     exit 0
 fi
 
-DRIVER="$1"
-MODEL_NAME="$2"
-DATA_SOURCE="$3"
-TRIAL_NAME="${DRIVER}-${MODEL_NAME}-${DATA_SOURCE}"
+ARCH_SIZE="$1"
+DROPOUT="$2"
+TRIAL_NAME="${ARCH_SIZE}_${DROPOUT}"
 
-if [ "$4" == "all" ];
+if [ -z "$3"] || ["$3" == "all"];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
 else
-    FOLD_IDXS=$4
+    FOLD_IDXS=$3
 fi
 
-PHASE="$5"
-
-if [ -z "$6"];
+if [ -z "$4"];
 then
-    INIT_FILE=""
+    PHASE="all"
 else
-    INIT_FILE=$6
+    PHASE=$4
 fi
+
+TRIAL_NAME=${ARCH_SIZE}/${DROPOUT}
 
 # Fit networks
 if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
 then
     for idx in ${FOLD_IDXS}
     do
-        python ${SRC}/chords/drivers/${DRIVER}.py \
-${BIGGIE}/${DATA_SOURCE}/${idx}/train.hdf5 \
-${MODEL_NAME} \
-${MODELS}/${TRIAL_NAME}/${idx}/ \
-${TRIAL_NAME} \
+        python ${SRC}/chords/driver.py \
+${BIGGIE}/${idx}/train.hdf5 \
+${ARCH_SIZE} \
+${DROPOUT} \
+${MODELS}/${TRIAL_NAME}/${idx} \
+${TRIAL_NAME}/${idx} \
 ${TRANSFORM_NAME}.json
-# --init_param_file=${INITS}/$6.npz
     done
 fi
 
@@ -77,12 +77,12 @@ then
     do
         echo "Collecting parameters."
         python ${SRC}/common/collect_files.py \
-${MODELS}/${TRIAL_NAME}/${idx}/ \
+${MODELS}/${TRIAL_NAME}/${idx} \
 "*.npz" \
 ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
 
         python ${SRC}/chords/find_best_params.py \
-${BIGGIE}/${DATA_SOURCE}/${idx}/valid.hdf5 \
+${BIGGIE}/${idx}/valid.hdf5 \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
@@ -99,7 +99,7 @@ then
         do
             echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
             python ${SRC}/common/transform_stash.py \
-${BIGGIE}/${DATA_SOURCE}/${idx}/${split}.hdf5 \
+${BIGGIE}/${idx}/${split}.hdf5 \
 "cqt" \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \

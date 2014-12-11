@@ -17,8 +17,8 @@ import dl4mir.common.transform_stash as TS
 import dl4mir.common.util as util
 
 
-PENALTY_VALUES = [-1, -2.5, -5, -7.5, -10, -12.5,
-                  -15.0, -20.0, -25, -30, -40]
+PENALTY_VALUES = [-1.0,  -2.5,  -5.0,  -7.5,  -10.0, -12.5,
+                  -15.0, -20.0, -25.0, -30.0, -40.0]
 NUM_CPUS = None
 
 
@@ -137,7 +137,7 @@ def select_best(validation_stats):
 def main(args):
     stash = biggie.Stash(args.validation_file)
     transform = optimus.load(args.transform_file)
-
+    return
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     vocab = lex.Strict(157)

@@ -20,7 +20,11 @@ BATCH_SIZE = 50
 
 
 def main(args):
-    trainer, predictor = models.MODELS[args.model_name]()
+    arch_key = args.arch_size
+    if args.dropout:
+        arch_key += '_dropout'
+
+    trainer, predictor = models.MODELS[arch_key]()
     time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
@@ -51,7 +55,7 @@ def main(args):
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
-
+    return
     driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
@@ -62,9 +66,9 @@ if __name__ == "__main__":
     parser.add_argument("training_file",
                         metavar="training_file", type=str,
                         help="Path to a biggie Stash file for training.")
-    parser.add_argument("model_size",
-                        metavar="model_size", type=str,
-                        help="A model size, one of {X, XL, XXL}")
+    parser.add_argument("arch_size",
+                        metavar="arch_size", type=str,
+                        help="Size of the architecture, one of {X, XL, XXL}")
     parser.add_argument("dropout",
                         metavar="dropout", type=float,
                         help="Dropout parameter")
