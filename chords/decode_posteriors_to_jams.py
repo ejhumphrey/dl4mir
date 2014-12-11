@@ -49,8 +49,12 @@ def main(args):
     results = pool.map(fx, arg_gen(stash, keys, penalty, vocab))
     pool.close()
     pool.join()
-    config_parts = cutil.split_params(os.path.splitext(args.posterior_file)[0])
-    model_name = cutil.join_params(*config_parts, delim='/')
+    parts = os.path.splitext(args.posterior_file)[0].split('/')
+    model, dropout, fold_idx, split = parts[-4:]
+    config_params = dict(model=model, fold_idx=fold_idx,
+                         split=split, dropout=dropout)
+    raise ValueError("Check this is right! {0}".format(config_params))
+
     for key, res in zip(keys, results):
         intervals, labels, confidences = res
         output_file = os.path.join(output_dir, "%s.jams" % key)
@@ -68,7 +72,9 @@ def main(args):
             timestamp=time.asctime(),
             **validation_stats['best_config'])
 
-        annot.sandbox.key = "machine/{name}".format(name=model_name)
+        annot.sandbox.key = cutil.create_machine_key(
+            track_id=key, **config_params)
+
         pyjams.save(jam, output_file)
 
 
