@@ -1,4 +1,4 @@
-"""Utility to resample the time axis of Entities in a Biggie Stash."""
+"""Utility to count the class distribution in a Biggie Stash."""
 import argparse
 import marl.fileutils as futils
 
