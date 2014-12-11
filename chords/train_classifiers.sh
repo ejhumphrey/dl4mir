@@ -52,7 +52,7 @@ else
     PHASE=$4
 fi
 
-TRIAL_NAME="${ARCH_SIZE}/${DROPOUT}"
+CONFIG="${ARCH_SIZE}/${DROPOUT}"
 
 # Fit networks
 if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
@@ -63,8 +63,8 @@ then
 ${BIGGIE}/${idx}/train.hdf5 \
 ${ARCH_SIZE} \
 ${DROPOUT} \
-${MODELS}/${TRIAL_NAME}/${idx} \
-${TRIAL_NAME}/${idx} \
+${MODELS}/${CONFIG}/${idx} \
+"ace_deepnet" \
 ${TRANSFORM_NAME}.json
     done
 fi
@@ -76,16 +76,16 @@ then
     do
         echo "Collecting parameters."
         python ${SRC}/common/collect_files.py \
-${MODELS}/${TRIAL_NAME}/${idx} \
+${MODELS}/${CONFIG}/${idx} \
 "*.npz" \
-${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST}
+${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
         python ${SRC}/chords/find_best_params.py \
 ${BIGGIE}/${idx}/valid.hdf5 \
-${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
-${MODELS}/${TRIAL_NAME}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
-${MODELS}/${TRIAL_NAME}/${idx}/validation_stats.json
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${MODELS}/${CONFIG}/${idx}/validation_stats.json
     done
 fi
 
@@ -100,9 +100,9 @@ then
             python ${SRC}/common/transform_stash.py \
 ${BIGGIE}/${idx}/${split}.hdf5 \
 "cqt" \
-${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.json \
-${MODELS}/${TRIAL_NAME}/${idx}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${TRIAL_NAME}/${idx}/${split}.hdf5
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5
         done
     done
 fi

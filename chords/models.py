@@ -1,12 +1,9 @@
 import optimus
 import dl4mir.chords.labels as L
-from sklearn.decomposition import PCA
 import numpy as np
 
 TIME_DIM = 20
 VOCAB = 157
-
-# Other code depends on this.
 GRAPH_NAME = "classifier-V%03d" % VOCAB
 
 
@@ -927,10 +924,6 @@ def wcqt_likelihood_wmoia(n_dim=VOCAB):
 
     learning_rate = optimus.Input(
         name='learning_rate',
-        shape=None)
-
-    moia_weight = optimus.Input(
-        name='moia_weight',
         shape=None)
 
     # 1.2 Create Nodes
