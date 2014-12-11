@@ -54,9 +54,8 @@ def main(args):
         hyperparams.update(dropout=args.dropout)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
-    print predictor_file
-    return
     optimus.save(predictor, def_file=predictor_file)
+    return
     driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
@@ -76,7 +75,7 @@ if __name__ == "__main__":
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
-                        help="Path to save the training results.")
+                        help="Path to save the .")
     parser.add_argument("trial_name",
                         metavar="trial_name", type=str,
                         help="Unique name for this training run.")
