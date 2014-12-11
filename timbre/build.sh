@@ -8,7 +8,7 @@ CQTS=${BASEDIR}/features/cqts
 META=${BASEDIR}/metadata
 # Directory of biggie Stashes, divided by index and split, like
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
-BIGGIE=${BASEDIR}/biggie/timbre
+BIGGIE=${BASEDIR}/biggie
 
 AUDIO_EXT="wav"
 AUDIO_FILES=${AUDIO}/filelist.txt
@@ -27,7 +27,7 @@ if [ -z "$1" ]; then
     echo "build.sh {clean|cqt|lcn|labs|splits|biggie|all}"
     echo $'\tclean - Cleans the directory structure'
     echo $'\tcqt - Builds the CQTs'
-    echo $'\tsplits - Builds the json metadata files'
+    echo $'\tstratify - Stratifies the dataset'
     echo $'\tbiggie - Builds biggie dataset files'
     echo $'\tall - Do everything, in order'
     exit 0
@@ -51,7 +51,7 @@ fi
 
 
 # -- Stratification --
-if [ "$1" == "splits" ] || [ "$1" == "all" ]; then
+if [ "$1" == "stratify" ] || [ "$1" == "all" ]; then
     echo "Stratifying data..."
     python ${SRC}/timbre/stratify_data.py \
 ${AUDIO_FILES} \
