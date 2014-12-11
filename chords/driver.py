@@ -47,13 +47,12 @@ def main(args):
     driver = optimus.Driver(
         graph=trainer,
         name=args.trial_name,
-        output_directory=args.output_directory)
+        output_directory=futil.create_directory(args.output_directory))
 
     hyperparams = dict(learning_rate=LEARNING_RATE)
     if args.dropout:
         hyperparams.update(dropout=args.dropout)
 
-    futil.create_directory(args.output_directory)
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     print predictor_file
     return
