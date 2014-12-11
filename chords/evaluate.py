@@ -1,5 +1,5 @@
 """Evaluation framework for chord estimation."""
-import re
+import fnmatch
 import mir_eval
 import dl4mir.chords.labels as L
 import numpy as np
@@ -213,8 +213,10 @@ def pairwise_reduce_labels(ref_labels, est_labels, weights, compare_func,
     return label_counts
 
 
-def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
+def pair_annotations(ref_jams, est_jams, ref_pattern='*', est_pattern='*'):
     """Align annotations given a collection of jams and regex patterns.
+
+    Note: Uses glob-style filepath matching. See fnmatch.fnmatch for more info.
 
     Parameters
     ----------
@@ -222,9 +224,9 @@ def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
         A set of reference jams.
     est_jams : list
         A set of estimated jams.
-    ref_pattern : str, default=''
+    ref_pattern : str, default='*'
         Pattern to use for filtering reference annotation keys.
-    est_pattern : str, default=''
+    est_pattern : str, default='*'
         Pattern to use for filtering estimated annotation keys.
 
     Returns
@@ -237,11 +239,11 @@ def pair_annotations(ref_jams, est_jams, ref_pattern='', est_pattern=''):
         # All reference annotations vs all estimated annotations.
         for ref_annot in ref.chord:
             # Match against the given reference key pattern.
-            if re.match(ref_pattern, ref_annot.sandbox.key) is None:
+            if not fnmatch.fnmatch(ref_annot.sandbox.key, ref_pattern):
                 continue
             for est_annot in est.chord:
                 # Match against the given estimation key pattern.
-                if re.match(est_pattern, est_annot.sandbox.key) is None:
+                if not fnmatch.fnmatch(est_annot.sandbox.key, est_pattern):
                     continue
                 ref_annots.append(ref_annot)
                 est_annots.append(est_annot)
@@ -295,18 +297,18 @@ def reduce_annotations(ref_annots, est_annots, metrics):
     -------
     all_label_counts : list of dicts
     """
-    label_counts = [dict() for _ in range(len(metrics))]
+    label_counts = dict([(m, dict()) for m in metrics])
     for ref_annot, est_annot in zip(ref_annots, est_annots):
         weights, ref_labels, est_labels = align_chord_annotations(
             ref_annot, est_annot, transpose=True)
-        for k, metric in enumerate(metrics):
+        for metric in metrics:
             pairwise_reduce_labels(ref_labels, est_labels, weights,
-                                   COMPARISONS[metric], label_counts[k])
+                                   COMPARISONS[metric], label_counts[metric])
 
     return label_counts
 
 
-def label_count_support(label_counts, sort=True):
+def macro_average(label_counts, sort=True):
     """Tally the support of each reference label in the map.
 
     Parameters
@@ -318,20 +320,25 @@ def label_count_support(label_counts, sort=True):
 
     Returns
     -------
-    labels : list
+    labels : list, len=n
         Unique reference labels in the label_counts set.
-    support : np.ndarray
-        Support values corresponding the labels list.
+    scores : np.ndarray, len=n
+        Resulting label-wise scores.
+    support : np.ndarray, len=n
+        Support values corresponding the labels and scores.
     """
     N = len(label_counts)
-    labels, supports = [''] * N, np.zeros(N, dtype=float)
+    labels = [''] * N
+    scores, supports = np.zeros([2, N], dtype=float)
     for idx, (ref_label, estimations) in enumerate(label_counts.items()):
         labels[idx] = ref_label
         supports[idx] = sum([_['support'] for _ in estimations.values()])
+        scores[idx] = sum([_['count'] for _ in estimations.values()])
+        scores[idx] /= supports[idx] if supports[idx] > 0 else 1.0
 
     labels = np.asarray(labels)
     if sort:
-        sorted_idx = np.argsort(supports)[::-1]
-        labels, supports = labels[sorted_idx], supports[sorted_idx]
+        sidx = np.argsort(supports)[::-1]
+        labels, scores, supports = labels[sidx], scores[sidx], supports[sidx]
 
-    return labels.tolist(), supports
+    return labels.tolist(), scores, supports
