@@ -137,7 +137,7 @@ def select_best(validation_stats):
 def main(args):
     stash = biggie.Stash(args.validation_file)
     transform = optimus.load(args.transform_file)
-    return
+
     param_files = futils.load_textlist(args.param_textlist)
     param_files.sort()
     vocab = lex.Strict(157)

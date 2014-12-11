@@ -55,7 +55,7 @@ def main(args):
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
-    return
+
     driver.fit(stream, hyperparams=hyperparams, **DRIVER_ARGS)
 
 
