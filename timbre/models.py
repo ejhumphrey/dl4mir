@@ -40,11 +40,11 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         20: (2, 2, 2)}[n_in]
 
     input_data = optimus.Input(
-        name='data',
+        name='cqt',
         shape=(None, 1, n_in, 192))
 
     input_data_2 = optimus.Input(
-        name='data_2',
+        name='cqt_2',
         shape=(None, 1, n_in, 192))
 
     score = optimus.Input(
@@ -229,11 +229,11 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
 
 def test_pairwise(n_in):
     input_data = optimus.Input(
-        name='data',
+        name='cqt',
         shape=(None, n_in))
 
     input_data_2 = optimus.Input(
-        name='data_2',
+        name='cqt_2',
         shape=(None, n_in))
 
     score = optimus.Input(

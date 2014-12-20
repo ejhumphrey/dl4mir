@@ -3,11 +3,7 @@ import numpy as np
 
 import biggie
 import pescador
-import mir_eval
-from dl4mir.chords import labels as L
-import dl4mir.chords.pipefxs as FX
 from dl4mir.common import util
-import dl4mir.chords.lexicon as lex
 
 
 def slice_cqt_entity(entity, length, idx=None):
@@ -25,12 +21,12 @@ def slice_cqt_entity(entity, length, idx=None):
 
     Returns
     -------
-    sample: biggie.Entity with fields {data, label}
+    sample: biggie.Entity with fields {cqt, label}
         The windowed observation.
     """
     idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
     cqt = np.array([util.slice_tile(x, idx, length) for x in entity.cqt])
-    return biggie.Entity(data=cqt, label=entity.icode)
+    return biggie.Entity(cqt=cqt, label=entity.icode)
 
 
 def cqt_sampler(key, stash, win_length=20, index=None, max_samples=None,
@@ -203,9 +199,9 @@ def unpack_triples(stream):
             yield triple
             continue
         x1, x2, z = triple
-        yield biggie.Entity(data=x1.data,
-                            data_2=x2.data,
+        yield biggie.Entity(cqt=x1.cqt,
+                            cqt_2=x2.cqt,
                             score=float(x1.label == x2.label))
-        yield biggie.Entity(data=x1.data,
-                            data_2=z.data,
+        yield biggie.Entity(cqt=x1.cqt,
+                            cqt_2=z.cqt,
                             score=float(x1.label == z.label))
