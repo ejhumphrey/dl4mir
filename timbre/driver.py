@@ -4,8 +4,6 @@ import biggie
 import optimus
 from os import path
 import marl.fileutils as futil
-import numpy as np
-import json
 
 import dl4mir.timbre.data as D
 import dl4mir.common.streams as S
@@ -14,13 +12,11 @@ from dl4mir.timbre import models
 
 DRIVER_ARGS['max_iter'] = 500000
 LEARNING_RATE = 0.02
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 
 
 def main(args):
-    arch_key = args.arch_size
-
-    trainer, predictor = models.MODELS[arch_key]()
+    trainer, predictor = models.iX_c3f2_oY(10, 3, 'large')
     time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
@@ -29,14 +25,9 @@ def main(args):
 
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file, cache=True)
-    stream = D.create_pairwise_stream(stash, time_dim)
-
-    # Load prior
-    stat_file = "%s.json" % path.splitext(args.training_file)[0]
-    prior = np.array(json.load(open(stat_file))['prior'], dtype=float)
-    trainer.nodes['prior'].weight.value = 1.0 / prior.reshape(1, -1)
-
-    stream = S.minibatch(stream, batch_size=BATCH_SIZE)
+    stream = S.minibatch(
+        D.create_pairwise_stream(stash, time_dim),
+        batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -44,9 +35,7 @@ def main(args):
         name=args.trial_name,
         output_directory=futil.create_directory(args.output_directory))
 
-    hyperparams = dict(learning_rate=LEARNING_RATE)
-    if args.dropout:
-        hyperparams.update(dropout=args.dropout)
+    hyperparams = dict(learning_rate=LEARNING_RATE, margin=float(args.margin))
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)
@@ -61,9 +50,9 @@ if __name__ == "__main__":
     parser.add_argument("training_file",
                         metavar="training_file", type=str,
                         help="Path to a biggie Stash file for training.")
-    parser.add_argument("arch_size",
-                        metavar="arch_size", type=str,
-                        help="Size of the architecture, one of {X, XL, XXL}")
+    # parser.add_argument("arch_size",
+    #                     metavar="arch_size", type=str, default='large',
+    #                     help="Size of the architecture.")
     parser.add_argument("margin",
                         metavar="margin", type=float,
                         help="Margin parameter")
