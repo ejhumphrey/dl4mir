@@ -230,13 +230,48 @@ def pairwise_filter(stream, filt_func, filt_key='pw_cost', **kwargs):
         yield entity if res[filt_key][0] > 0 else None
 
 
-def batch_filter(stream, filt_func, threshold=2.0**-16.0,
-                 filt_key='pw_cost', **kwargs):
+def batch_filter(stream, filt_func, threshold=2.0**-16.0, min_batch=1,
+                 max_consecutive_skips=5, filt_key='pw_cost', **kwargs):
+    """Apply a filter inline to discard datapoints in a batch.
+
+    Parameters
+    ----------
+    stream : generator
+        Stream to filter; must yield dictionart / **kwargs-able objects.
+    filt_func : function
+        Function to apply to each object returned by the stream.
+    threshold : scalar
+        Value to threshold the output of the filter function.
+    min_batch : int, default=1
+        Minimum batch size to return at each iteration.
+    max_consecutive_skips : int, default=5
+        Maximum number of retries to make before raising the StopIteration.
+    filt_key : hashable
+        Dictionary key for the filter function's result.
+    **kwargs : misc
+        Other keyword arguments to pass onto the filter function.
+
+    Yields
+    ------
+    same as `stream`
+    """
+    assert min_batch >= 1, "`min_batch` must be at least 1."
+
+    skipped = int(max_consecutive_skips)
     for data in stream:
+        if skipped < 0:
+            raise StopIteration("Done!")
+
         fargs = data.copy()
         fargs.update(**kwargs)
         mask = filt_func(**fargs)[filt_key] > threshold
+
+        if mask.sum() < min_batch:
+            skipped -= 1
+            continue
+
         for k in data:
             data[k] = data[k][mask]
 
         yield data
+        skipped = int(max_consecutive_skips)
