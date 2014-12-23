@@ -181,7 +181,7 @@ def create_pairwise_stream(stash, win_length, threshold=None,
                                          **args)
                        for key in key_set]
         stream = pescador.mux(entity_pool, n_samples=None,
-                              k=working_size, lam=20)
+                              k=working_size, lam=1)
         inst_streams.append(stream)
 
     inst_streams = np.array(inst_streams)
@@ -215,3 +215,28 @@ def unpack_triples(stream):
         yield biggie.Entity(cqt=x1.cqt,
                             cqt_2=z.cqt,
                             score=float(x1.label == z.label))
+
+
+def pairwise_filter(stream, filt_func, filt_key='pw_cost', **kwargs):
+    for entity in stream:
+        if entity is None:
+            yield entity
+            continue
+        res = filt_func(
+            cqt=entity.cqt[np.newaxis, ...],
+            cqt_2=entity.cqt_2[np.newaxis, ...],
+            score=np.array([entity.score]),
+            **kwargs)
+        yield entity if res[filt_key][0] > 0 else None
+
+
+def batch_filter(stream, filt_func, threshold=2.0**-16.0,
+                 filt_key='pw_cost', **kwargs):
+    for data in stream:
+        fargs = data.copy()
+        fargs.update(**kwargs)
+        mask = filt_func(**fargs)[filt_key] > threshold
+        for k in data:
+            data[k] = data[k][mask]
+
+        yield data
