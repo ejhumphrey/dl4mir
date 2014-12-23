@@ -29,8 +29,8 @@ def slice_cqt_entity(entity, length, idx=None):
     return biggie.Entity(cqt=cqt, label=entity.icode)
 
 
-def cqt_sampler(key, stash, win_length=20, index=None, max_samples=None,
-                sample_func=slice_cqt_entity):
+def cqt_sampler(key, stash, win_length=20, max_samples=None,
+                threshold=None, sample_func=slice_cqt_entity):
     """Generator for sampling windowed observations from an entity.
 
     Parameters
@@ -42,10 +42,9 @@ def cqt_sampler(key, stash, win_length=20, index=None, max_samples=None,
         Dict or biggie.Stash of entities.
     win_length: int
         Length of centered observation window for the CQT.
-    index: dict of index arrays, default=None
-        Indexing object for constrained sampling of the entity.
-        If provided, must have a np.ndarray of integers under `key`; otherwise,
-        this method will fail.
+    threshold: scalar, default=None
+        If given, only select from indices with an average frequency magnitude
+        over the threshold (eliminate silence).
     max_samples: int, or None
         Maximum number of samples to return from this Generator; if None, runs
         indefinitely.
@@ -57,10 +56,11 @@ def cqt_sampler(key, stash, win_length=20, index=None, max_samples=None,
     """
     entity = stash.get(key)
     num_samples = entity.cqt.shape[1]
-    if index is None:
-        index = {key: np.arange(num_samples)}
+    valid_samples = np.arange(num_samples)
+    if not threshold is None:
+        valid_idx = entity.cqt.mean(axis=0).mean(axis=-1) > threshold
+        valid_samples = valid_samples[valid_idx]
 
-    valid_samples = index.get(key, [])
     idx = np.inf
     max_samples = np.inf if max_samples is None else max_samples
     count = 0
@@ -129,7 +129,7 @@ def lazy_cqt_buffer(key, stash, win_length=20, index=None):
         yield x
 
 
-def create_labeled_stream(stash, win_length, working_size=5000,
+def create_labeled_stream(stash, win_length, working_size=5000, threshold=None,
                           sample_func=slice_cqt_entity):
     """Return an unconstrained stream of samples with class labels.
 
@@ -147,8 +147,12 @@ def create_labeled_stream(stash, win_length, working_size=5000,
     stream : generator
         Data stream of windowed chord entities.
     """
+    args = dict(sample_func=sample_func)
+    if not threshold is None:
+        args.update(threshold=threshold)
+
     entity_pool = [pescador.Streamer(cqt_sampler, key, stash,
-                                     win_length, sample_func=sample_func)
+                                     win_length, **args)
                    for key in stash.keys()]
 
     return pescador.mux(entity_pool, None, working_size, lam=25)
