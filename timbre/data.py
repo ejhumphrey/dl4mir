@@ -30,7 +30,7 @@ def slice_cqt_entity(entity, length, idx=None):
 
 
 def cqt_sampler(key, stash, win_length=20, max_samples=None,
-                threshold=None, sample_func=slice_cqt_entity):
+                threshold=0.05, sample_func=slice_cqt_entity):
     """Generator for sampling windowed observations from an entity.
 
     Parameters
@@ -43,7 +43,7 @@ def cqt_sampler(key, stash, win_length=20, max_samples=None,
     win_length: int
         Length of centered observation window for the CQT.
     threshold: scalar, default=None
-        If given, only select from indices with an average frequency magnitude
+        If given, only select from indices with a maximum frequency magnitude
         over the threshold (eliminate silence).
     max_samples: int, or None
         Maximum number of samples to return from this Generator; if None, runs
@@ -58,7 +58,7 @@ def cqt_sampler(key, stash, win_length=20, max_samples=None,
     num_samples = entity.cqt.shape[1]
     valid_samples = np.arange(num_samples)
     if not threshold is None:
-        valid_idx = entity.cqt.mean(axis=0).mean(axis=-1) > threshold
+        valid_idx = entity.cqt.mean(axis=0).max(axis=-1) > threshold
         valid_samples = valid_samples[valid_idx]
 
     idx = np.inf
@@ -158,9 +158,14 @@ def create_labeled_stream(stash, win_length, working_size=5000, threshold=None,
     return pescador.mux(entity_pool, None, working_size, lam=25)
 
 
-def create_pairwise_stream(stash, win_length, working_size=100):
+def create_pairwise_stream(stash, win_length, threshold=None,
+                           working_size=100, sample_func=slice_cqt_entity):
     """Return a stream of samples, with equal positive and negative
     examples."""
+    args = dict(sample_func=sample_func)
+    if not threshold is None:
+        args.update(threshold=threshold)
+
     keys = stash.keys()
     partitions = dict()
     # Group keys by instrument code
@@ -172,7 +177,8 @@ def create_pairwise_stream(stash, win_length, working_size=100):
 
     inst_streams = []
     for icode, key_set in partitions.items():
-        entity_pool = [pescador.Streamer(cqt_sampler, key, stash, win_length)
+        entity_pool = [pescador.Streamer(cqt_sampler, key, stash, win_length,
+                                         **args)
                        for key in key_set]
         stream = pescador.mux(entity_pool, n_samples=None,
                               k=working_size, lam=20)
