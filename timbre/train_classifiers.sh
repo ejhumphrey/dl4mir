@@ -9,7 +9,7 @@
 #    - The script is called from the directory containing the top-level
 #      `dl4mir` source code directory.
 
-BASEDIR=${DL4MIR}/timbre
+BASEDIR=${DL4MIR}/timbre_sim
 SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
@@ -26,7 +26,7 @@ PARAM_TEXTLIST="paramlist.txt"
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
     echo "train.sh {config} {margin} {[0-4]|*all} {fit|select|transform|*all}"
-    echo $'\tconfig - Instrument configuration, one of {c05, c12, c24}.'
+    echo $'\tconfig - Instrument configuration, one of {c5, c8, c12, c24}.'
     echo $'\tmargin - Margin to use for training.'
     echo $'\tfold# - Number of the training fold, default=all.'
     echo $'\tphase - Name of training phase, default=all.'
