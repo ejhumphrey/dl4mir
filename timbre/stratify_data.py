@@ -12,13 +12,13 @@ def main(args):
 
     folds = dict()
     for config_name, key_set in subsets.iteritems():
-        filt_keys = [k for k in keys if k.split('_')[0] in key_set]
+        filt_keys = np.array([k for k in keys if k.split('_')[0] in key_set])
         splitter = KFold(n=len(filt_keys),
                          n_folds=args.num_folds,
                          shuffle=True)
         folds[config_name] = dict()
         for fold_idx, data_idxs in enumerate(splitter):
-            train_keys, test_keys = keys[data_idxs[0]], keys[data_idxs[1]]
+            train_keys, test_keys = [filt_keys[idxs] for idxs in data_idxs]
             num_train = len(train_keys)
             train_idx = np.random.permutation(num_train)
             valid_count = int(args.valid_ratio * num_train)
