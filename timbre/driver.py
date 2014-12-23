@@ -10,15 +10,17 @@ import dl4mir.common.streams as S
 from dl4mir.timbre import models
 
 DRIVER_ARGS = dict(
-    max_iter=500000,
+    max_iter=100000,
     save_freq=1000,
     print_freq=50,
     nan_exceptions=100)
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
+RADIUS = 12 ** 0.5
 
 
 def main(args):
+    sim_margin = -RADIUS * args.margin
     trainer, predictor, zerofilter = models.iX_c3f2_oY(20, 3, 'xlarge')
     time_dim = trainer.inputs['cqt'].shape[2]
 
@@ -33,8 +35,9 @@ def main(args):
                                  working_size=100, threshold=0.05),
         batch_size=BATCH_SIZE)
 
-    stream = D.batch_filter(stream, zerofilter,
-                            threshold=2.0**-16, margin=args.margin)
+    stream = D.batch_filter(
+        stream, zerofilter, threshold=2.0**-16,
+        sim_margin=sim_margin, diff_margin=RADIUS)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
@@ -42,7 +45,9 @@ def main(args):
         name=args.trial_name,
         output_directory=futil.create_directory(args.output_directory))
 
-    hyperparams = dict(learning_rate=LEARNING_RATE, margin=float(args.margin))
+    hyperparams = dict(
+        learning_rate=LEARNING_RATE,
+        sim_margin=sim_margin, diff_margin=RADIUS)
 
     predictor_file = path.join(driver.output_directory, args.predictor_file)
     optimus.save(predictor, def_file=predictor_file)

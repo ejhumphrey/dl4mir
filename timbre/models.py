@@ -55,11 +55,16 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         name='learning_rate',
         shape=None)
 
-    margin = optimus.Input(
-        name='margin',
+    sim_margin = optimus.Input(
+        name='sim_margin',
         shape=None)
 
-    inputs = [input_data, input_data_2, score, learning_rate, margin]
+    diff_margin = optimus.Input(
+        name='diff_margin',
+        shape=None)
+
+    inputs = [input_data, input_data_2, score, learning_rate,
+              sim_margin, diff_margin]
 
     # 1.2 Create Nodes
     logscale = optimus.Log("logscale", 1.0)
@@ -94,7 +99,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         name='layer4',
         input_shape=layer3.output.shape,
         output_shape=(None, n_out),
-        act_type='tanh')
+        act_type='linear')
 
     param_nodes = [layer0, layer1, layer2, layer3, layer4]
 
@@ -110,40 +115,40 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
 
     # 1.2 Create Loss
     # ---------------
-    #  same = y*(D^2)
-    #  diff = (1 - y) * hwr(margin - D)^2
-    #  total = ave(same_cost + diff_cost)
-
+    #  sim_cost = y*hwr(D - sim_margin)^2
+    #  diff_cost = (1 - y) * hwr(diff_margin - D)^2
+    #  total = ave(sim_cost + diff_cost)
     sqdistance = optimus.SquaredEuclidean(name='euclidean')
-    cost_sim = optimus.Product(name="cost_sim")
-
     distance = optimus.Sqrt(name='sqrt')
-    neg_distance = optimus.Multiply(
-        name='neg_distance',
-        weight_shape=None)
+
+    # Sim terms
+    sim_margin_sum = optimus.Add(name="sim_margin_sum", num_inputs=2)
+    sim_hwr = optimus.RectifiedLinear(name="sim_hwr")
+    sim_sqhwr = optimus.Power(name='sim_sqhwr', exponent=2.0)
+    sim_cost = optimus.Product(name="sim_cost")
+
+    # Diff terms
+    neg_distance = optimus.Multiply(name='neg_distance', weight_shape=None)
     neg_distance.weight.value = -1.0
-    margin_sum = optimus.Add(name="margin_sum", num_inputs=2)
-    hwr = optimus.SoftRectifiedLinear(name="hwr", knee=2.5)
-    sqhwr = optimus.Power(name='sqhwr', exponent=2.0)
+    diff_margin_sum = optimus.Add(name="diff_margin_sum", num_inputs=2)
+    diff_hwr = optimus.RectifiedLinear(name="diff_hwr")
+    diff_sqhwr = optimus.Power(name='diff_sqhwr', exponent=2.0)
 
-    pos_one = optimus.Constant(
-        name='pos_one',
-        shape=None)
+    pos_one = optimus.Constant(name='pos_one', shape=None)
     pos_one.data.value = 1.0
-
-    neg_score = optimus.Multiply(
-        name='neg_score',
-        weight_shape=None)
+    neg_score = optimus.Multiply(name='neg_score', weight_shape=None)
     neg_score.weight.value = -1.0
 
     diff_selector = optimus.Add("diff_selector", num_inputs=2)
-    cost_diff = optimus.Product(name='cost_diff')
+    diff_cost = optimus.Product(name='diff_cost')
 
     total_cost = optimus.Add('total_cost', num_inputs=2)
     loss = optimus.Mean(name='loss')
 
-    loss_nodes = [sqdistance, distance, cost_sim, neg_distance, margin_sum,
-                  hwr, sqhwr, pos_one, neg_score, diff_selector, cost_diff,
+    loss_nodes = [sqdistance, distance,
+                  sim_margin_sum, sim_hwr, sim_sqhwr, sim_cost,
+                  neg_distance, diff_margin_sum, diff_hwr, diff_sqhwr,
+                  pos_one, neg_score, diff_selector, diff_cost,
                   total_cost, loss]
 
     # Graph outputs
@@ -170,30 +175,36 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         (layer3_2.output, layer4_2.input),
         (layer4_2.output, embedding_2)]
 
+    cost_edges = [
+        (layer4.output, sqdistance.input_a),
+        (layer4_2.output, sqdistance.input_b),
+        (sqdistance.output, distance.input),
+        # Sim terms
+        (score, sim_cost.input_a),
+        (distance.output, sim_margin_sum.input_0),
+        (sim_margin, sim_margin_sum.input_1),
+        (sim_margin_sum.output, sim_hwr.input),
+        (sim_hwr.output, sim_sqhwr.input),
+        (sim_sqhwr.output, sim_cost.input_b),
+        (sim_cost.output, total_cost.input_0),
+        # Diff terms
+        # - margin term
+        (distance.output, neg_distance.input),
+        (diff_margin, diff_margin_sum.input_0),
+        (neg_distance.output, diff_margin_sum.input_1),
+        (diff_margin_sum.output, diff_hwr.input),
+        (diff_hwr.output, diff_sqhwr.input),
+        # - score selector
+        (score, neg_score.input),
+        (pos_one.output, diff_selector.input_0),
+        (neg_score.output, diff_selector.input_1),
+        # - product
+        (diff_selector.output, diff_cost.input_a),
+        (diff_sqhwr.output, diff_cost.input_b),
+        (diff_cost.output, total_cost.input_1)]
+
     trainer_edges = optimus.ConnectionManager(
-        base_edges + base_edges_2 + [
-            (layer4.output, sqdistance.input_a),
-            (layer4_2.output, sqdistance.input_b),
-            # Sim terms
-            (score, cost_sim.input_a),
-            (sqdistance.output, cost_sim.input_b),
-            (cost_sim.output, total_cost.input_0),
-            # Diff terms
-            # - margin term
-            (sqdistance.output, distance.input),
-            (distance.output, neg_distance.input),
-            (margin, margin_sum.input_0),
-            (neg_distance.output, margin_sum.input_1),
-            (margin_sum.output, hwr.input),
-            (hwr.output, sqhwr.input),
-            # - score selector
-            (score, neg_score.input),
-            (pos_one.output, diff_selector.input_0),
-            (neg_score.output, diff_selector.input_1),
-            # - product
-            (diff_selector.output, cost_diff.input_a),
-            (sqhwr.output, cost_diff.input_b),
-            (cost_diff.output, total_cost.input_1),
+        base_edges + base_edges_2 + cost_edges + [
             # Combined
             (total_cost.output, loss.input),
             (loss.output, total_loss)])
@@ -218,35 +229,13 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
 
     pw_cost = optimus.Output(name='pw_cost')
     zerofilt_edges = optimus.ConnectionManager(
-        base_edges + base_edges_2 + [
-            (layer4.output, sqdistance.input_a),
-            (layer4_2.output, sqdistance.input_b),
-            # Sim terms
-            (score, cost_sim.input_a),
-            (sqdistance.output, cost_sim.input_b),
-            (cost_sim.output, total_cost.input_0),
-            # Diff terms
-            # - margin term
-            (sqdistance.output, distance.input),
-            (distance.output, neg_distance.input),
-            (margin, margin_sum.input_0),
-            (neg_distance.output, margin_sum.input_1),
-            (margin_sum.output, hwr.input),
-            (hwr.output, sqhwr.input),
-            # - score selector
-            (score, neg_score.input),
-            (pos_one.output, diff_selector.input_0),
-            (neg_score.output, diff_selector.input_1),
-            # - product
-            (diff_selector.output, cost_diff.input_a),
-            (sqhwr.output, cost_diff.input_b),
-            (cost_diff.output, total_cost.input_1),
+        base_edges + base_edges_2 + cost_edges + [
             # Combined
             (total_cost.output, pw_cost)])
 
-    zerofilt = optimus.Graph(
-        name=GRAPH_NAME + "_zerofilt",
-        inputs=[input_data, input_data_2, score, margin],
+    zerofilter = optimus.Graph(
+        name=GRAPH_NAME + "_zerofilter",
+        inputs=[input_data, input_data_2, score, sim_margin, diff_margin],
         nodes=param_nodes + param_nodes_2 + loss_nodes[:-1] + misc_nodes,
         connections=zerofilt_edges.connections,
         outputs=[pw_cost, embedding, embedding_2],
@@ -260,7 +249,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         outputs=[embedding],
         verbose=True)
 
-    return trainer, predictor, zerofilt
+    return trainer, predictor, zerofilter
 
 
 def test_pairwise(n_in):
