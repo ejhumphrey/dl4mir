@@ -10,7 +10,7 @@ def param_init(nodes, skip_biases=True):
         for k, p in n.params.items():
             if 'bias' in k and skip_biases:
                 continue
-            optimus.random_init(p, 0, 0.1)
+            optimus.random_init(p, 0, 0.01)
 
 
 def iX_c3f2_oY(n_in, n_out, size='large'):
@@ -68,33 +68,33 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         input_shape=input_data.shape,
         weight_shape=(k0, None, n0, 13),
         pool_shape=(p0, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
         weight_shape=(k1, None, n1, 11),
         pool_shape=(p1, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
         weight_shape=(k2, None, n2, 9),
         pool_shape=(p2, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer3 = optimus.Affine(
         name='layer3',
         input_shape=layer2.output.shape,
         output_shape=(None, k3),
-        act_type='relu')
+        act_type='tanh')
 
     layer4 = optimus.Affine(
         name='layer4',
         input_shape=layer3.output.shape,
         output_shape=(None, n_out),
-        act_type='linear')
+        act_type='tanh')
 
     param_nodes = [layer0, layer1, layer2, layer3, layer4]
 
@@ -123,7 +123,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         weight_shape=None)
     neg_distance.weight.value = -1.0
     margin_sum = optimus.Add(name="margin_sum", num_inputs=2)
-    hwr = optimus.RectifiedLinear(name="hwr")
+    hwr = optimus.SoftRectifiedLinear(name="hwr", knee=2.5)
     sqhwr = optimus.Power(name='sqhwr', exponent=2.0)
 
     pos_one = optimus.Constant(
@@ -216,6 +216,42 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         updates=update_manager.connections,
         verbose=True)
 
+    pw_cost = optimus.Output(name='pw_cost')
+    zerofilt_edges = optimus.ConnectionManager(
+        base_edges + base_edges_2 + [
+            (layer4.output, sqdistance.input_a),
+            (layer4_2.output, sqdistance.input_b),
+            # Sim terms
+            (score, cost_sim.input_a),
+            (sqdistance.output, cost_sim.input_b),
+            (cost_sim.output, total_cost.input_0),
+            # Diff terms
+            # - margin term
+            (sqdistance.output, distance.input),
+            (distance.output, neg_distance.input),
+            (margin, margin_sum.input_0),
+            (neg_distance.output, margin_sum.input_1),
+            (margin_sum.output, hwr.input),
+            (hwr.output, sqhwr.input),
+            # - score selector
+            (score, neg_score.input),
+            (pos_one.output, diff_selector.input_0),
+            (neg_score.output, diff_selector.input_1),
+            # - product
+            (diff_selector.output, cost_diff.input_a),
+            (sqhwr.output, cost_diff.input_b),
+            (cost_diff.output, total_cost.input_1),
+            # Combined
+            (total_cost.output, pw_cost)])
+
+    zerofilt = optimus.Graph(
+        name=GRAPH_NAME + "_zerofilt",
+        inputs=[input_data, input_data_2, score, margin],
+        nodes=param_nodes + param_nodes_2 + loss_nodes[:-1] + misc_nodes,
+        connections=zerofilt_edges.connections,
+        outputs=[pw_cost, embedding, embedding_2],
+        verbose=True)
+
     predictor = optimus.Graph(
         name=GRAPH_NAME,
         inputs=[input_data],
@@ -224,7 +260,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         outputs=[embedding],
         verbose=True)
 
-    return trainer, predictor
+    return trainer, predictor, zerofilt
 
 
 def test_pairwise(n_in):
