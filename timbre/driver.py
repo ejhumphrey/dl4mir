@@ -7,16 +7,19 @@ import marl.fileutils as futil
 
 import dl4mir.timbre.data as D
 import dl4mir.common.streams as S
-from dl4mir.timbre import DRIVER_ARGS
 from dl4mir.timbre import models
 
-DRIVER_ARGS['max_iter'] = 500000
+DRIVER_ARGS = dict(
+    max_iter=500000,
+    save_freq=1000,
+    print_freq=50,
+    nan_exceptions=100)
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 
 
 def main(args):
-    trainer, predictor = models.iX_c3f2_oY(10, 3, 'large')
+    trainer, predictor = models.iX_c3f2_oY(20, 3, 'xlarge')
     time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
@@ -26,7 +29,8 @@ def main(args):
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file, cache=True)
     stream = S.minibatch(
-        D.create_pairwise_stream(stash, time_dim),
+        D.create_pairwise_stream(stash, time_dim,
+                                 working_size=100, threshold=0.05),
         batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
