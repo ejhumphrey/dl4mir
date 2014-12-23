@@ -19,8 +19,8 @@ BATCH_SIZE = 100
 
 
 def main(args):
-    trainer, predictor = models.iX_c3f2_oY(20, 3, 'xlarge')
-    time_dim = trainer.inputs['data'].shape[2]
+    trainer, predictor, zerofilter = models.iX_c3f2_oY(20, 3, 'xlarge')
+    time_dim = trainer.inputs['cqt'].shape[2]
 
     if args.init_param_file:
         print "Loading parameters: %s" % args.init_param_file
@@ -32,6 +32,9 @@ def main(args):
         D.create_pairwise_stream(stash, time_dim,
                                  working_size=100, threshold=0.05),
         batch_size=BATCH_SIZE)
+
+    stream = D.batch_filter(stream, zerofilter,
+                            threshold=2.0**-16, margin=args.margin)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
