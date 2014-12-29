@@ -79,13 +79,13 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
         pool_shape=(p2, 1),
         act_type='relu')
 
-    dropout_edges = []
+    trainer_edges = []
     if use_dropout:
         layer0.enable_dropout()
         layer1.enable_dropout()
         layer2.enable_dropout()
         inputs += [dropout]
-        dropout_edges += [(dropout, layer0.dropout),
+        trainer_edges += [(dropout, layer0.dropout),
                           (dropout, layer1.dropout),
                           (dropout, layer2.dropout)]
 
@@ -145,7 +145,6 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
         (stack.output, fretboard)
     ]
 
-    trainer_edges = []
     for n, name in enumerate('EADGBe'):
         trainer_edges += [
             (softmaxes[n].output, likelihoods[n].input),
