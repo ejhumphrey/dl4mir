@@ -67,7 +67,7 @@ def frets_to_chroma(frets):
     return chroma
 
 
-def fret_mapper(stream, voicings):
+def fret_mapper(stream, voicings, num_frets=9):
     """Stream filter for mapping chord label entities to frets.
 
     Parameters
@@ -89,5 +89,6 @@ def fret_mapper(stream, voicings):
         if tab is None:
             yield None
         else:
-            frets = decode(tab)
-            yield biggie.Entity(cqt=entity.cqt, frets=frets)
+            frets = {'{0}_index'.format(s): i % num_frets
+                     for s, i in zip('EADGBe', decode(tab))}
+            yield biggie.Entity(cqt=entity.cqt, **frets)
