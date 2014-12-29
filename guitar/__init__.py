@@ -1,4 +1,7 @@
 
+import json
+import os
+
 ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 
 QUALITIES = {
@@ -17,3 +20,12 @@ SOURCE_ARGS = dict(
     batch_size=50,
     refresh_prob=0.0,
     cache_size=500)
+
+
+def __load_voicings__():
+    fpath = os.path.join(os.path.split(__file__)[0],
+                         'chord_voicings.json')
+    return json.load(open(fpath))
+
+
+VOICINGS = __load_voicings__()
