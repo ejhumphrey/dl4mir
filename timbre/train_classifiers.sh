@@ -75,15 +75,12 @@ then
         echo "Collecting parameters."
         python ${SRC}/common/collect_files.py \
 ${MODELS}/${TRIAL}/${idx} \
-"*.npz" \
+"nlse*.npz" \
 ${MODELS}/${TRIAL}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/timbre/find_best_params.py \
-${BIGGIE}/${CONFIG}/${idx}/valid.hdf5 \
-${MODELS}/${TRIAL}/${idx}/${TRANSFORM_NAME}.json \
+        python ${SRC}/timbre/final_params.py \
 ${MODELS}/${TRIAL}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${TRIAL}/${idx}/${TRANSFORM_NAME}.npz \
-${MODELS}/${TRIAL}/${idx}/validation_stats.json
+${MODELS}/${TRIAL}/${idx}/${TRANSFORM_NAME}.npz
     done
 fi
 
