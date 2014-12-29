@@ -4,6 +4,8 @@ import os
 import shutil
 from itertools import groupby
 
+import biggie
+
 
 def hwr(x):
     return x * (x > 0.0)
@@ -452,4 +454,30 @@ def join_endata(enmfp_data, track_data):
         result[uid].append(data)
     return result
 
-    return result
+
+def intervals_to_durations(intervals):
+    """Translate a set of intervals to an array of boundaries."""
+    return np.abs(np.diff(np.asarray(intervals), axis=1)).flatten()
+
+
+def slice_cqt_entity(entity, length, idx=None):
+    """Return a windowed slice of a chord Entity.
+
+    Parameters
+    ----------
+    entity : Entity, with at least {cqt, chord_labels} fields
+        Observation to window.
+        Note that entity.cqt is shaped (num_channels, num_frames, num_bins).
+    length : int
+        Length of the sliced array.
+    idx : int, or None
+        Centered frame index for the slice, or random if not provided.
+
+    Returns
+    -------
+    sample: biggie.Entity with fields {cqt, frets}
+        The windowed chord observation.
+    """
+    idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx
+    cqt = np.array([slice_tile(x, idx, length) for x in entity.cqt])
+    return biggie.Entity(cqt=cqt, chord_label=entity.chord_labels[idx])
