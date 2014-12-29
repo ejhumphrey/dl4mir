@@ -3,6 +3,7 @@ import numpy as np
 
 import biggie
 import pescador
+import time
 from dl4mir.common import util
 
 
@@ -259,19 +260,22 @@ def batch_filter(stream, filt_func, threshold=2.0**-16.0, min_batch=1,
 
     skipped = int(max_consecutive_skips)
     for data in stream:
-        if skipped < 0:
-            raise StopIteration("Done!")
+        # if skipped < 0:
+        #    print "Skipped too many datapoints!"
+        #    raise StopIteration("Done!")
 
         fargs = data.copy()
         fargs.update(**kwargs)
-        mask = filt_func(**fargs)[filt_key] > threshold
+        res = filt_func(**fargs)
+        mask = res[filt_key] > threshold
 
-        if mask.sum() < min_batch:
-            skipped -= 1
-            continue
+        if mask.sum() == 0:
+            print "No valid data? Expect a failure"
+            fargs.update(**res)
+            np.savez("error_dump_{0}.npz".format(time.time()), **fargs)
 
         for k in data:
             data[k] = data[k][mask]
-
+        
         yield data
         skipped = int(max_consecutive_skips)
