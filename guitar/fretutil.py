@@ -15,6 +15,7 @@ notes : list of ints
 """
 
 import numpy as np
+import biggie
 
 #       Strings    E2  A2  D3  G3  B3  E4
 STANDARD_TUNING = [40, 45, 50, 55, 59, 64]
@@ -64,3 +65,29 @@ def frets_to_chroma(frets):
         if x >= 0:
             chroma[(x + s) % 12] = 1
     return chroma
+
+
+def fret_mapper(stream, voicings):
+    """Stream filter for mapping chord label entities to frets.
+
+    Parameters
+    ----------
+    stream : generator
+        Yields {cqt, chord_label} entities, or None.
+    voicings : dict
+        Map of chord labels to tab strings.
+
+    Yields
+    ------
+    entity : biggie.Entity
+        Fretted entity with {cqt, frets}, or None if out of gamut.
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+        tab = voicings.get(str(entity.chord_label), None)
+        if tab is None:
+            yield None
+        else:
+            frets = decode(tab)
+            yield biggie.Entity(cqt=entity.cqt, frets=frets)
