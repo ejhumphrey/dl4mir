@@ -73,27 +73,27 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         input_shape=input_data.shape,
         weight_shape=(k0, None, n0, 13),
         pool_shape=(p0, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer1 = optimus.Conv3D(
         name='layer1',
         input_shape=layer0.output.shape,
         weight_shape=(k1, None, n1, 11),
         pool_shape=(p1, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer2 = optimus.Conv3D(
         name='layer2',
         input_shape=layer1.output.shape,
         weight_shape=(k2, None, n2, 9),
         pool_shape=(p2, 2),
-        act_type='relu')
+        act_type='tanh')
 
     layer3 = optimus.Affine(
         name='layer3',
         input_shape=layer2.output.shape,
         output_shape=(None, k3),
-        act_type='relu')
+        act_type='tanh')
 
     layer4 = optimus.Affine(
         name='layer4',
@@ -123,7 +123,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
 
     # Sim terms
     sim_margin_sum = optimus.Add(name="sim_margin_sum", num_inputs=2)
-    sim_hwr = optimus.SoftRectifiedLinear(name="sim_hwr", knee=2.5)
+    sim_hwr = optimus.RectifiedLinear(name="sim_hwr")
     sim_sqhwr = optimus.Power(name='sim_sqhwr', exponent=2.0)
     sim_cost = optimus.Product(name="sim_cost")
 
@@ -131,7 +131,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
     neg_distance = optimus.Multiply(name='neg_distance', weight_shape=None)
     neg_distance.weight.value = -1.0
     diff_margin_sum = optimus.Add(name="diff_margin_sum", num_inputs=2)
-    diff_hwr = optimus.SoftRectifiedLinear(name="diff_hwr", knee=2.5)
+    diff_hwr = optimus.RectifiedLinear(name="diff_hwr")
     diff_sqhwr = optimus.Power(name='diff_sqhwr', exponent=2.0)
 
     pos_one = optimus.Constant(name='pos_one', shape=None)
@@ -225,7 +225,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         outputs=[total_loss, embedding, embedding_2],
         loss=total_loss,
         updates=update_manager.connections,
-        verbose=True)
+        verbose=False)
 
     pw_cost = optimus.Output(name='pw_cost')
     zerofilt_edges = optimus.ConnectionManager(
@@ -239,7 +239,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         nodes=param_nodes + param_nodes_2 + loss_nodes[:-1] + misc_nodes,
         connections=zerofilt_edges.connections,
         outputs=[pw_cost, embedding, embedding_2],
-        verbose=True)
+        verbose=False)
 
     predictor = optimus.Graph(
         name=GRAPH_NAME,
@@ -247,7 +247,7 @@ def iX_c3f2_oY(n_in, n_out, size='large'):
         nodes=param_nodes + [logscale],
         connections=optimus.ConnectionManager(base_edges).connections,
         outputs=[embedding],
-        verbose=True)
+        verbose=False)
 
     return trainer, predictor, zerofilter
 
