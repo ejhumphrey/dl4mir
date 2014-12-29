@@ -10,7 +10,7 @@ import dl4mir.common.streams as S
 from dl4mir.timbre import models
 
 DRIVER_ARGS = dict(
-    max_iter=25000,
+    max_iter=25010,
     save_freq=1000,
     print_freq=50,
     nan_exceptions=100)
@@ -36,8 +36,8 @@ def main(args):
         batch_size=BATCH_SIZE)
 
     stream = D.batch_filter(
-        stream, zerofilter, threshold=2.0**-16, min_batch=10,
-        max_consecutive_skips=10, sim_margin=sim_margin, diff_margin=RADIUS)
+        stream, zerofilter, threshold=2.0**-16, min_batch=1,
+        max_consecutive_skips=100, sim_margin=sim_margin, diff_margin=RADIUS)
 
     print "Starting '%s'" % args.trial_name
     driver = optimus.Driver(
