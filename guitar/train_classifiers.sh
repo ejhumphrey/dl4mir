@@ -2,96 +2,107 @@
 #
 # Train a set of end-to-end classifiers and sweep over the checkpointed
 #    parameters to identify the early stopping point.
-BASEDIR=/media/attic/dl4mir/chord_estimation
-SRC=~/Dropbox/NYU/marldev/src/ejhumphrey/dl4mir
+#
+# Requires the following:
+#    - An environment variable `DL4MIR` has been set, pointing to the expected
+#      directory structure of data.
+#    - The script is called from the directory containing the top-level
+#      `dl4mir` source code directory.
+
+# BASEDIR=/media/attic/dl4mir/chord_estimation
+BASEDIR=${DL4MIR}/guitar
+SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
-#   ${GUITAR_DSETS}/${FOLD}/${SPLIT}.hdf5
-GUITAR_DSETS=${BASEDIR}/guitar_dsets
-
+#   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
+BIGGIE=${BASEDIR}/biggie/chords_l2n
+INITS=${BASEDIR}/param_inits
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
-TRIAL_NAME="pshift_noreg"
-VALIDATOR_NAME="validator"
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
 
 
-if [ -z "$1" ]; then
+if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
-    echo "train.sh {driver|all} {[0-4]|*all}"
-    echo $'\tdriver - Name of the training driver.'
+    echo "train.sh {arch_size} {dropout} {[0-4]|*all} {fit|select|transform|*all} {}"
+    echo $'\tarch_size - Architecture size, one of {L, XL, XXL}.'
+    echo $'\tdropout - Dropout hyperparameter.'
     echo $'\tfold# - Number of the training fold, default=all.'
+    echo $'\tphase - Name of training phase, default=all.'
     exit 0
 fi
 
-if [ "$1" == "all" ]
-then
-    echo "Setting all known drivers..."
-    DRIVER="tabber-L05 "\
-"tabber-L10 "\
-"tabber-L20 "\
-"tabber-L40 "\
-"tabber-L80"
-else
-    DRIVER="$1"
-fi
+ARCH_SIZE="$1"
+DROPOUT="$2"
 
-if [ "$2" == "all" ] || [ -z "$2" ];
+if [ -z "$3" ] || [ "$3" == "all" ];
 then
     echo "Setting all folds"
     FOLD_IDXS=$(seq 0 4)
 else
-    FOLD_IDXS=$2
+    FOLD_IDXS=$3
 fi
 
-# Train networks
-for drv in ${DRIVER}
-do
+if [ -z "$4" ];
+then
+    PHASE="all"
+else
+    PHASE=$4
+fi
+
+CONFIG="${ARCH_SIZE}/${DROPOUT}"
+
+# Fit networks
+if [ $PHASE == "all" ] || [ $PHASE == "fit" ];
+then
     for idx in ${FOLD_IDXS}
     do
-        python ${SRC}/guitar/drivers/${drv}.py \
-${GUITAR_DSETS}/${idx}/train.hdf5 \
-${MODELS}/${drv}/${idx} \
-${TRIAL_NAME} \
-${VALIDATOR_NAME}.json \
+        python ${SRC}/guitar/driver.py \
+${BIGGIE}/${idx}/train.hdf5 \
+${ARCH_SIZE} \
+${DROPOUT} \
+${MODELS}/${CONFIG}/${idx} \
+"guitarnet" \
 ${TRANSFORM_NAME}.json
     done
-done
+fi
 
 # Model Selection
-for drv in ${DRIVER}
-do
+if [ $PHASE == "all" ] || [ $PHASE == "select" ];
+then
     for idx in ${FOLD_IDXS}
     do
         echo "Collecting parameters."
         python ${SRC}/common/collect_files.py \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME} \
+${MODELS}/${CONFIG}/${idx} \
 "*.npz" \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST}
+${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/guitar/select_params.py \
-${GUITAR_DSETS}/${idx}/valid.hdf5 \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${VALIDATOR_NAME}.json \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${PARAM_TEXTLIST} \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz
+        python ${SRC}/guitar/find_best_params.py \
+${BIGGIE}/${idx}/valid.hdf5 \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${MODELS}/${CONFIG}/${idx}/validation_stats.json
     done
-done
+fi
 
 # Transform data
-for drv in ${DRIVER}
-do
+if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
+then
     for idx in ${FOLD_IDXS}
     do
-        for split in valid train test
+        for split in valid test train
         do
-            echo "Transforming ${GUITAR_DSETS}/${idx}/${split}.hdf5"
-            python ${SRC}/guitar/transform_data.py \
-${GUITAR_DSETS}/${idx}/${split}.hdf5 \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.json \
-${MODELS}/${drv}/${idx}/${TRIAL_NAME}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${drv}/${idx}/${TRIAL_NAME}/${split}.hdf5
+            echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
+            python ${SRC}/common/transform_stash.py \
+${BIGGIE}/${idx}/${split}.hdf5 \
+"cqt" \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5
         done
     done
-done
+fi
