@@ -30,6 +30,33 @@ def slice_cqt_entity(entity, length, idx=None):
     return biggie.Entity(cqt=cqt, label=entity.icode)
 
 
+def slice_embedding_entity(entity, length, idx=None):
+    """Return a windowed slice of a cqt Entity.
+
+    Parameters
+    ----------
+    entity : Entity, with at least {cqt, icode} fields
+        Observation to window.
+        Note that entity.cqt is shaped (num_channels, num_frames, num_bins).
+    length : int
+        Length of the sliced array.
+    idx : int, or None
+        Centered frame index for the slice, or random if not provided.
+
+    Returns
+    -------
+    sample: biggie.Entity with fields {cqt, label}
+        The windowed observation.
+    """
+    idx = np.random.randint(entity.embedding.shape[0]) if idx is None else idx
+    return biggie.Entity(
+        embedding=entity.embedding[idx],
+        time=entity.time_points[idx],
+        fcode=entity.fcode,
+        note_number=entity.note_number,
+        icode=entity.icode)
+
+
 def cqt_sampler(key, stash, win_length=20, max_samples=None,
                 threshold=0.05, sample_func=slice_cqt_entity):
     """Generator for sampling windowed observations from an entity.
@@ -56,7 +83,7 @@ def cqt_sampler(key, stash, win_length=20, max_samples=None,
         The windowed observation.
     """
     entity = stash.get(key)
-    num_samples = entity.cqt.shape[1]
+    num_samples = len(entity.time_points)
     valid_samples = np.arange(num_samples)
     if not threshold is None:
         valid_idx = entity.cqt.mean(axis=0).max(axis=-1) > threshold
@@ -148,10 +175,7 @@ def create_labeled_stream(stash, win_length, working_size=5000, threshold=None,
     stream : generator
         Data stream of windowed chord entities.
     """
-    args = dict(sample_func=sample_func)
-    if not threshold is None:
-        args.update(threshold=threshold)
-
+    args = dict(sample_func=sample_func, threshold=threshold)
     entity_pool = [pescador.Streamer(cqt_sampler, key, stash,
                                      win_length, **args)
                    for key in stash.keys()]
@@ -258,12 +282,7 @@ def batch_filter(stream, filt_func, threshold=2.0**-16.0, min_batch=1,
     """
     assert min_batch >= 1, "`min_batch` must be at least 1."
 
-    skipped = int(max_consecutive_skips)
     for data in stream:
-        # if skipped < 0:
-        #    print "Skipped too many datapoints!"
-        #    raise StopIteration("Done!")
-
         fargs = data.copy()
         fargs.update(**kwargs)
         res = filt_func(**fargs)
@@ -276,6 +295,45 @@ def batch_filter(stream, filt_func, threshold=2.0**-16.0, min_batch=1,
 
         for k in data:
             data[k] = data[k][mask]
-        
+
         yield data
-        skipped = int(max_consecutive_skips)
+
+
+def sample_embedding_stash(stash, num_points):
+    """Sample a collection of embedding points from a stash.
+
+    Parameters
+    ----------
+    stash : biggie.Stash
+        Collection from which to draw samples.
+    num_points : int
+        Number of datapoints to sample.
+
+    Returns
+    -------
+    data : np.ndarray, shape=(num_points, 3)
+        Observations.
+    labels : list, len=num_points
+        Instrument labels.
+    keys : list
+        Source keys.
+    time_points : np.ndarray
+        Points in time of the observations.
+    """
+    data = np.zeros([num_points, 3])
+    labels = list()
+    time_points = np.zeros(num_points)
+    keys = list()
+    stream = create_labeled_stream(
+        stash, 1, working_size=100, threshold=None,
+        sample_func=slice_embedding_entity)
+
+    for n in range(num_points):
+        a = stream.next()
+        data[n, ...] = a.embedding
+        labels.append(str(a.icode))
+        time_points[n] = a.time
+        keys.append(
+            "_".join([str(_) for _ in a.icode, a.note_number, a.fcode]))
+
+    return data, labels, keys, time_points
