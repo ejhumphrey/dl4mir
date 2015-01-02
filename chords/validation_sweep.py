@@ -1,16 +1,17 @@
 import argparse
-import marl.fileutils as futils
-import pyjams
-import optimus
-import biggie
-import time
 import os
+import time
+
+import biggie
+import marl.fileutils as futils
+import optimus
+import pyjams
 
 import dl4mir.chords.lexicon as lex
 import dl4mir.chords.decode as D
+from dl4mir.chords import PENALTY_VALUES
 from dl4mir.common.transform_stash import convolve
 
-from dl4mir.chords import PENALTY_VALUES
 
 NUM_CPUS = None
 
@@ -41,7 +42,8 @@ def predict_stash(stash, transform, penalty_values, vocab):
         entity = convolve(stash.get(key), transform, 'cqt')
         annots[key] = D.decode_posterior_parallel(
             entity, penalty_values, vocab, NUM_CPUS)
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, len(stash), key)
+        print "[{0}] {1:6} / {2:6}: {3}".format(
+            time.asctime(), idx, len(stash), key)
     return annots
 
 
@@ -60,7 +62,7 @@ def main(args):
     output_dir = futils.create_directory(args.output_dir)
     for fidx, param_file in enumerate(param_files):
         transform.load_param_values(param_file)
-        print "Sweeping parameters: %s" % param_file
+        print "Sweeping parameters: {0}".format(param_file)
         results = predict_stash(stash, transform, PENALTY_VALUES, vocab)
         for key, annots in results.iteritems():
             for a in annots:
