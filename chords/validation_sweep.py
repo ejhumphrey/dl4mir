@@ -88,12 +88,9 @@ if __name__ == "__main__":
                         metavar="param_textlist", type=str,
                         help="Path to save the training results.")
     # Outputs
-    parser.add_argument("param_file",
-                        metavar="param_file", type=str,
-                        help="Path for renaming best parameters.")
-    parser.add_argument("validation_stats",
-                        metavar="validation_stats", type=str,
-                        help="Path for saving performance statistics.")
+    parser.add_argument("output_dir",
+                        metavar="output_dir", type=str,
+                        help="Path for saving JAMS annotations.")
     parser.add_argument("--start_index",
                         metavar="--start_index", type=int, default=0,
                         help="Starting parameter index.")
