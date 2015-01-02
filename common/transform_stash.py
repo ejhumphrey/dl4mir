@@ -57,23 +57,25 @@ def convolve(entity, graph, input_key, axis=1, chunk_size=250):
     return biggie.Entity(**values)
 
 
+def process_stash(stash, transform, output_file, input_key):
+    futils.create_directory(os.path.split(output_file)[0])
+    if os.path.exists(output_file):
+        os.remove(output_file)
+
+    output = biggie.Stash(output_file)
+    total_count = len(stash.keys())
+    for idx, key in enumerate(stash.keys()):
+        output.add(key, convolve(stash.get(key), transform, input_key))
+        print "[{0}] {1:7} / {2:7}: {3}".format(
+            time.asctime(), idx, total_count, key)
+
+    output.close()
+
+
 def main(args):
     transform = optimus.load(args.transform_file, args.param_file)
-
-    in_stash = biggie.Stash(args.data_file)
-
-    futils.create_directory(os.path.split(args.output_file)[0])
-    if os.path.exists(args.output_file):
-        os.remove(args.output_file)
-
-    out_stash = biggie.Stash(args.output_file)
-    total_count = len(in_stash.keys())
-    for idx, key in enumerate(in_stash.keys()):
-        out_stash.add(
-            key, convolve(in_stash.get(key), transform, input_key='cqt'))
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
-
-    out_stash.close()
+    stash = biggie.Stash(args.data_file)
+    process_stash(stash, transform, args.output_file, args.input_key)
 
 
 if __name__ == "__main__":
