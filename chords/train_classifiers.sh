@@ -70,7 +70,7 @@ ${TRANSFORM_NAME}.json
 fi
 
 # Model Selection
-if [ $PHASE == "all" ] || [ $PHASE == "select" ];
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -80,12 +80,13 @@ ${MODELS}/${CONFIG}/${idx} \
 "*.npz" \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/chords/find_best_params.py \
+        python ${SRC}/chords/validation_sweep.py \
 ${BIGGIE}/${idx}/valid.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
-${MODELS}/${CONFIG}/${idx}/validation_stats.json
+${OUTPUTS}/${CONFIG}/${idx}/valid \
+--start_index=9 \
+--stride=10
     done
 fi
 
