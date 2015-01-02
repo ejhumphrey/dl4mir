@@ -101,7 +101,7 @@ def decode_posterior_parallel(entity, penalties, vocab, num_cpus=NUM_CPUS,
         Populated JAMS annotation.
     """
     assert not __interactive__
-    pool = Pool(processes=NUM_CPUS)
+    pool = Pool(processes=num_cpus)
     threads = [pool.apply_async(decode_posterior,
                                 (entity, p, vocab),)
                for p in penalties]
@@ -113,20 +113,12 @@ def decode_posterior_parallel(entity, penalties, vocab, num_cpus=NUM_CPUS,
 def decode_stash_parallel(stash, penalty, vocab, num_cpus=NUM_CPUS,
                           **viterbi_args):
     assert not __interactive__
-
-    def arg_gen(stash, keys, penalty, vocab):
-        for idx, key in enumerate(keys):
-            entity = biggie.Entity(**stash.get(key).values())
-            yield (entity, penalty, vocab, idx, key)
-
-    def fx(args):
-        entity, penalty, vocab, idx, key = args
-        print "[%s] %12d / %s" % (time.asctime(), idx, key)
-        return decode_posterior(entity, penalty, vocab)
-
     keys = stash.keys()
-    pool = Pool(processes=NUM_CPUS)
-    results = pool.map(fx, arg_gen(stash, keys, penalty, vocab))
+    pool = Pool(processes=num_cpus)
+    threads = [pool.apply_async(decode_posterior,
+                                (stash.get(k), penalty, vocab),)
+               for k in keys]
     pool.close()
     pool.join()
+    results = [t.get() for t in threads]
     return {k: r for k, r in zip(keys, results)}
