@@ -13,7 +13,7 @@ from dl4mir.chords import PENALTY_VALUES
 from dl4mir.common.transform_stash import convolve
 
 
-NUM_CPUS = None
+NUM_CPUS = 8
 
 
 def predict_stash(stash, transform, penalty_values, vocab):
@@ -40,6 +40,8 @@ def predict_stash(stash, transform, penalty_values, vocab):
     annots = dict()
     for idx, key in enumerate(stash.keys()):
         entity = convolve(stash.get(key), transform, 'cqt')
+        entity = biggie.Entity(posterior=entity.posterior,
+                               time_points=entity.time_points)
         annots[key] = D.decode_posterior_parallel(
             entity, penalty_values, vocab, NUM_CPUS)
         print "[{0}] {1:6} / {2:6}: {3}".format(
@@ -69,9 +71,8 @@ def main(args):
                 a.sandbox.param_file = param_file
             jams[key].chord += annots
 
-            if args.checkpoint or (fidx + 1) == len(param_files):
-                output_file = os.path.join(output_dir, "{0}.jams".format(key))
-                pyjams.save(jams[key], output_file)
+            output_file = os.path.join(output_dir, "{0}.jams".format(key))
+            pyjams.save(jams[key], output_file)
 
 
 if __name__ == "__main__":
