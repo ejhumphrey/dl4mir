@@ -9,7 +9,7 @@ if hasattr(sys, 'ps1'):
     Parallel = None
 else:
     # Command line executable -- enable multiprocessing
-    from joblib import Parallel, delayed
+    from sklearn.externals.joblib import Parallel, delayed
 
 __interactive__ = Parallel is None
 NUM_CPUS = 1 if __interactive__ else None
