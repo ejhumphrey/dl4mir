@@ -11,69 +11,34 @@ from multiprocessing import Pool
 import pyjams
 
 from dl4mir.chords.lexicon import Strict
-from dl4mir.chords.find_best_params import select_best
-from dl4mir.chords import util as cutil
+from dl4mir.chords.decode import decode_stash_parallel
 
 
 NUM_CPUS = 12
 
 
-def fx(args):
-    entity, penalty, vocab, idx, key = args
-    print "[%s] %12d / %s" % (time.asctime(), idx, key)
-    return cutil.posterior_to_labeled_intervals(entity, penalty, vocab)
-
-
-def arg_gen(stash, keys, penalty, vocab):
-    for idx, key in enumerate(keys):
-        entity = stash.get(key)
-        yield (biggie.Entity(**entity.values()), penalty, vocab, idx, key)
-
-
 def main(args):
     stash = biggie.Stash(args.posterior_file)
     output_dir = futils.create_directory(args.output_directory)
-    validation_stats = json.load(open(args.validation_stats))
-    if not 'best_config' in validation_stats:
-        param_file, penalty, stats = select_best(validation_stats)
-        validation_stats['best_config'] = dict(
-            param_file=param_file, penalty=penalty, stats=stats.tolist())
-        with open(args.validation_stats, 'w') as fp:
-            json.dump(validation_stats, fp, indent=2)
 
-    penalty = float(validation_stats['best_config']['penalty'])
     vocab = Strict(157)
+    results = decode_stash_parallel(stash, args.penalty, vocab, NUM_CPUS)
 
-    keys = stash.keys()
-    pool = Pool(processes=NUM_CPUS)
-    results = pool.map(fx, arg_gen(stash, keys, penalty, vocab))
-    pool.close()
-    pool.join()
-    parts = os.path.splitext(args.posterior_file)[0].split('/')
-    model, dropout, fold_idx, split = parts[-4:]
+    parts = args.posterior_file.split('outputs/')[-1].split('/')
+    model, dropout, fold_idx, split = parts[:4]
     config_params = dict(model=model, fold_idx=fold_idx,
                          split=split, dropout=dropout)
-    raise ValueError("Check this is right! {0}".format(config_params))
 
-    for key, res in zip(keys, results):
-        intervals, labels, confidences = res
+    for key, annot in results.iteritems():
         output_file = os.path.join(output_dir, "%s.jams" % key)
-        jam = pyjams.JAMS()
-        annot = jam.chord.create_annotation()
-        pyjams.util.fill_range_annotation_data(
-            intervals[:, 0], intervals[:, 1], labels, annot)
+        jam = pyjams.JAMS(chord=[annot])
 
-        for obs, conf in zip(annot.data, confidences):
-            obs.label.confidence = conf
-
-        annot.annotation_metadata.data_source = 'machine estimation'
         annot.annotation_metadata.annotator = dict(
             from_file=args.posterior_file,
-            timestamp=time.asctime(),
-            **validation_stats['best_config'])
+            timestamp=time.asctime())
 
-        annot.sandbox.key = cutil.create_machine_key(
-            track_id=key, **config_params)
+        jam.sandbox.track_id = key
+        annot.sandbox.update(**config_params)
 
         pyjams.save(jam, output_file)
 
