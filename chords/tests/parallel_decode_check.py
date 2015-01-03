@@ -20,17 +20,23 @@ def create_entity(num_samples=3000, num_states=157):
 
 def main():
     vocab = lex.Strict(157)
-    stash = {k: create_entity() for k in string.ascii_letters}
+    stash = {k: create_entity(300, 100) for k in string.ascii_letters}
 
     print "[{0}] Testing decode_posterior".format(time.asctime())
     D.decode_posterior(stash['a'], -10.0, vocab)
 
-    print "[{0}] Testing decode_posterior_parallel".format(time.asctime())
     penalties = np.linspace(-1, -40, 25)
+    print "[{0}] Testing decode_posterior, serial".format(time.asctime())
+    [D.decode_posterior(stash['a'], p, vocab) for p in penalties]
+
+    print "[{0}] Testing decode_posterior_parallel".format(time.asctime())
     D.decode_posterior_parallel(stash['a'], penalties, vocab, NUM_CPUS)
 
+    print "[{0}] Testing decode_posterior, stash".format(time.asctime())
+    {k: D.decode_posterior(stash.get(k), -10.0, vocab) for k in stash.keys()}
+
     print "[{0}] Testing decode_stash_parallel".format(time.asctime())
-    D.decode_stash_parallel2(stash, -10.0, vocab, NUM_CPUS)
+    D.decode_stash_parallel(stash, -10.0, vocab, NUM_CPUS)
 
     print "[{0}] Done!".format(time.asctime())
 

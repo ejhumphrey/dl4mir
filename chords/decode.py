@@ -1,18 +1,17 @@
 import numpy as np
 import sys
 import pyjams
-
 from dl4mir.common import util
 
 
 if hasattr(sys, 'ps1'):
     # Interactive mode
-    Pool = None
+    Parallel = None
 else:
     # Command line executable -- enable multiprocessing
-    from multiprocessing import Pool
+    from joblib import Parallel, delayed
 
-__interactive__ = Pool is None
+__interactive__ = Parallel is None
 NUM_CPUS = 1 if __interactive__ else None
 
 
@@ -98,24 +97,16 @@ def decode_posterior_parallel(entity, penalties, vocab, num_cpus=NUM_CPUS,
         Populated JAMS annotation.
     """
     assert not __interactive__
-    pool = Pool(processes=num_cpus)
-    threads = [pool.apply_async(decode_posterior,
-                                (entity, p, vocab),)
-               for p in penalties]
-    pool.close()
-    pool.join()
-    return [t.get() for t in threads]
+    pool = Parallel(n_jobs=num_cpus)
+    decode = delayed(decode_posterior)
+    return pool(decode(entity, p, vocab) for p in penalties)
 
 
 def decode_stash_parallel(stash, penalty, vocab, num_cpus=NUM_CPUS,
                           **viterbi_args):
     assert not __interactive__
     keys = stash.keys()
-    pool = Pool(processes=num_cpus)
-    threads = [pool.apply_async(decode_posterior,
-                                (stash.get(k), penalty, vocab),)
-               for k in keys]
-    pool.close()
-    pool.join()
-    results = [t.get() for t in threads]
+    pool = Parallel(n_jobs=num_cpus)
+    decode = delayed(decode_posterior)
+    results = pool(decode(stash.get(k), penalty, vocab) for k in keys)
     return {k: r for k, r in zip(keys, results)}
