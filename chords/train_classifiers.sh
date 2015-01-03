@@ -22,6 +22,7 @@ OUTPUTS=${BASEDIR}/outputs
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
+VALIDATION_PARAMS="validation_params.json"
 
 PVALS="-10.0 -15.0 -20.0 -25.0 -30.0 -35.0"
 
@@ -70,7 +71,7 @@ ${TRANSFORM_NAME}.json
     done
 fi
 
-# Model Selection
+# -- Model Selection --
 # 1. Transform the validation stash with various parameter checkpoints.
 if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.transform" ];
 then
@@ -92,7 +93,7 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid \
     done
 fi
 
-# Model Selection
+# -- Model Selection --
 # 2. Decode the resulting posteriors to JAMS estimations.
 if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.decode" ];
 then
@@ -111,9 +112,23 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
     done
 fi
 
+# -- Model Selection --
+# 3. Compute cumulative scores over the collections
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.evaluate" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        python ${SRC}/chords/validation_eval.py \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid \
+${RESULTS}/${CONFIG}/${idx}/valid \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${MODELS}/${CONFIG}/${idx}/${VALIDATION_PARAMS}
+    done
+fi
 
-# Transform data
-if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
+# -- Final Predictions --
+# 1. Transform data with the final parameters.
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -126,6 +141,25 @@ ${BIGGIE}/${idx}/${split}.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
 ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5
+        done
+    done
+fi
+
+# Transform data
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.decode" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        for split in valid test train
+        do
+            echo "Decoding ${BIGGIE}/${idx}/${split}.hdf5"
+            echo ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5 > ${PARAM_TEXTLIST}
+
+            python ${SRC}/chords/decode_posteriors_to_jams.py \
+${PARAM_TEXTLIST} \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split} \
+--config=${MODELS}/${CONFIG}/${idx}/${VALIDATION_PARAMS}
+            rm ${PARAM_TEXTLIST}
         done
     done
 fi

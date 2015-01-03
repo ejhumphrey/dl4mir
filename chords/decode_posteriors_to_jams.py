@@ -1,13 +1,24 @@
-"""Viterbi decode a stash of posteriors and output labeled intervals."""
+"""Viterbi decode one of several posterior stashes and output JAMS files.
+
+
+Example Call:
+
+$ python dl4mir/chords/decode_posteriors_to_jams.py \
+path/to/filelist.txt \
+path/to/estimations \
+--config=viterbi_params.json
+"""
 
 import argparse
 import biggie
+import json
 import os
-import marl.fileutils as futils
 import time
 
+import marl.fileutils as futils
 import pyjams
 
+from dl4mir.chords import PENALTY_VALUES
 from dl4mir.chords.lexicon import Strict
 from dl4mir.chords.decode import decode_stash_parallel
 
@@ -37,6 +48,10 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
 
 
 def main(args):
+    penalty_values = list(PENALTY_VALUES)
+    if args.config:
+        penalty_values = json.load(open(args.config))['penalty_values']
+
     vocab = Strict(157)
     for f in futils.load_textlist(args.posterior_filelist):
         print "[{0}] Decoding {1}".format(time.asctime(), f)
@@ -53,7 +68,7 @@ def main(args):
                             split=split, checkpoint=checkpoint)
 
         posterior_stash_to_jams(
-            stash, args.penalty_values, args.output_directory,
+            stash, penalty_values, args.output_directory,
             vocab, model_params)
 
 
@@ -63,12 +78,12 @@ if __name__ == "__main__":
     # Inputs
     parser.add_argument("posterior_filelist",
                         metavar="posterior_filelist", type=str,
-                        help="Path to an biggie stash of chord posteriors.")
+                        help="Textlist of posterior stashes.")
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Path for output JAMS files.")
-    parser.add_argument("--penalty_values", default=[-30.0],
-                        metavar="--penalty_values", type=float, nargs='+',
-                        help="JSON file containing parameters for Viterbi.")
+    parser.add_argument("--config", default='',
+                        metavar="--config", type=str,
+                        help="Optional JSON file with parameters for Viterbi.")
     main(parser.parse_args())
