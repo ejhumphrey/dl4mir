@@ -23,6 +23,7 @@ OUTPUTS=${BASEDIR}/outputs
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
 
+PVALS="-10.0 -15.0 -20.0 -25.0 -30.0 -35.0"
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
@@ -70,7 +71,8 @@ ${TRANSFORM_NAME}.json
 fi
 
 # Model Selection
-if [ $PHASE == "all" ] || [ $PHASE == "validate" ];
+# 1. Transform the validation stash with various parameter checkpoints.
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -89,6 +91,26 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid \
 --stride=10
     done
 fi
+
+# Model Selection
+# 2. Decode the resulting posteriors to JAMS estimations.
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.decode" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Collecting parameters."
+        python ${SRC}/common/collect_files.py \
+${OUTPUTS}/${CONFIG}/${idx}/valid \
+"*.hdf5" \
+${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
+
+        echo ${SRC}/chords/decode_posteriors_to_jams.py \
+${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
+--penalty_values=PVALS \
+    done
+fi
+
 
 # Transform data
 if [ $PHASE == "all" ] || [ $PHASE == "transform" ];

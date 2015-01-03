@@ -1,12 +1,10 @@
 """Viterbi decode a stash of posteriors and output labeled intervals."""
 
 import argparse
-import json
 import biggie
 import os
 import marl.fileutils as futils
 import time
-from multiprocessing import Pool
 
 import pyjams
 
@@ -14,47 +12,63 @@ from dl4mir.chords.lexicon import Strict
 from dl4mir.chords.decode import decode_stash_parallel
 
 
-NUM_CPUS = 12
+NUM_CPUS = 8
+
+
+def posterior_stash_to_jams(stash, penalty_values, output_directory,
+                            vocab, model_params):
+
+    # Sweep over the default penalty values.
+    for penalty in penalty_values:
+        print "[{0}] \tStarting p = {1:0.2}".format(time.asctime(), penalty)
+        results = decode_stash_parallel(stash, penalty, vocab, NUM_CPUS)
+
+        # Create a subdirectory for each penalty value.
+        output_dir = futils.create_directory(
+            os.path.join(output_directory, "{0}".format(penalty)))
+        output_fmt = os.path.join(output_dir, "{0}.jams")
+        for key, annot in results.iteritems():
+            jam = pyjams.JAMS(chord=[annot])
+
+            jam.sandbox.track_id = key
+            annot.sandbox.update(timestamp=time.asctime(), **model_params)
+
+            pyjams.save(jam, output_fmt.format(key))
 
 
 def main(args):
-    stash = biggie.Stash(args.posterior_file)
-    output_dir = futils.create_directory(args.output_directory)
-
     vocab = Strict(157)
-    results = decode_stash_parallel(stash, args.penalty, vocab, NUM_CPUS)
+    for f in futils.load_textlist(args.posterior_filelist):
+        print "[{0}] Decoding {1}".format(time.asctime(), f)
+        # Read the whole stash to memory because the hdf5 reference doesn't
+        #   survive parallelization.
+        stash = biggie.Stash(f)
+        keys = stash.keys()
+        stash = {k: biggie.Entity(**stash.get(k).values()) for k in keys}
 
-    parts = args.posterior_file.split('outputs/')[-1].split('/')
-    model, dropout, fold_idx, split = parts[:4]
-    config_params = dict(model=model, fold_idx=fold_idx,
-                         split=split, dropout=dropout)
+        # Parse the posterior stash filepath for its model's params
+        parts = os.path.splitext(f)[0].split('outputs/')[-1].split('/')
+        model, dropout, fold_idx, split, checkpoint = parts
+        model_params = dict(model=model, dropout=dropout, fold_idx=fold_idx,
+                            split=split, checkpoint=checkpoint)
 
-    for key, annot in results.iteritems():
-        output_file = os.path.join(output_dir, "%s.jams" % key)
-        jam = pyjams.JAMS(chord=[annot])
-
-        annot.annotation_metadata.annotator = dict(
-            from_file=args.posterior_file,
-            timestamp=time.asctime())
-
-        jam.sandbox.track_id = key
-        annot.sandbox.update(**config_params)
-
-        pyjams.save(jam, output_file)
+        posterior_stash_to_jams(
+            stash, args.penalty_values, args.output_directory,
+            vocab, model_params)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
 
     # Inputs
-    parser.add_argument("posterior_file",
-                        metavar="posterior_file", type=str,
+    parser.add_argument("posterior_filelist",
+                        metavar="posterior_filelist", type=str,
                         help="Path to an biggie stash of chord posteriors.")
-    parser.add_argument("penalty",
-                        metavar="penalty", type=float,
-                        help="Viterbi self-transition penalty.")
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Path for output JAMS files.")
+    parser.add_argument("--penalty_values", default=[-30.0],
+                        metavar="--penalty_values", type=float, nargs='+',
+                        help="JSON file containing parameters for Viterbi.")
     main(parser.parse_args())
