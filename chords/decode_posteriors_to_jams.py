@@ -50,9 +50,9 @@ if __name__ == "__main__":
     parser.add_argument("posterior_file",
                         metavar="posterior_file", type=str,
                         help="Path to an biggie stash of chord posteriors.")
-    parser.add_argument("validation_stats",
-                        metavar="validation_stats", type=str,
-                        help="Output of the validation parameter sweep.")
+    parser.add_argument("penalty",
+                        metavar="penalty", type=float,
+                        help="Viterbi self-transition penalty.")
     # Outputs
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
