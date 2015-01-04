@@ -28,7 +28,22 @@ NUM_CPUS = 8
 
 def posterior_stash_to_jams(stash, penalty_values, output_directory,
                             vocab, model_params):
+    """Decode a stash of posteriors to JAMS and write to disk.
 
+    Parameters
+    ----------
+    stash : biggie.Stash
+        Posteriors to decode.
+    penalty_values : array_like
+        Collection of penalty values with which to run Viterbi.
+    output_directory : str
+        Base path to write out JAMS files; each collection will be written as
+        {output_directory}/{penalty_values[i]}/*.jams
+    vocab : dl4mir.chords.lexicon.Vocab
+        Map from posterior indices to string labels.
+    model_params : dict
+        Metadata to associate with the annotation.
+    """
     # Sweep over the default penalty values.
     for penalty in penalty_values:
         print "[{0}] \tStarting p = {1:0.2}".format(time.asctime(), penalty)

@@ -17,14 +17,14 @@ SRC=./dl4mir
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie/chords_l2n
 INITS=${BASEDIR}/param_inits
+META=${BASEDIR}/metadata
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
+VALIDATION_CONFIG="validation_config.json"
 VALIDATION_PARAMS="validation_params.json"
-
-PVALS="-10.0 -15.0 -20.0 -25.0 -30.0 -35.0"
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"
@@ -108,7 +108,7 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
         echo ${SRC}/chords/decode_posteriors_to_jams.py \
 ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
 ${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
---penalty_values=PVALS \
+--config=${META}/${VALIDATION_CONFIG}
     done
 fi
 
