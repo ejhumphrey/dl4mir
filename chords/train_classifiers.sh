@@ -17,9 +17,11 @@ SRC=./dl4mir
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie/chords_l2n
 INITS=${BASEDIR}/param_inits
+ESTIMATIONS=${BASEDIR}/estimations
 META=${BASEDIR}/metadata
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
+RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
@@ -105,7 +107,7 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid \
 "*.hdf5" \
 ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
 
-        echo ${SRC}/chords/decode_posteriors_to_jams.py \
+        python ${SRC}/chords/decode_posteriors_to_jams.py \
 ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
 ${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
 --config=${META}/${VALIDATION_CONFIG}

@@ -46,7 +46,7 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
     """
     # Sweep over the default penalty values.
     for penalty in penalty_values:
-        print "[{0}] \tStarting p = {1:0.2}".format(time.asctime(), penalty)
+        print "[{0}] \tStarting p = {1}".format(time.asctime(), penalty)
         results = decode_stash_parallel(stash, penalty, vocab, NUM_CPUS)
 
         # Create a subdirectory for each penalty value.
@@ -54,11 +54,9 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
             os.path.join(output_directory, "{0}".format(penalty)))
         output_fmt = os.path.join(output_dir, "{0}.jams")
         for key, annot in results.iteritems():
-            jam = pyjams.JAMS(chord=[annot])
-
-            jam.sandbox.track_id = key
             annot.sandbox.update(timestamp=time.asctime(), **model_params)
-
+            jam = pyjams.JAMS(chord=[annot])
+            jam.sandbox.track_id = key           
             pyjams.save(jam, output_fmt.format(key))
 
 
@@ -82,9 +80,9 @@ def main(args):
         model_params = dict(model=model, dropout=dropout, fold_idx=fold_idx,
                             split=split, checkpoint=checkpoint)
 
+	output_dir = os.path.join(args.output_directory, checkpoint)
         posterior_stash_to_jams(
-            stash, penalty_values, args.output_directory,
-            vocab, model_params)
+            stash, penalty_values, output_dir, vocab, model_params)
 
 
 if __name__ == "__main__":
