@@ -22,6 +22,7 @@ from dl4mir.chords import PENALTY_VALUES
 from dl4mir.chords.lexicon import Strict
 from dl4mir.chords.decode import decode_stash_parallel
 
+from dl4mir.common import util
 
 NUM_CPUS = 8
 
@@ -38,7 +39,7 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
         Collection of penalty values with which to run Viterbi.
     output_directory : str
         Base path to write out JAMS files; each collection will be written as
-        {output_directory}/{penalty_values[i]}/*.jams
+        {output_directory}/{penalty_values[i]}.jamset
     vocab : dl4mir.chords.lexicon.Vocab
         Map from posterior indices to string labels.
     model_params : dict
@@ -49,15 +50,16 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
         print "[{0}] \tStarting p = {1}".format(time.asctime(), penalty)
         results = decode_stash_parallel(stash, penalty, vocab, NUM_CPUS)
 
-        # Create a subdirectory for each penalty value.
-        output_dir = futils.create_directory(
-            os.path.join(output_directory, "{0}".format(penalty)))
-        output_fmt = os.path.join(output_dir, "{0}.jams")
+        output_file = os.path.join(
+            output_directory, "{0}.jamset".format(penalty))
+
+        jamset = dict()
         for key, annot in results.iteritems():
             annot.sandbox.update(timestamp=time.asctime(), **model_params)
             jam = pyjams.JAMS(chord=[annot])
-            jam.sandbox.track_id = key           
-            pyjams.save(jam, output_fmt.format(key))
+            jam.sandbox.track_id = key
+            jamset[key] = jam
+        util.save_jamset(jamset, output_file)
 
 
 def main(args):
@@ -80,7 +82,7 @@ def main(args):
         model_params = dict(model=model, dropout=dropout, fold_idx=fold_idx,
                             split=split, checkpoint=checkpoint)
 
-	output_dir = os.path.join(args.output_directory, checkpoint)
+        output_dir = os.path.join(args.output_directory, checkpoint)
         posterior_stash_to_jams(
             stash, penalty_values, output_dir, vocab, model_params)
 

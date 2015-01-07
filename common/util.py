@@ -1,10 +1,12 @@
 import numpy as np
 import scipy.stats
+import json
 import os
 import shutil
 from itertools import groupby
 
 import biggie
+import pyjams
 
 
 def hwr(x):
@@ -510,3 +512,41 @@ def compress_samples_to_intervals(labels, time_points):
         intervals += [(start, end)]
         new_labels += [label]
     return np.array(intervals), new_labels
+
+
+def load_jamset(filepath):
+    """Load a collection of keyed JAMS (a JAMSet) into memory.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to a JAMSet on disk.
+
+    Returns
+    -------
+    jamset : dict of JAMS
+        Collection of JAMS objects under unique keys.
+    """
+    jamset = dict()
+    with open(filepath) as fp:
+        for k, v in json.load(fp).iteritems():
+            jamset[k] = pyjams.JAMS(**v)
+
+    return jamset
+
+
+def save_jamset(jamset, filepath):
+    """Save a collection of keyed JAMS (a JAMSet) to disk.
+
+    Parameters
+    ----------
+    jamset : dict of JAMS
+        Collection of JAMS objects under unique keys.
+    """
+    output_data = dict()
+    with pyjams.JSONSupport():
+        for k, jam in jamset.iteritems():
+            output_data[k] = jam.__json__
+
+    with open(filepath, 'w') as fp:
+        json.dump(output_data, fp)
