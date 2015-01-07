@@ -68,9 +68,9 @@ def align_chord_annotations(ref_annot, est_annot, transpose=False):
         Estimated labels.
     """
     durations, ref_labels, est_labels = align_labeled_intervals(
-        ref_intervals=ref_annot.intervals,
+        ref_intervals=np.asarray(ref_annot.intervals),
         ref_labels=ref_annot.labels.value,
-        est_intervals=est_annot.intervals,
+        est_intervals=np.asarray(est_annot.intervals),
         est_labels=est_annot.labels.value)
 
     if transpose:
