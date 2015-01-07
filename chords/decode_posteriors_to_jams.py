@@ -59,6 +59,8 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
             jam = pyjams.JAMS(chord=[annot])
             jam.sandbox.track_id = key
             jamset[key] = jam
+
+        futils.create_directory(output_directory)
         util.save_jamset(jamset, output_file)
 
 
