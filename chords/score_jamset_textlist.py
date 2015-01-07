@@ -33,7 +33,7 @@ def main(args):
     fx = delayed(score_one)
     results = pool(fx(ref_jamset, f, args.min_support) for f in jamset_files)
 
-    results = {f: r for f, r in zip(results, jamset_files)}
+    results = {f: r for f, r in zip(jamset_files, results)}
     output_dir = os.path.split(args.output_file)[0]
     futil.create_directory(output_dir)
 
