@@ -21,6 +21,7 @@ ESTIMATIONS=${BASEDIR}/estimations
 META=${BASEDIR}/metadata
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
+REFERENCES=${BASEDIR}/references.jamset
 RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
@@ -120,11 +121,18 @@ if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.eval
 then
     for idx in ${FOLD_IDXS}
     do
-        python ${SRC}/chords/validation_eval.py \
-${ESTIMATIONS}/${CONFIG}/${idx}/valid \
-${RESULTS}/${CONFIG}/${idx}/valid \
-${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
-${MODELS}/${CONFIG}/${idx}/${VALIDATION_PARAMS}
+        echo "Collecting estimations."
+        python ${SRC}/common/collect_files.py \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
+"*/*.jamset" \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
+
+        python ${SRC}/chords/score_jamset_textlist.py \
+${REFERENCES}/${idx}/valid.jamset \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
+${RESULTS}/${CONFIG}/${idx}/valid.json \
+--min_support=60.0 \
+--num_cpus=1
     done
 fi
 
