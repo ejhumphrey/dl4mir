@@ -47,8 +47,8 @@ if __name__ == "__main__":
     parser.add_argument("ref_jamset",
                         metavar="ref_jamset", type=str,
                         help="Path to a JAMSet to use as a reference.")
-    parser.add_argument("est_jamset",
-                        metavar="est_jamset", type=str,
+    parser.add_argument("jamset_textlist",
+                        metavar="jamset_textlist", type=str,
                         help="Path to a JAMSet to use as an estimation.")
     # Outputs
     parser.add_argument("output_file",
