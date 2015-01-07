@@ -3,8 +3,7 @@ import fnmatch
 import mir_eval
 import dl4mir.chords.labels as L
 import numpy as np
-import marl.fileutils as futil
-import pyjams
+from sklearn.externals.joblib import Parallel, delayed
 
 
 def align_labeled_intervals(ref_intervals, ref_labels,
@@ -277,6 +276,46 @@ def score_annotations(ref_annots, est_annots, metrics):
         for k, metric in enumerate(metrics):
             scores[n, k], support[n, k] = pairwise_score_labels(
                 ref_labels, est_labels, weights, COMPARISONS[metric])
+
+    return scores, support
+
+
+def score_annotations_parallel(ref_annots, est_annots, metrics, num_cpus=8):
+    """Tabulate overall scores for two sets of annotations.
+
+    Parameters
+    ----------
+    ref_annots : list, len=n
+        Filepaths to a set of reference annotations.
+    est_annots : list, len=n
+        Filepaths to a set of estimated annotations.
+    metrics : list, len=k
+        Metric names to compute overall scores.
+
+    Returns
+    -------
+    scores : np.ndarray, shape=(n, k)
+        Resulting annotation-wise scores.
+    weights : np.ndarray
+        Relative weight of each score.
+    """
+    def score_one(n, k, ref_annot, est_annot, metric):
+        (weights, ref_labels,
+            est_labels) = align_chord_annotations(ref_annot, est_annot)
+        return (n, k, pairwise_score_labels(
+            ref_labels, est_labels, weights, COMPARISONS[metric]))
+
+    def gen(ref_annots, est_annots, metrics):
+        for n, (ref, est) in enumerate(zip(ref_annots, est_annots)):
+            for k, metric in enumerate(metrics):
+                yield (n, k, ref, est, metric)
+
+    scores, support = np.zeros([2, len(ref_annots), len(metrics)])
+    pool = Parallel(n_jobs=num_cpus)
+    fx = delayed(score_one)
+    results = pool(fx(*args) for args in gen(ref_annots, est_annots, metrics))
+    for n, k, res in results:
+        scores[n, k], support[n, k] = res
 
     return scores, support
 
