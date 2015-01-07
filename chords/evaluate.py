@@ -1,4 +1,4 @@
-"""Evaluation framework for chord estimation."""
+"""Evaluation module for chord estimation."""
 import fnmatch
 import mir_eval
 import dl4mir.chords.labels as L
@@ -308,7 +308,7 @@ def reduce_annotations(ref_annots, est_annots, metrics):
     return label_counts
 
 
-def macro_average(label_counts, sort=True):
+def macro_average(label_counts, sort=True, min_support=0):
     """Tally the support of each reference label in the map.
 
     Parameters
@@ -317,6 +317,8 @@ def macro_average(label_counts, sort=True):
         Map of reference labels to estimations, containing a `support` count.
     sort : bool, default=True
         Sort the results in descending order.
+    min_support : scalar
+        Minimum support value for returned results.
 
     Returns
     -------
@@ -325,7 +327,7 @@ def macro_average(label_counts, sort=True):
     scores : np.ndarray, len=n
         Resulting label-wise scores.
     support : np.ndarray, len=n
-        Support values corresponding the labels and scores.
+        Support values corresponding to labels and scores.
     """
     N = len(label_counts)
     labels = [''] * N
@@ -341,4 +343,6 @@ def macro_average(label_counts, sort=True):
         sidx = np.argsort(supports)[::-1]
         labels, scores, supports = labels[sidx], scores[sidx], supports[sidx]
 
-    return labels.tolist(), scores, supports
+    # Boolean mask of results with adequate support.
+    midx = supports >= min_support
+    return labels[midx].tolist(), scores[midx], supports[midx]
