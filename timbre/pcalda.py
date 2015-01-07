@@ -4,6 +4,7 @@ import biggie
 import numpy as np
 import optimus
 from os import path
+import time
 
 import dl4mir.timbre.data as D
 import marl.fileutils as futil
@@ -11,7 +12,7 @@ import marl.fileutils as futil
 from sklearn.lda import LDA
 from sklearn.decomposition import PCA
 
-PRINT_FREQ = 50
+PRINT_FREQ = 500
 
 
 def fit_params(data, labels, n_components=256, n_out=3):
@@ -84,7 +85,11 @@ def main(args):
         data[idx, ...] = x.cqt
         labels.append(x.label)
         if len(labels) == args.num_points:
+            print float(data.nbytes) / 1024 / 1024 / 1024
             break
+        elif (len(labels) % PRINT_FREQ) == 0:
+            print "[{0}] {1:5} / {2:5}".format(
+                time.asctime(), len(labels), args.num_points)
 
     predictor.param_values = fit_params(data, labels, args.n_components, 3)
     output_directory = futil.create_directory(args.output_directory)
