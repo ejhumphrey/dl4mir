@@ -128,7 +128,7 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
 ${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
 
         python ${SRC}/chords/score_jamset_textlist.py \
-${REFERENCES}/${idx}/valid.jamset \
+${REFERENCES} \
 ${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
 ${RESULTS}/${CONFIG}/${idx}/valid.json \
 --min_support=60.0 \
