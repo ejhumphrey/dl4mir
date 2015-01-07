@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from sklearn.externals.joblib import Parallel, delayed
+import time
 
 import marl.fileutils as futil
 
@@ -20,7 +21,7 @@ def score_one(ref_jamset, jamset_file, min_support):
 
     ref_annots = [ref_jamset[k].chord[0] for k in keys]
     est_annots = [est_jamset[k].chord[0] for k in keys]
-
+    print "[{0}] {1}".format(time.asctime(), jamset_file)
     return EVAL.tally_scores(ref_annots, est_annots, METRICS)
 
 
@@ -47,8 +48,8 @@ if __name__ == "__main__":
     parser.add_argument("ref_jamset",
                         metavar="ref_jamset", type=str,
                         help="Path to a JAMSet to use as a reference.")
-    parser.add_argument("est_jamset",
-                        metavar="est_jamset", type=str,
+    parser.add_argument("jamset_textlist",
+                        metavar="jamset_textlist", type=str,
                         help="Path to a JAMSet to use as an estimation.")
     # Outputs
     parser.add_argument("output_file",
