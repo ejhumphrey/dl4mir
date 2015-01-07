@@ -282,7 +282,7 @@ def score_annotations(ref_annots, est_annots, metrics):
 
 
 def reduce_annotations(ref_annots, est_annots, metrics):
-    """
+    """Collapse annotations to a sparse matrix of label estimation supports.
 
     Parameters
     ----------
@@ -296,6 +296,7 @@ def reduce_annotations(ref_annots, est_annots, metrics):
     Returns
     -------
     all_label_counts : list of dicts
+        Sparse matrix mapping {metric, ref, est, support} values.
     """
     label_counts = dict([(m, dict()) for m in metrics])
     for ref_annot, est_annot in zip(ref_annots, est_annots):
@@ -346,3 +347,42 @@ def macro_average(label_counts, sort=True, min_support=0):
     # Boolean mask of results with adequate support.
     midx = supports >= min_support
     return labels[midx].tolist(), scores[midx], supports[midx]
+
+
+def tally_scores(ref_annots, est_annots, min_support, metrics=None):
+    """Produce cumulative statistics over a paired set of annotations.
+
+    Parameters
+    ----------
+    ref_annots : list, len=n
+        Filepaths to a set of reference annotations.
+    est_annots : list, len=n
+        Filepaths to a set of estimated annotations.
+    min_support : scalar
+        Minimum support value for macro-quality measure.
+    metrics : list, len=k, default=all
+        Metric names to compute overall scores.
+
+    Returns
+    -------
+    results : dict
+        Score dictionary of {metric, statistic, value} results.
+    """
+    if metrics is None:
+        metrics = COMPARISONS.keys()
+
+    scores, supports = score_annotations(ref_annots, est_annots, metrics)
+    scores_macro = scores.mean(axis=0)
+    scores_micro = (supports * scores).sum(axis=0) / supports.sum(axis=0)
+
+    results = dict(macro=dict(), micro=dict(), macro_quality=dict())
+    for m, smac, smic in zip(metrics, scores_macro, scores_micro):
+        results['macro'][m] = smac
+        results['micro'][m] = smic
+
+    label_counts = reduce_annotations(ref_annots, est_annots, metrics)
+    for m in metrics:
+        quality_scores = macro_average(
+            label_counts[m], sort=True, min_support=min_support)[1]
+        results['macro_quality'][m] = quality_scores.mean()
+    return results
