@@ -34,7 +34,7 @@ fi
 
 CONFIG="$1"
 NCOMPONENTS="$2"
-NPOINTS=50000
+NPOINTS="50000"
 
 if [ -z "$3" ] || [ "$3" == "all" ];
 then
