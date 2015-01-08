@@ -136,6 +136,17 @@ ${RESULTS}/${CONFIG}/${idx}/valid.json \
     done
 fi
 
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.select" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Collecting estimations."
+        python ${SRC}/chords/select_best.py \
+${RESULTS}/${CONFIG}/${idx}/valid.json \
+${MODELS}/${CONFIG}/${idx}/viterbi_params.json
+    done
+fi
+
 # -- Final Predictions --
 # 1. Transform data with the final parameters.
 if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform" ];

@@ -405,7 +405,7 @@ def tally_scores(ref_annots, est_annots, min_support, metrics=None):
     Returns
     -------
     results : dict
-        Score dictionary of {metric, statistic, value} results.
+        Score dictionary of {statistic, metric, value} results.
     """
     if metrics is None:
         metrics = COMPARISONS.keys()
