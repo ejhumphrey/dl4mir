@@ -143,6 +143,7 @@ then
         echo "Collecting estimations."
         python ${SRC}/chords/select_best.py \
 ${RESULTS}/${CONFIG}/${idx}/valid.json \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
 ${MODELS}/${CONFIG}/${idx}/viterbi_params.json
     done
 fi

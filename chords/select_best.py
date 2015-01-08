@@ -2,6 +2,9 @@ import argparse
 import json
 import os
 import numpy as np
+import shutil
+
+np.set_printoptions(precision=4, suppress=True)
 
 
 def main(args):
@@ -15,7 +18,7 @@ def main(args):
     stats = score_dict.values()[0].keys()
     stats.sort()
 
-    metrics = score_dict.values()[0].values().keys()
+    metrics = score_dict.values()[0].values()[0].keys()
     metrics.sort()
 
     scores = np.zeros([len(filenames), len(stats), len(metrics)])
@@ -28,11 +31,17 @@ def main(args):
     idx = np.exp(np.log(scores).mean(axis=-1).mean(axis=-1)).argmax()
     best_file = filenames[idx]
     print "Best param file: {0}".format(best_file)
-    print score_dict[best_file]
+    print metrics
+    print scores[idx]
 
     checkpoint, penalty = os.path.splitext(best_file)[0].split('/')[-2:]
-    with open(args.output_file) as fp:
-        json.dump(dict(checkpoint=checkpoint, penalty=penalty), fp)
+    with open(args.config_file, 'w') as fp:
+        json.dump(
+            dict(checkpoint=checkpoint, penalty_values=[penalty]), fp)
+    param_file = os.path.split(best_file)[0].replace("estimations", "models")
+    shutil.copyfile(
+        param_file.replace('valid/', '') + '.npz',
+        args.best_param_file)
 
 
 if __name__ == "__main__":
@@ -43,7 +52,10 @@ if __name__ == "__main__":
                         metavar="results_file", type=str,
                         help="Path to JSON object of scores.")
     # Outputs
-    parser.add_argument("output_file",
-                        metavar="output_file", type=str,
-                        help="Path for saving the results as JSON.")
+    parser.add_argument("best_param_file",
+                        metavar="best_param_file", type=str,
+                        help="Path for renaming the best param archive.")
+    parser.add_argument("config_file",
+                        metavar="config_file", type=str,
+                        help="Path for saving the config params as JSON.")
     main(parser.parse_args())
