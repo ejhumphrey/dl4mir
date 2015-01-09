@@ -69,8 +69,9 @@ ${TRANSFORM_NAME}.json
     done
 fi
 
-# Model Selection
-if [ $PHASE == "all" ] || [ $PHASE == "select" ];
+# -- Model Selection --
+# 1. Transform the validation stash with various parameter checkpoints.
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -80,12 +81,13 @@ ${MODELS}/${CONFIG}/${idx} \
 "*.npz" \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/guitar/find_best_params.py \
+        python ${SRC}/common/validation_sweep.py \
 ${BIGGIE}/${idx}/valid.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
-${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
-${MODELS}/${CONFIG}/${idx}/validation_stats.json
+${OUTPUTS}/${CONFIG}/${idx}/valid \
+--start_index=39 \
+--stride=40
     done
 fi
 
