@@ -175,13 +175,13 @@ then
         for split in valid test train
         do
             echo "Decoding ${BIGGIE}/${idx}/${split}.hdf5"
-            echo ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5 >> ${PARAM_TEXTLIST}
+            echo ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5 >> ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
 
             python ${SRC}/chords/decode_posteriors_to_jams.py \
-${PARAM_TEXTLIST} \
+${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split} \
 --config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json
-            rm ${PARAM_TEXTLIST}
+            rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
         done
     done
 fi
