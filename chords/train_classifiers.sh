@@ -86,7 +86,7 @@ ${MODELS}/${CONFIG}/${idx} \
 "*.npz" \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
-        python ${SRC}/chords/validation_sweep.py \
+        python ${SRC}/common/validation_sweep.py \
 ${BIGGIE}/${idx}/valid.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
