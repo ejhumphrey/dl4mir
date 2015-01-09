@@ -67,7 +67,8 @@ def posterior_stash_to_jams(stash, penalty_values, output_directory,
 def main(args):
     penalty_values = list(PENALTY_VALUES)
     if args.config:
-        penalty_values = json.load(open(args.config))['penalty_values']
+        config = json.load(open(args.config))
+        penalty_values = [float(_) for _ in config['penalty_values']]
 
     vocab = Strict(157)
     for f in futils.load_textlist(args.posterior_filelist):
@@ -79,7 +80,9 @@ def main(args):
         stash = {k: biggie.Entity(**stash.get(k).values()) for k in keys}
 
         # Parse the posterior stash filepath for its model's params
-        parts = os.path.splitext(f)[0].split('outputs/')[-1].split('/')
+        parts = list(os.path.splitext(f)[0].split('outputs/')[-1].split('/'))
+        if len(parts) == 4:
+            parts.append("best")
         model, dropout, fold_idx, split, checkpoint = parts
         model_params = dict(model=model, dropout=dropout, fold_idx=fold_idx,
                             split=split, checkpoint=checkpoint)
