@@ -64,14 +64,13 @@ if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transf
 then
     for idx in ${FOLD_IDXS}
     do
-        echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
+        echo "Transforming ${BIGGIE}/${idx}/stash.hdf5"
         python ${SRC}/common/transform_stash.py \
 ${BIGGIE}/stash.hdf5 \
 "cqt" \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
 ${OUTPUTS}/${CONFIG}/${idx}/stash.hdf5
-        done
     done
 fi
 
@@ -88,7 +87,6 @@ ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
 ${ESTIMATIONS}/${CONFIG}/${idx}/stash \
 --config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json
         rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
-        done
     done
 fi
 
