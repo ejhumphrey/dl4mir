@@ -16,6 +16,7 @@ notes : list of ints
 
 import numpy as np
 import biggie
+import music21
 
 #       Strings    E2  A2  D3  G3  B3  E4
 STANDARD_TUNING = [40, 45, 50, 55, 59, 64]
@@ -48,6 +49,28 @@ def decode(tab, delimiter=',', off_char=OFF_CHAR):
     return frets
 
 
+def encode(frets, delimiter=',', off_char='X'):
+    """
+    Parameters
+    ----------
+    frets : list
+        Integers of active frets; -1 indicates 'off'.
+    delimiter : str
+        Spacer for tab format.
+    off_char : str
+        Character used for non-played strings.
+
+    Returns
+    -------
+    tab : str
+        Tab-formatted guitar representation.
+    """
+    tab = list(frets)
+    for n in range(len(tab)):
+        tab[n] = str(tab[n]) if n >= 0 else off_char
+    return delimiter.join(tab)
+
+
 def frets_to_chroma(frets):
     """
     Parameters
@@ -65,6 +88,26 @@ def frets_to_chroma(frets):
         if x >= 0:
             chroma[(x + s) % 12] = 1
     return chroma
+
+
+def frets_to_note_number(frets):
+    """Translate a fret array to MIDI note numbers.
+
+    Parameters
+    ----------
+    frets: array_like
+        Integer representation of active frets.
+
+    Returns
+    -------
+    note_numbers : list
+        Active note numbers.
+    """
+    note_numbers = list()
+    for x, s in zip(frets, STANDARD_TUNING):
+        if x >= 0:
+            note_numbers.append(x + s)
+    return note_numbers
 
 
 def fret_mapper(stream, voicings, num_frets=9):
@@ -92,3 +135,27 @@ def fret_mapper(stream, voicings, num_frets=9):
             frets = {'{0}_index'.format(s): i % num_frets
                      for s, i in zip('EADGBe', decode(tab))}
             yield biggie.Entity(cqt=entity.cqt, **frets)
+
+
+DEGREES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
+
+
+def note_numbers_to_interval_chord(note_numbers):
+    c = music21.chord.Chord(note_numbers)
+    intervals = ",".join([DEGREES[_] for _ in c.normalForm])
+    return "{0}:({1})".format(c.root().name, intervals)
+
+
+def frets_to_interval_chord(frets):
+    note_numbers = frets_to_note_number(frets)
+    if not note_numbers:
+        return "N"
+    return note_numbers_to_interval_chord(note_numbers)
+
+
+class GuitarChords(dict):
+    def __call__(self, frets):
+        frets = tuple(frets)
+        if not frets in self:
+            self[frets] = frets_to_interval_chord(frets)
+        return self[frets]
