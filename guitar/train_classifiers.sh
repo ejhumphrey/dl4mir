@@ -132,9 +132,20 @@ ${RESULTS}/${CONFIG}/${idx}/valid.json \
     done
 fi
 
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.select" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Collecting estimations."
+        python ${SRC}/guitar/select_best.py \
+${RESULTS}/${CONFIG}/${idx}/valid.json \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${MODELS}/${CONFIG}/${idx}/viterbi_params.json
+    done
+fi
 
 # Transform data
-if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -150,3 +161,30 @@ ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5
         done
     done
 fi
+
+# Transform data
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.decode" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        for split in valid test train
+        do
+            echo "Decoding ${BIGGIE}/${idx}/${split}.hdf5"
+            echo ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5 > ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
+
+            python ${SRC}/guitar/decode_fretboards_to_jams.py \
+${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
+config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
+"chords"
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords
+
+            python ${SRC}/guitar/decode_fretboards_to_jams.py \
+${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
+config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
+"tabs"
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/tabs
+            rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
+        done
+    done
+fi
+
