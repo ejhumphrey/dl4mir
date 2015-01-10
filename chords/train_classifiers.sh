@@ -207,3 +207,20 @@ ${RESULTS}/${CONFIG}/${idx}/final/${split}.json \
         done
     done
 fi
+
+
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.score" ];
+then
+    for split in valid test train
+    do
+        echo "Collecting estimations."
+        python ${SRC}/common/collect_files.py \
+${RESULTS}/${CONFIG}/ \
+"$*/final/${split}.json" \
+${RESULTS}/${CONFIG}/${split}/${PARAM_TEXTLIST}
+
+        python ${SRC}/chords/average_results.py \
+${RESULTS}/${CONFIG}/${split}/${PARAM_TEXTLIST} \
+${RESULTS}/${CONFIG}/${split}.json
+    done
+fi

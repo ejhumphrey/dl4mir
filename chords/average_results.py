@@ -39,9 +39,8 @@ def main(args):
     data = collapse_results(futil.load_textlist(args.score_textlist))
     print tabulate.tabulate(data['table'], headers=data['headers'])
 
-    # with open(args.output_file, 'w') as fp:
-    #     json.dump(
-    #         dict(checkpoint=checkpoint, penalty_values=[penalty]), fp)
+    with open(args.output_file, 'w') as fp:
+        json.dump(data, fp)
 
 
 if __name__ == "__main__":
@@ -51,8 +50,8 @@ if __name__ == "__main__":
     parser.add_argument("score_textlist",
                         metavar="score_textlist", type=str,
                         help="List of JSON score objects.")
-    # # Outputs
-    # parser.add_argument("output_file",
-    #                     metavar="output_file", type=str,
-    #                     help="Path for saving the final output.")
+    # Outputs
+    parser.add_argument("output_file",
+                        metavar="output_file", type=str,
+                        help="Path for saving the final output.")
     main(parser.parse_args())
