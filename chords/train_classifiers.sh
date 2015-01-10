@@ -204,5 +204,6 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST} \
 ${RESULTS}/${CONFIG}/${idx}/final/${split}.json \
 --min_support=60.0 \
 --num_cpus=1
+        done
     done
 fi
