@@ -216,7 +216,7 @@ then
         echo "Collecting estimations."
         python ${SRC}/common/collect_files.py \
 ${RESULTS}/${CONFIG}/ \
-"$*/final/${split}.json" \
+"*/final/${split}.json" \
 ${RESULTS}/${CONFIG}/${split}_${PARAM_TEXTLIST}
 
         python ${SRC}/chords/average_results.py \
