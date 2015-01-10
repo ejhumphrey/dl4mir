@@ -18,6 +18,7 @@ BIGGIE=${BASEDIR}/biggie
 INITS=${BASEDIR}/param_inits
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
+RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
@@ -99,5 +100,16 @@ ${MODELS}/${TRIAL}/${idx}/${TRANSFORM_NAME}.json \
 ${MODELS}/${TRIAL}/${idx}/${TRANSFORM_NAME}.npz \
 ${OUTPUTS}/${TRIAL}/${idx}/${split}.hdf5
         done
+    done
+fi
+
+if [ $PHASE == "all" ] || [ $PHASE == "evaluate" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Evaluating ${BIGGIE}/${CONFIG}/${idx}"
+        python ${SRC}/timbre/knn_classify.py \
+${BIGGIE}/${CONFIG}/${idx} \
+${RESULTS}/${TRIAL}/${idx}/stats.json
     done
 fi

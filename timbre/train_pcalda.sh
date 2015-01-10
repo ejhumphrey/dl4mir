@@ -83,3 +83,15 @@ ${OUTPUTS}/pca-lda/${NCOMPONENTS}/${CONFIG}/${idx}/${split}.hdf5
         done
     done
 fi
+
+
+if [ $PHASE == "all" ] || [ $PHASE == "evaluate" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Evaluating ${BIGGIE}/${CONFIG}/${idx}"
+        python ${SRC}/timbre/knn_classify.py \
+${OUTPUTS}/pca-lda/${NCOMPONENTS}/${CONFIG}/${idx} \
+${RESULTS}/pca-lda/${NCOMPONENTS}/${CONFIG}/${idx}/stats.json
+    done
+fi
