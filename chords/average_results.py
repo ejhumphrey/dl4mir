@@ -6,10 +6,8 @@ import tabulate
 import marl.fileutils as futil
 
 
-def main(args):
-    """{param_file, statistic, metric}"""
-    scores = [json.load(open(f)).values()[0]
-              for f in futil.load_textlist(args.score_textlist)]
+def collapse_results(score_files):
+    scores = [json.load(open(f)).values()[0] for f in score_files]
 
     stats = scores[0].keys()
     stats.sort()
@@ -33,7 +31,13 @@ def main(args):
             val = "${0:0.3}\pm{1:0.3}$".format(aves[j, k], stdevs[j, k])
             res[-1].append(val)
 
-    print tabulate.tabulate(res, headers=metrics)
+    return dict(table=res, headers=metrics)
+
+
+def main(args):
+    """{param_file, statistic, metric}"""
+    data = collapse_results(futil.load_textlist(args.score_textlist))
+    print tabulate.tabulate(data['table'], headers=data['headers'])
 
     # with open(args.output_file, 'w') as fp:
     #     json.dump(
