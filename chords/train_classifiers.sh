@@ -195,7 +195,7 @@ then
             echo "Collecting estimations."
             python ${SRC}/common/collect_files.py \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/ \
-"*/best.jamset" \
+"best/*.jamset" \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST}
 
             python ${SRC}/chords/score_jamset_textlist.py \
