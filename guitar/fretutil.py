@@ -159,3 +159,16 @@ class GuitarChords(dict):
         if not frets in self:
             self[frets] = frets_to_interval_chord(frets)
         return self[frets]
+
+
+class GuitarTabs(dict):
+    def __call__(self, frets):
+        frets = tuple(frets)
+        if not frets in self:
+            self[frets] = encode(frets)
+        return self[frets]
+
+
+ENCODERS = {
+    'chords': GuitarChords(),
+    'tabs': GuitarTabs()}
