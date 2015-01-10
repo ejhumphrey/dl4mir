@@ -188,3 +188,24 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/tabs
     done
 fi
 
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.evaluate" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        for split in valid test train
+        do
+            echo "Collecting estimations."
+            python ${SRC}/common/collect_files.py \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/ \
+"*/best.jamset" \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST}
+
+            python ${SRC}/chords/score_jamset_textlist.py \
+${REFERENCES} \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST} \
+${RESULTS}/${CONFIG}/${idx}/final/${split}.json \
+--min_support=60.0 \
+--num_cpus=1
+    done
+fi
+
