@@ -91,6 +91,48 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid \
     done
 fi
 
+# -- Model Selection --
+# 2. Decode the resulting posteriors to JAMS estimations.
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.decode" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Collecting parameters."
+        python ${SRC}/common/collect_files.py \
+${OUTPUTS}/${CONFIG}/${idx}/valid \
+"*.hdf5" \
+${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
+
+        python ${SRC}/guitar/decode_fretboards_to_jams.py \
+${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
+${META}/${VALIDATION_CONFIG} \
+"chords" \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/
+    done
+fi
+
+# -- Model Selection --
+# 3. Compute cumulative scores over the collections
+if [ $PHASE == "all" ] || [ $PHASE == "validate" ] || [ $PHASE == "validate.evaluate" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        echo "Collecting estimations."
+        python ${SRC}/common/collect_files.py \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
+"*/*.jamset" \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
+
+        python ${SRC}/chords/score_jamset_textlist.py \
+${REFERENCES} \
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
+${RESULTS}/${CONFIG}/${idx}/valid.json \
+--min_support=60.0 \
+--num_cpus=1
+    done
+fi
+
+
 # Transform data
 if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
 then
