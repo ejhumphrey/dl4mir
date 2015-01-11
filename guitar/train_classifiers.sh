@@ -17,6 +17,7 @@ SRC=./dl4mir
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie/chords_l2n
 INITS=${BASEDIR}/param_inits
+META=${BASEDIR}/metadata
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
 
