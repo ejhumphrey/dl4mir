@@ -113,3 +113,17 @@ ${OUTPUTS}/${TRIAL}/${idx} \
 ${RESULTS}/${TRIAL}/${idx}/stats.json
     done
 fi
+
+if [ $PHASE == "all" ] || [ $PHASE == "score" ];
+then
+    python ${SRC}/common/collect_files.py \
+${RESULTS}/${TRIAL} \
+"*/stats.json" \
+${RESULTS}/${TRIAL}/stat_files.txt
+
+    echo "Scoring ${TRIAL}/${idx}"
+    python ${SRC}/timbre/average_results.py \
+${RESULTS}/${TRIAL}/stat_files.txt \
+${RESULTS}/${TRIAL}/stats.json
+    done
+fi
