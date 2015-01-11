@@ -17,6 +17,7 @@ SRC=./dl4mir
 BIGGIE=${BASEDIR}/biggie
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
+RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="pca-lda"
 PARAM_TEXTLIST="paramlist.txt"
@@ -71,7 +72,7 @@ if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
-        for split in valid test train
+        for split in valid train test
         do
             echo "Transforming ${BIGGIE}/${CONFIG}/${idx}/${split}.hdf5"
             python ${SRC}/common/transform_stash.py \
