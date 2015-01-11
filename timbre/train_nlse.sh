@@ -109,7 +109,7 @@ then
     do
         echo "Evaluating ${BIGGIE}/${CONFIG}/${idx}"
         python ${SRC}/timbre/knn_classify.py \
-${BIGGIE}/${CONFIG}/${idx} \
+${OUTPUTS}/${TRIAL}/${idx} \
 ${RESULTS}/${TRIAL}/${idx}/stats.json
     done
 fi

@@ -72,7 +72,7 @@ if [ $PHASE == "all" ] || [ $PHASE == "transform" ];
 then
     for idx in ${FOLD_IDXS}
     do
-        for split in valid train test
+        for split in train valid test 
         do
             echo "Transforming ${BIGGIE}/${CONFIG}/${idx}/${split}.hdf5"
             python ${SRC}/common/transform_stash.py \
