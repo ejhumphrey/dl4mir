@@ -2,7 +2,11 @@ import argparse
 import json
 import mir_eval
 import os
+import time
 import pyjams
+
+from dl4mir.common import util
+import marl.fileutils as futil
 
 
 def main(args):
@@ -10,21 +14,21 @@ def main(args):
     if args.annotation_metadata:
         metadata.update(json.load(open(args.annotation_metadata)))
 
-    for key, labfiles in json.load(open(args.annotation_set)).items():
-        output_file = os.path.join(args.output_dir, "%s.jams" % key)
-        if os.path.exists(output_file):
-            jam = pyjams.load(output_file)
-        else:
-            jam = pyjams.JAMS()
-        for labfile in labfiles:
-            intervals, labels = mir_eval.io.load_labeled_intervals(labfile)
-            annot = jam.chord.create_annotation()
+    jamset = dict()
+    for key, lab_files in json.load(open(args.annotation_set)).items():
+        jamset[key] = pyjams.JAMS()
+        for f in lab_files:
+            intervals, labels = mir_eval.io.load_labeled_intervals(f)
+            annot = jamset[key].chord.create_annotation()
             pyjams.util.fill_range_annotation_data(
                 intervals[:, 0], intervals[:, 1], labels, annot)
 
             annot.annotation_metadata.update(metadata.get(key, {}))
+            annot.sandbox.source_file = f
+            annot.sandbox.timestamp = time.asctime()
 
-        pyjams.save(jam, output_file)
+    futil.create_directory(os.path.split(args.output_file))
+    util.save_jamset(jamset, args.output_file)
 
 
 if __name__ == "__main__":
@@ -33,9 +37,9 @@ if __name__ == "__main__":
     parser.add_argument("annotation_set",
                         metavar="annotation_set", type=str,
                         help="JSON object of keys and corresponding labfiles.")
-    parser.add_argument("output_dir",
-                        metavar="output_dir", type=str,
-                        help="Directory to save output JAMS.")
+    parser.add_argument("output_file",
+                        metavar="output_file", type=str,
+                        help="Directory to save the output JAMSet.")
     parser.add_argument("--annotation_metadata",
                         metavar="--annotation_metadata", type=str, default='',
                         help="JSON object with metadata under the same keys.")
