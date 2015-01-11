@@ -3,10 +3,11 @@
 
 Example Call:
 
-$ python dl4mir/guitar/decode_posteriors_to_jams.py \
+$ python dl4mir/guitar/decode_fretboards_to_jams.py \
 path/to/filelist.txt \
-path/to/estimations \
---config=viterbi_params.json
+viterbi_params.json \
+'chords' \
+path/to/estimations
 """
 
 import argparse
