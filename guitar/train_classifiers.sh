@@ -9,20 +9,25 @@
 #    - The script is called from the directory containing the top-level
 #      `dl4mir` source code directory.
 
-# BASEDIR=/media/attic/dl4mir/chord_estimation
 BASEDIR=${DL4MIR}/guitar
 SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
 #   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie/chords_l2n
+ESTIMATIONS=${BASEDIR}/estimations
 INITS=${BASEDIR}/param_inits
 META=${BASEDIR}/metadata
 MODELS=${BASEDIR}/models
 OUTPUTS=${BASEDIR}/outputs
+RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
+VALIDATION_CONFIG="validation_config.json"
+VALIDATION_PARAMS="validation_params.json"
+
+REFERENCES=${DL4MIR}/chord_estimation/references.jamset
 
 
 if [ -z "$1" ] || [ -z "$2" ]; then
