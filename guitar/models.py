@@ -289,6 +289,10 @@ def iXc3_rbf(n_in, size='large', use_dropout=False):
         name='rbf',
         input_shape=(None, 6, NUM_FRETS),
         output_shape=(None, 157))
+    inverter = optimus.Multiply(name='inverter', weight_shape=None)
+    inverter.weight.value = -1.0
+    class_softmax = optimus.Softmax("class_softmax")
+
     energies = optimus.SelectIndex(name='energies')
     ave_loss = optimus.Mean(name='ave_loss')
     total_loss = optimus.Output(name='total_loss')
@@ -313,6 +317,7 @@ def iXc3_rbf(n_in, size='large', use_dropout=False):
     trainer_edges += base_edges + [
         (stack.output, rbf.input),
         (rbf.output, energies.input),
+        (rbf.output, inverter.input),
         (chord_idx, energies.index),
         (energies.output, ave_loss.input),
         (ave_loss.output, total_loss)]
@@ -326,7 +331,7 @@ def iXc3_rbf(n_in, size='large', use_dropout=False):
     trainer = optimus.Graph(
         name=GRAPH_NAME,
         inputs=inputs,
-        nodes=param_nodes + misc_nodes + [rbf, energies, ave_loss],
+        nodes=param_nodes + misc_nodes + [rbf, inverter, energies, ave_loss],
         connections=optimus.ConnectionManager(trainer_edges).connections,
         outputs=[total_loss],
         loss=total_loss,
@@ -348,21 +353,18 @@ def iXc3_rbf(n_in, size='large', use_dropout=False):
         outputs=[fretboard],
         verbose=True)
 
-    neg = optimus.Multiply(name='inverter', weight_shape=None)
-    neg.weight.value = -1.0
-    class_softmax = optimus.Softmax("class_softmax")
     posterior = optimus.Output(name='posterior')
 
     classifier_edges = base_edges + [
         (stack.output, rbf.input),
-        (rbf.output, neg.input),
-        (neg.output, class_softmax.input),
+        (rbf.output, inverter.input),
+        (inverter.output, class_softmax.input),
         (class_softmax.output, posterior)]
 
     classifier = optimus.Graph(
         name=GRAPH_NAME,
         inputs=[input_data],
-        nodes=param_nodes + misc_nodes + [rbf, neg, class_softmax],
+        nodes=param_nodes + misc_nodes + [rbf, inverter, class_softmax],
         connections=optimus.ConnectionManager(classifier_edges).connections,
         outputs=[posterior],
         verbose=True)

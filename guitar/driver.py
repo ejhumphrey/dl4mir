@@ -12,7 +12,6 @@ import dl4mir.common.streams as S
 from dl4mir.guitar import DRIVER_ARGS
 from dl4mir.guitar import models
 
-DRIVER_ARGS['max_iter'] = 500000
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 VOCAB = lex.Strict(157)

@@ -12,14 +12,9 @@ QUALITIES = {
 }
 
 DRIVER_ARGS = dict(
-    max_iter=100000,
-    save_freq=250,
+    max_iter=500000,
+    save_freq=2500,
     print_freq=100)
-
-SOURCE_ARGS = dict(
-    batch_size=50,
-    refresh_prob=0.0,
-    cache_size=500)
 
 
 def __load_voicings__():
