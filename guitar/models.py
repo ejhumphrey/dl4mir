@@ -196,10 +196,184 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
     return trainer, predictor
 
 
+def iXc3_rbf(n_in, size='large', use_dropout=False):
+    k0, k1, k2 = dict(
+        small=(10, 20, 40),
+        med=(12, 24, 48),
+        large=(16, 32, 64),
+        xlarge=(20, 40, 80),
+        xxlarge=(24, 48, 96))[size]
+
+    n0, n1, n2 = {
+        1: (1, 1, 1),
+        4: (3, 2, 1),
+        8: (5, 3, 2),
+        10: (3, 3, 1),
+        20: (5, 5, 1)}[n_in]
+
+    p0, p1, p2 = {
+        1: (1, 1, 1),
+        4: (1, 1, 1),
+        8: (1, 1, 1),
+        10: (2, 2, 1),
+        12: (2, 2, 1),
+        20: (2, 2, 2)}[n_in]
+
+    input_data = optimus.Input(
+        name='cqt',
+        shape=(None, 1, n_in, 252))
+
+    chord_idx = optimus.Input(
+        name='chord_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    inputs = [input_data, chord_idx, learning_rate]
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, n0, 13),
+        pool_shape=(p0, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, n1, 37),
+        pool_shape=(p1, 1),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, n2, 33),
+        pool_shape=(p2, 1),
+        act_type='relu')
+
+    trainer_edges = []
+    if use_dropout:
+        layer0.enable_dropout()
+        layer1.enable_dropout()
+        layer2.enable_dropout()
+        inputs += [dropout]
+        trainer_edges += [(dropout, layer0.dropout),
+                          (dropout, layer1.dropout),
+                          (dropout, layer2.dropout)]
+
+    predictors = []
+    softmaxes = []
+    for name in 'EADGBe':
+        predictors.append(optimus.Affine(
+            name='{0}_predictor'.format(name),
+            input_shape=layer2.output.shape,
+            output_shape=(None, NUM_FRETS),
+            act_type='linear'))
+        softmaxes.append(optimus.Softmax('{0}_softmax'.format(name)))
+
+    stack = optimus.Stack('stacker', num_inputs=6, axes=(1, 0, 2))
+    param_nodes = [layer0, layer1, layer2] + predictors
+    misc_nodes = [stack] + softmaxes
+
+    # 1.1 Create Loss
+    rbf = optimus.RadialBasis(
+        name='rbf',
+        input_shape=(None, 6, NUM_FRETS),
+        output_shape=(None, 157))
+    energies = optimus.SelectIndex(name='energies')
+    ave_loss = optimus.Mean(name='ave_loss')
+    total_loss = optimus.Output(name='total_loss')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input)]
+
+    for p, smax in zip(predictors, softmaxes):
+        base_edges += [(layer2.output, p.input),
+                       (p.output, smax.input)]
+
+    base_edges += [(softmaxes[0].output, stack.input_0),
+                   (softmaxes[1].output, stack.input_1),
+                   (softmaxes[2].output, stack.input_2),
+                   (softmaxes[3].output, stack.input_3),
+                   (softmaxes[4].output, stack.input_4),
+                   (softmaxes[5].output, stack.input_5)]
+
+    trainer_edges += base_edges + [
+        (stack.output, rbf.input),
+        (rbf.output, energies.input),
+        (chord_idx, energies.index),
+        (energies.output, ave_loss.input),
+        (ave_loss.output, total_loss)]
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=inputs,
+        nodes=param_nodes + misc_nodes + [rbf, energies, ave_loss],
+        connections=optimus.ConnectionManager(trainer_edges).connections,
+        outputs=[total_loss],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    if use_dropout:
+        layer0.disable_dropout()
+        layer1.disable_dropout()
+        layer2.disable_dropout()
+
+    fretboard = optimus.Output(name='fretboard')
+    fret_predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(
+            base_edges + [(stack.output, fretboard)]).connections,
+        outputs=[fretboard],
+        verbose=True)
+
+    neg = optimus.Multiply(name='inverter', weight_shape=None)
+    neg.weight.value = -1.0
+    class_softmax = optimus.Softmax("class_softmax")
+    posterior = optimus.Output(name='posterior')
+
+    classifier_edges = base_edges + [
+        (stack.output, rbf.input),
+        (rbf.output, neg.input),
+        (neg.output, class_softmax.input),
+        (class_softmax.output, posterior)]
+
+    classifier = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes + [rbf, neg, class_softmax],
+        connections=optimus.ConnectionManager(classifier_edges).connections,
+        outputs=[posterior],
+        verbose=True)
+
+    return trainer, fret_predictor, classifier
+
+
 MODELS = {
-    'L': lambda: iXc3_nll(20, 'large'),
-    'XL': lambda: iXc3_nll(20, 'xlarge'),
-    'XXL': lambda: iXc3_nll(20, 'xxlarge'),
-    'XXL_dropout': lambda: iXc3_nll(20, 'xxlarge', True),
-    'XL_dropout': lambda: iXc3_nll(20, 'xlarge', True),
-    'L_dropout': lambda: iXc3_nll(20, 'large', True)}
+    'L': lambda: iXc3_rbf(20, 'large'),
+    'XL': lambda: iXc3_rbf(20, 'xlarge'),
+    'XXL': lambda: iXc3_rbf(20, 'xxlarge'),
+    'XXL_dropout': lambda: iXc3_rbf(20, 'xxlarge', True),
+    'XL_dropout': lambda: iXc3_rbf(20, 'xlarge', True),
+    'L_dropout': lambda: iXc3_rbf(20, 'large', True)}

@@ -1,9 +1,13 @@
 """Evaluation module for chord estimation."""
 import fnmatch
 import mir_eval
-import dl4mir.chords.labels as L
 import numpy as np
 from sklearn.externals.joblib import Parallel, delayed
+
+import dl4mir.chords.labels as L
+import dl4mir.chords.lexicon as lex
+
+STRICT = lex.Strict(157)
 
 
 def align_labeled_intervals(ref_intervals, ref_labels,
@@ -113,29 +117,15 @@ def v157_strict(reference_labels, estimated_labels):
             gamut.
     '''
     mir_eval.chord.validate(reference_labels, estimated_labels)
-    valid_qualities = ['maj', 'min', 'maj7', 'min7', '7', 'maj6', 'min6',
-                       'dim', 'aug', 'sus4', 'sus2', 'dim7', 'hdim7', '']
-    valid_refs = np.array([L.split(_)[1] in valid_qualities
-                           for _ in reference_labels])
-    valid_semitones = np.array([mir_eval.chord.QUALITIES[name]
-                                for name in valid_qualities])
 
-    (ref_roots, ref_semitones,
-        ref_basses) = L.encode_many(reference_labels, False)
-    (est_roots, est_semitones,
-        est_basses) = L.encode_many(estimated_labels, False)
+    ref_idx = STRICT.label_to_index(reference_labels)
+    est_idx = STRICT.label_to_index(estimated_labels)
+    is_invalid = np.equal(ref_idx, None)
 
-    eq_root = ref_roots == est_roots
-    eq_semitones = np.all(np.equal(ref_semitones, est_semitones), axis=1)
-    comparison_scores = (eq_root * eq_semitones).astype(np.float)
+    comparison_scores = np.equal(ref_idx, est_idx).astype(float)
 
-    # Test for reference chord inclusion
-    is_valid = np.array([np.all(np.equal(ref_semitones, semitones), axis=1)
-                         for semitones in valid_semitones])
-    # Drop if NOR
-    comparison_scores[np.sum(is_valid, axis=0) == 0] = -1
-    comparison_scores[np.invert(valid_refs)] = -1
-    comparison_scores[np.not_equal(ref_basses, ref_roots)] = -1
+    # Drop if invalid
+    comparison_scores[is_invalid] = -1.0
     return comparison_scores
 
 
@@ -173,12 +163,13 @@ def pairwise_score_labels(ref_labels, est_labels, weights, compare_func):
     valid_idx = scores >= 0
     total_weight = weights[valid_idx].sum()
     correct_weight = np.dot(scores[valid_idx], weights[valid_idx])
-    return correct_weight / total_weight, total_weight
+    norm = total_weight if total_weight > 0 else 1.0
+    return correct_weight / norm, total_weight
 
 
 def pairwise_reduce_labels(ref_labels, est_labels, weights, compare_func,
                            label_counts=None):
-    """
+    """Accumulate estimated timed of a collection label pairs.
 
     Parameters
     ----------
