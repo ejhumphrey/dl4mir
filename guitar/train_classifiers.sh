@@ -23,9 +23,11 @@ OUTPUTS=${BASEDIR}/outputs
 RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
+CLASSIFIER_NAME="chord_classifier"
 PARAM_TEXTLIST="paramlist.txt"
 VALIDATION_CONFIG="validation_config.json"
 VALIDATION_PARAMS="validation_params.json"
+CLASSIFIER_WEIGHTS="${META}/rbf_weights.npz"
 
 REFERENCES=${DL4MIR}/chord_estimation/references.jamset
 
@@ -71,7 +73,9 @@ ${ARCH_SIZE} \
 ${DROPOUT} \
 ${MODELS}/${CONFIG}/${idx} \
 "guitarnet" \
-${TRANSFORM_NAME}.json
+${TRANSFORM_NAME}.json \
+${CLASSIFIER_NAME}.json \
+--init_param_file=${CLASSIFIER_WEIGHTS}
     done
 fi
 
