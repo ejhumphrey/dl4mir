@@ -137,6 +137,34 @@ def fret_mapper(stream, voicings, num_frets=9):
             yield biggie.Entity(cqt=entity.cqt, **frets)
 
 
+def fretboard_mapper(stream, vocab, targets):
+    """Stream filter for mapping chord label entities to frets.
+
+    Parameters
+    ----------
+    stream : generator
+        Yields {cqt, chord_label} entities, or None.
+    vocab : dl4mir.chord.lexicon.Vocab
+        Map from chord labels to indices.
+    targets : np.ndarray, shape=(num_classes, 6, num_frets)
+        Target templates.
+
+    Yields
+    ------
+    entity : biggie.Entity
+        Fretted entity with {cqt, frets}, or None if out of gamut.
+    """
+    for entity in stream:
+        if entity is None:
+            yield entity
+        idx = vocab.label_to_index(entity.chord_label)
+        if idx is None:
+            yield None
+        else:
+            yield biggie.Entity(cqt=entity.cqt,
+                                fretboard_target=targets[idx])
+
+
 DEGREES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
 
 
