@@ -125,5 +125,4 @@ ${RESULTS}/${TRIAL}/stat_files.txt
     python ${SRC}/timbre/average_results.py \
 ${RESULTS}/${TRIAL}/stat_files.txt \
 ${RESULTS}/${TRIAL}/stats.json
-    done
 fi

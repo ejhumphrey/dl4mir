@@ -220,11 +220,11 @@ def iXc3_rbf(n_in, size='large', use_dropout=False):
         20: (2, 2, 2)}[n_in]
 
     input_data = optimus.Input(
-        name='cqt',
+        name='data',
         shape=(None, 1, n_in, 252))
 
     chord_idx = optimus.Input(
-        name='chord_idx',
+        name='class_idx',
         shape=(None,),
         dtype='int32')
 

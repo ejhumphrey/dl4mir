@@ -171,7 +171,8 @@ DEGREES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
 def note_numbers_to_interval_chord(note_numbers):
     c = music21.chord.Chord(note_numbers)
     intervals = ",".join([DEGREES[_] for _ in c.normalForm])
-    return "{0}:({1})".format(c.root().name, intervals)
+    root = c.root().name.replace('-', 'b')
+    return "{0}:({1})".format(root, intervals)
 
 
 def frets_to_interval_chord(frets):

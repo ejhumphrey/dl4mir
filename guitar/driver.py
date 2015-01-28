@@ -23,7 +23,7 @@ def main(args):
         arch_key += '_dropout'
 
     trainer, predictor, classifier = models.MODELS[arch_key]()
-    time_dim = trainer.inputs['cqt'].shape[2]
+    time_dim = trainer.inputs['data'].shape[2]
 
     if args.init_param_file:
         print "Loading parameters: %s" % args.init_param_file
