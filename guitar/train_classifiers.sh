@@ -93,11 +93,11 @@ ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST}
 
         python ${SRC}/common/validation_sweep.py \
 ${BIGGIE}/${idx}/valid.hdf5 \
-${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${CLASSIFIER_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
 ${OUTPUTS}/${CONFIG}/${idx}/valid \
---start_index=39 \
---stride=40
+--start_index=3 \
+--stride=4
     done
 fi
 
@@ -113,11 +113,10 @@ ${OUTPUTS}/${CONFIG}/${idx}/valid \
 "*.hdf5" \
 ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST}
 
-        python ${SRC}/guitar/decode_fretboards_to_jams.py \
+        python ${SRC}/chords/decode_posteriors_to_jams.py \
 ${OUTPUTS}/${CONFIG}/${idx}/valid/${PARAM_TEXTLIST} \
-${META}/${VALIDATION_CONFIG} \
-"chords" \
-${ESTIMATIONS}/${CONFIG}/${idx}/valid/
+${ESTIMATIONS}/${CONFIG}/${idx}/valid/ \
+--config=${META}/${VALIDATION_CONFIG}
     done
 fi
 
