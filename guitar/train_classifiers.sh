@@ -164,9 +164,17 @@ then
             python ${SRC}/common/transform_stash.py \
 ${BIGGIE}/${idx}/${split}.hdf5 \
 "cqt" \
-${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${CLASSIFIER_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
-${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5
+${OUTPUTS}/${CONFIG}/${idx}/posteriors/${split}.hdf5
+
+#             echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
+#             python ${SRC}/common/transform_stash.py \
+# ${BIGGIE}/${idx}/${split}.hdf5 \
+# "cqt" \
+# ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+# ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+# ${OUTPUTS}/${CONFIG}/${idx}/fretboard/${split}.hdf5
         done
     done
 fi
@@ -179,20 +187,20 @@ then
         for split in valid test train
         do
             echo "Decoding ${BIGGIE}/${idx}/${split}.hdf5"
-            echo ${OUTPUTS}/${CONFIG}/${idx}/${split}.hdf5 > ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
+            echo ${OUTPUTS}/${CONFIG}/${idx}/posteriors/${split}.hdf5 > ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
 
-            python ${SRC}/guitar/decode_fretboards_to_jams.py \
+            python ${SRC}/chords/decode_posteriors_to_jams.py \
 ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
-config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
-"chords"
-${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords
-
-            python ${SRC}/guitar/decode_fretboards_to_jams.py \
-${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
-config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
-"tabs"
-${ESTIMATIONS}/${CONFIG}/${idx}/${split}/tabs
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords \
+--config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json
             rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
+
+#             python ${SRC}/guitar/decode_fretboards_to_jams.py \
+# ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
+# config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
+# "tabs"
+# ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/tabs
+#             rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
         done
     done
 fi
@@ -205,14 +213,14 @@ then
         do
             echo "Collecting estimations."
             python ${SRC}/common/collect_files.py \
-${ESTIMATIONS}/${CONFIG}/${idx}/${split}/ \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords/ \
 "best/*.jamset" \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST}
 
             python ${SRC}/chords/score_jamset_textlist.py \
 ${REFERENCES} \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST} \
-${RESULTS}/${CONFIG}/${idx}/final/${split}.json \
+${RESULTS}/${CONFIG}/${idx}/chords/${split}.json \
 --min_support=60.0 \
 --num_cpus=1
         done
