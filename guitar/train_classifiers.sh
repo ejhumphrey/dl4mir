@@ -146,7 +146,7 @@ then
     for idx in ${FOLD_IDXS}
     do
         echo "Collecting estimations."
-        python ${SRC}/guitar/select_best.py \
+        python ${SRC}/chords/select_best.py \
 ${RESULTS}/${CONFIG}/${idx}/valid.json \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
 ${MODELS}/${CONFIG}/${idx}/viterbi_params.json
