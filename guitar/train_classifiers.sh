@@ -213,7 +213,7 @@ then
         do
             echo "Collecting estimations."
             python ${SRC}/common/collect_files.py \
-${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords/${split}/ \
+${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords/ \
 "*.jamset" \
 ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST}
             cat ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/${PARAM_TEXTLIST}

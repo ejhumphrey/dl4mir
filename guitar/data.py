@@ -76,3 +76,30 @@ def create_fret_stream(stash, win_length, working_size=50, voicings=VOICINGS,
 
     stream = pescador.mux(entity_pool, None, working_size, lam=25)
     return futil.fret_mapper(stream, voicings)
+
+
+def create_fretboard_stream(stash, win_length, vocab, targets,
+                            working_size=50,
+                            sample_func=util.slice_cqt_entity):
+    """Return an unconstrained stream of chord samples with class indexes.
+
+    Parameters
+    ----------
+    stash : biggie.Stash
+        A collection of chord entities.
+    win_length : int
+        Length of a given tile slice.
+    working_size : int
+        Number of open streams at a time.
+
+    Returns
+    -------
+    stream : generator
+        Data stream of windowed cqt-fret entities.
+    """
+    entity_pool = [pescador.Streamer(cqt_sampler, key, stash,
+                                     win_length, sample_func=sample_func)
+                   for key in stash.keys()]
+
+    stream = pescador.mux(entity_pool, None, working_size, lam=25)
+    return futil.fretboard_mapper(stream, vocab, targets)

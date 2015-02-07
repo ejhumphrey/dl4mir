@@ -10,8 +10,9 @@ import dl4mir.chords.lexicon as lex
 STRICT = lex.Strict(157)
 
 
-def align_labeled_intervals(ref_intervals, ref_labels,
-                            est_intervals, est_labels):
+def align_labeled_intervals(ref_intervals, ref_labels, est_intervals,
+                            est_labels, ref_fill_value=L.NO_CHORD,
+                            est_fill_value=L.NO_CHORD):
     """Align two sets of labeled intervals.
 
     Parameters
@@ -37,10 +38,12 @@ def align_labeled_intervals(ref_intervals, ref_labels,
     t_min = ref_intervals.min()
     t_max = ref_intervals.max()
     ref_intervals, ref_labels = mir_eval.util.adjust_intervals(
-        ref_intervals, ref_labels, t_min, t_max, L.NO_CHORD, L.NO_CHORD)
+        ref_intervals, ref_labels, t_min, t_max,
+        ref_fill_value, ref_fill_value)
 
     est_intervals, est_labels = mir_eval.util.adjust_intervals(
-        est_intervals, est_labels, t_min, t_max, L.NO_CHORD, L.NO_CHORD)
+        est_intervals, est_labels, t_min, t_max,
+        est_fill_value, est_fill_value)
 
     # Merge the time-intervals
     intervals, ref_labels, est_labels = mir_eval.util.merge_labeled_intervals(

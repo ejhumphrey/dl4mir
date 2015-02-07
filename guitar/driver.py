@@ -2,6 +2,8 @@
 import argparse
 import biggie
 import optimus
+import json
+import numpy as np
 from os import path
 import marl.fileutils as futil
 
@@ -15,6 +17,14 @@ from dl4mir.guitar import models
 LEARNING_RATE = 0.02
 BATCH_SIZE = 100
 VOCAB = lex.Strict(157)
+
+
+def weighted_stream(stream, prior):
+    for x in stream:
+        if not x:
+            continue
+        x.class_weight = 1.0 / prior[x.class_idx]
+        yield x
 
 
 def main(args):
@@ -33,6 +43,12 @@ def main(args):
     stash = biggie.Stash(args.training_file, cache=True)
     stream = D.create_chord_index_stream(
         stash, time_dim, max_pitch_shift=0, lexicon=VOCAB)
+
+    if "weighted" in arch_key:
+        stat_file = "%s.json" % path.splitext(args.training_file)[0]
+        prior = np.array(json.load(open(stat_file))['prior'], dtype=float)
+        stream = weighted_stream(stream, prior)
+
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
     print "Starting '%s'" % args.trial_name
