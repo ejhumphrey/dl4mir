@@ -60,6 +60,7 @@ def decode_fretboard(entity, penalty, label_map, **viterbi_args):
         Populated chord annotation.
     """
     num_frets = entity.fretboard.shape[-1]
+    # Transpose the fretboard to make the strings the first axis.
     frets_pred = np.array([util.viterbi(x, penalty=penalty, **viterbi_args)
                            for x in entity.fretboard.transpose(1, 0, 2)]).T
     frets_pred[np.equal(frets_pred, num_frets - 1)] = -1
