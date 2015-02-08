@@ -19,11 +19,11 @@ BATCH_SIZE = 100
 VOCAB = lex.Strict(157)
 
 
-def weighted_stream(stream, prior, scalar):
+def weighted_stream(stream, scale_factors):
     for x in stream:
         if not x:
             continue
-        x.class_weight = scalar / prior[x.class_idx]
+        x.class_weight = scale_factors[x.class_idx]
         yield x
 
 
@@ -47,7 +47,9 @@ def main(args):
     if "weighted" in arch_key:
         stat_file = "%s.json" % path.splitext(args.training_file)[0]
         prior = np.array(json.load(open(stat_file))['prior'], dtype=float)
-        stream = weighted_stream(stream, prior, prior[0])
+        scalars = prior.max() / prior.flatten()
+        scalars = (scalars - scalars.mean()) / scalars.std()
+        stream = weighted_stream(stream, scalars + 1)
 
     stream = S.minibatch(stream, batch_size=BATCH_SIZE)
 
