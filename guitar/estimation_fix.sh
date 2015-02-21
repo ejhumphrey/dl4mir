@@ -43,7 +43,7 @@ CONFIG="${ARCH_SIZE}/${DROPOUT}"
 
 for idx in ${FOLD_IDXS}
 do
-    for split in valid
+    for split in valid train test
     do
         for partition in all strict others
         do
