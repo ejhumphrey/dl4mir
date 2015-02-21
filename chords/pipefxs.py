@@ -4,7 +4,6 @@ from dl4mir.chords import labels
 import biggie
 from marl.utils.matrix import circshift
 from marl.utils.matrix import translate
-from marl.chords.utils import transpose_chord_index
 
 import dl4mir.common.util as util
 
@@ -16,7 +15,7 @@ def _circshift(entity, pitch_shift, bins_per_pitch):
     data, chord_label = values.pop('data'), str(values.pop('chord_label'))
 
     # Change the chord label if it has a harmonic root.
-    if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
+    if chord_label not in [labels.NO_CHORD, labels.SKIP_CHORD]:
         root, quality, exts, bass = labels.split(chord_label)
         root = (labels.pitch_class_to_semitone(root) + pitch_shift) % 12
         new_root = labels.semitone_to_pitch_class(root)
@@ -31,11 +30,15 @@ def _circshift(entity, pitch_shift, bins_per_pitch):
 
 
 def _padshift(entity, pitch_shift, bins_per_pitch, fill_value=0.0):
+    """
+    entity : Entity
+        CQT entity to shift; must have fields {data, chord_label}.
+    """
     values = entity.values()
     data, chord_label = values.pop('data'), str(values.pop('chord_label'))
 
     # Change the chord label if it has a harmonic root.
-    if not chord_label in [labels.NO_CHORD, labels.SKIP_CHORD]:
+    if chord_label not in [labels.NO_CHORD, labels.SKIP_CHORD]:
         root, quality, exts, bass = labels.split(chord_label)
         root = (labels.pitch_class_to_semitone(root) + pitch_shift) % 12
         new_root = labels.semitone_to_pitch_class(root)

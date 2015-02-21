@@ -42,7 +42,7 @@ def main(args):
     print "Opening %s" % args.training_file
     stash = biggie.Stash(args.training_file, cache=True)
     stream = D.create_chord_index_stream(
-        stash, time_dim, max_pitch_shift=0, lexicon=VOCAB)
+        stash, time_dim, max_pitch_shift=12, lexicon=VOCAB)
 
     if "weighted" in arch_key:
         stat_file = "%s.json" % path.splitext(args.training_file)[0]
