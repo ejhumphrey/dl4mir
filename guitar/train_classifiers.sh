@@ -96,8 +96,8 @@ ${BIGGIE}/${idx}/valid.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${CLASSIFIER_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${PARAM_TEXTLIST} \
 ${OUTPUTS}/${CONFIG}/${idx}/valid \
---start_index=3 \
---stride=4
+--start_index=39 \
+--stride=8
     done
 fi
 
