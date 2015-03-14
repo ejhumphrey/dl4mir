@@ -154,7 +154,7 @@ ${MODELS}/${CONFIG}/${idx}/viterbi_params.json
 fi
 
 # Transform data
-if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform" ];
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform.posteriors" ];
 then
     for idx in ${FOLD_IDXS}
     do
@@ -167,14 +167,24 @@ ${BIGGIE}/${idx}/${split}.hdf5 \
 ${MODELS}/${CONFIG}/${idx}/${CLASSIFIER_NAME}.json \
 ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
 ${OUTPUTS}/${CONFIG}/${idx}/posteriors/${split}.hdf5
+        done
+    done
+fi
 
-#             echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
-#             python ${SRC}/common/transform_stash.py \
-# ${BIGGIE}/${idx}/${split}.hdf5 \
-# "cqt" \
-# ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
-# ${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
-# ${OUTPUTS}/${CONFIG}/${idx}/fretboard/${split}.hdf5
+# Transform data
+if [ $PHASE == "all" ] || [ $PHASE == "predict" ] || [ $PHASE == "predict.transform.frets" ];
+then
+    for idx in ${FOLD_IDXS}
+    do
+        for split in valid test train
+        do
+            echo "Transforming ${BIGGIE}/${idx}/${split}.hdf5"
+            python ${SRC}/common/transform_stash.py \
+${BIGGIE}/${idx}/${split}.hdf5 \
+"cqt" \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.json \
+${MODELS}/${CONFIG}/${idx}/${TRANSFORM_NAME}.npz \
+${OUTPUTS}/${CONFIG}/${idx}/fretboard/${split}.hdf5
         done
     done
 fi
@@ -195,12 +205,6 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/chords \
 --config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json
             rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
 
-#             python ${SRC}/guitar/decode_fretboards_to_jams.py \
-# ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt \
-# config=${MODELS}/${CONFIG}/${idx}/viterbi_params.json \
-# "tabs"
-# ${ESTIMATIONS}/${CONFIG}/${idx}/${split}/tabs
-#             rm ${OUTPUTS}/${CONFIG}/${idx}/stash_list.txt
         done
     done
 fi
