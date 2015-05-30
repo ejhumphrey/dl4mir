@@ -1291,4 +1291,10 @@ MODELS = {
     'XXL': lambda: iXc3_nll(20, 'xxlarge'),
     'XXL_dropout': lambda: iXc3_nll(20, 'xxlarge', True),
     'XL_dropout': lambda: iXc3_nll(20, 'xlarge', True),
-    'L_dropout': lambda: iXc3_nll(20, 'large', True)}
+    'L_dropout': lambda: iXc3_nll(20, 'large', True),
+    'L_fc': lambda: iXc3_fc_nll(20, 'large'),
+    'XL_fc': lambda: iXc3_fc_nll(20, 'xlarge'),
+    'XXL_fc': lambda: iXc3_fc_nll(20, 'xxlarge'),
+    'XXL_fc_dropout': lambda: iXc3_fc_nll(20, 'xxlarge', True),
+    'XL_fc_dropout': lambda: iXc3_fc_nll(20, 'xlarge', True),
+    'L_fc_dropout': lambda: iXc3_fc_nll(20, 'large', True)}
