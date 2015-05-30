@@ -327,6 +327,146 @@ def iXc3_nll(n_in, size='large', use_dropout=False):
     return trainer, predictor
 
 
+def iXc3_fc_nll(n_in, size='large', use_dropout=False):
+    k0, k1, k2 = dict(
+        small=(10, 20, 40),
+        med=(12, 24, 48),
+        large=(16, 32, 64),
+        xlarge=(20, 40, 80),
+        xxlarge=(24, 48, 96))[size]
+
+    n0, n1, n2 = {
+        1: (1, 1, 1),
+        4: (3, 2, 1),
+        8: (5, 3, 2),
+        10: (3, 3, 1),
+        20: (5, 5, 1)}[n_in]
+
+    p0, p1, p2 = {
+        1: (1, 1, 1),
+        4: (1, 1, 1),
+        8: (1, 1, 1),
+        10: (2, 2, 1),
+        12: (2, 2, 1),
+        20: (2, 2, 2)}[n_in]
+
+    input_data = optimus.Input(
+        name='data',
+        shape=(None, 1, n_in, 252))
+
+    chord_idx = optimus.Input(
+        name='class_idx',
+        shape=(None,),
+        dtype='int32')
+
+    learning_rate = optimus.Input(
+        name='learning_rate',
+        shape=None)
+
+    inputs = [input_data, chord_idx, learning_rate]
+
+    dropout = optimus.Input(
+        name='dropout',
+        shape=None)
+
+    # 1.2 Create Nodes
+    layer0 = optimus.Conv3D(
+        name='layer0',
+        input_shape=input_data.shape,
+        weight_shape=(k0, None, n0, 13),
+        pool_shape=(p0, 3),
+        act_type='relu')
+
+    layer1 = optimus.Conv3D(
+        name='layer1',
+        input_shape=layer0.output.shape,
+        weight_shape=(k1, None, n1, 37),
+        pool_shape=(p1, 1),
+        act_type='relu')
+
+    layer2 = optimus.Conv3D(
+        name='layer2',
+        input_shape=layer1.output.shape,
+        weight_shape=(k2, None, n2, 33),
+        pool_shape=(p2, 1),
+        act_type='relu')
+
+    dropout_edges = []
+    if use_dropout:
+        layer0.enable_dropout()
+        layer1.enable_dropout()
+        layer2.enable_dropout()
+        inputs += [dropout]
+        dropout_edges += [(dropout, layer0.dropout),
+                          (dropout, layer1.dropout),
+                          (dropout, layer2.dropout)]
+
+    chord_classifier = optimus.Affine(
+        name='chord_classifier',
+        input_shape=layer2.output.shape,
+        output_shape=(None, VOCAB),
+        act_type='softmax')
+
+    prior = optimus.Multiply("prior", weight_shape=(1, 157), broadcast=[0])
+    prior.weight.value = np.ones([1, 157])
+
+    param_nodes = [layer0, layer1, layer2, chord_classifier]
+    misc_nodes = [prior]
+
+    # 1.1 Create Loss
+    nll = optimus.NegativeLogLikelihoodLoss(name='negative_log_likelihood')
+    total_loss = optimus.Output(name='total_loss')
+
+    # features = optimus.Output(name='features')
+    posterior = optimus.Output(name='posterior')
+
+    # 2. Define Edges
+    base_edges = [
+        (input_data, layer0.input),
+        (layer0.output, layer1.input),
+        (layer1.output, layer2.input),
+        (layer2.output, chord_classifier.input),
+        (chord_classifier.output, prior.input),
+        (prior.output, posterior)]
+
+    trainer_edges = optimus.ConnectionManager(
+        base_edges + dropout_edges + [
+            (chord_classifier.output, nll.likelihoods),
+            (chord_idx, nll.index),
+            (nll.output, total_loss)])
+
+    update_manager = optimus.ConnectionManager(
+        map(lambda n: (learning_rate, n.weights), param_nodes) +
+        map(lambda n: (learning_rate, n.bias), param_nodes))
+
+    classifier_init(param_nodes)
+
+    trainer = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=inputs,
+        nodes=param_nodes + misc_nodes + [nll],
+        connections=trainer_edges.connections,
+        outputs=[total_loss, posterior],
+        loss=total_loss,
+        updates=update_manager.connections,
+        verbose=True)
+
+    if use_dropout:
+        layer0.disable_dropout()
+        layer1.disable_dropout()
+        layer2.disable_dropout()
+
+    predictor = optimus.Graph(
+        name=GRAPH_NAME,
+        inputs=[input_data],
+        nodes=param_nodes + misc_nodes,
+        connections=optimus.ConnectionManager(base_edges).connections,
+        outputs=[posterior],
+        verbose=True)
+
+    return trainer, predictor
+
+
 def iXc3_nll2(n_in, size='large', use_dropout=False):
     k0, k1, k2 = dict(
         small=(10, 20, 40),
