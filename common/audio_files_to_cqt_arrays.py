@@ -86,9 +86,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Compute CQT representations for a "
-                    "collection of audio files")
+    parser = argparse.ArgumentParser(usage=__doc__)
     parser.add_argument("textlist_file",
                         metavar="textlist_file", type=str,
                         help="A text file with a list of audio filepaths.")

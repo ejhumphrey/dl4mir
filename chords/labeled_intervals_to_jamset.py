@@ -17,7 +17,7 @@ def main(args):
     jamset = dict()
     for key, lab_files in json.load(open(args.annotation_set)).items():
         jamset[key] = pyjams.JAMS()
-        for f in lab_files:
+        for f in [lab_files]:
             intervals, labels = mir_eval.io.load_labeled_intervals(str(f))
             annot = jamset[key].chord.create_annotation()
             pyjams.util.fill_range_annotation_data(

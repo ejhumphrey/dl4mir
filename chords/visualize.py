@@ -1,9 +1,9 @@
 import numpy as np
 
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.pyplot import figure, subplot
 from matplotlib import gridspec
-
+import mir_eval
 from scipy.spatial import distance
 import dl4mir.chords.labels as L
 import dl4mir.common.util as util
@@ -194,28 +194,31 @@ def plot_piano_roll(entity, ax=None):
     return draw_chord_boundaries(entity, ax, ymin=-0.5, ymax=84.5)
 
 
-def plot_chord_regions(index_map, vocab, colorspace=None):
-    if colorspace is None:
-        x = np.linspace(0.5, 0.9, 5)
-        colorspace = [_.flatten()
-                      for _ in np.meshgrid(x, x, x, xindexing='ij')]
-        colorspace = np.array(colorspace).T
+def generate_colorspace(num_colors):
+    x = np.linspace(0.5, 0.9, 5)
+    colorspace = [_.flatten()
+                  for _ in np.meshgrid(x, x, x, xindexing='ij')]
+    colorspace = np.array(colorspace).T
+    best_dist = 0.0
+    best_colorspace = None
+    for n in range(50):
+        np.random.shuffle(colorspace)
+        dist_mat = distance.cdist(*([colorspace[:num_colors]]*2))
+        if dist_mat.mean() > best_dist:
+            best_dist = dist_mat.mean()
+            best_colorspace = np.array(colorspace[:num_colors])
+    return best_colorspace
 
+
+def plot_chord_regions(index_map, vocab, colorspace=None):
     X = np.zeros(list(index_map.shape) + [3], dtype=float)
     uidx = np.unique(index_map).tolist()
     for holdout in 156, None:
         if holdout in uidx:
             uidx.remove(holdout)
 
-    best_dist = 0.0
-    best_colorspace = None
-    for n in range(50):
-        np.random.shuffle(colorspace)
-        dist_mat = distance.cdist(*([colorspace[:len(uidx)]]*2))
-        if dist_mat.mean() > best_dist:
-            best_dist = dist_mat.mean()
-            best_colorspace = np.array(colorspace[:len(uidx)])
-    colorspace = best_colorspace
+    if colorspace is None:
+        colorspace = generate_colorspace(len(uidx))
 
     for n, i in enumerate(uidx):
         X[index_map == i] = colorspace[n]
@@ -250,6 +253,41 @@ plt.plot(f_iter, f[0,-3,:], 'y');plt.plot(f_iter, f[1,-3,:], 'y--')
 """
 
 
+def plot_labeled_intervals(intervals, labels, colorspace=None):
+    time_points, labels = mir_eval.util.intervals_to_samples(intervals, labels)
+    X = np.zeros([1, len(labels), 3], dtype=float)
+    unique_labels = np.unique(labels).tolist()
+    for holdout in L.NO_CHORD, L.SKIP_CHORD:
+        if holdout in unique_labels:
+            unique_labels.remove(holdout)
+
+    if colorspace is None:
+        colorspace = generate_colorspace(len(unique_labels))
+
+    for idx, l in enumerate(unique_labels):
+        X[0, util.equals_value(labels, l)] = colorspace[idx]
+    X[0, util.equals_value(labels, L.NO_CHORD)] = 0.25, 0.25, 0.25
+    X[0, util.equals_value(labels, L.SKIP_CHORD)] = 1.0, 1.0, 1.0
+
+    gs = gridspec.GridSpec(2, 1, height_ratios=[4, 1])
+
+    ax = subplot(gs[0])
+    ax.imshow(X, aspect='auto', interpolation='nearest')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel("Time")
+
+    legend = subplot(gs[1])
+    for n in range(len(unique_labels)):
+        legend.bar(n, 1.0, color=colorspace[n], width=1.0)
+
+    legend.set_xticks(np.arange(len(unique_labels)) + 0.5)
+    legend.set_xticklabels(unique_labels)
+    legend.set_xlim(0, len(unique_labels))
+    legend.set_yticks([])
+    return ax, legend
+
+
 def cqt_compare(a, b, fig=None, cmap='jet'):
     if fig is None:
         fig = figure()
@@ -266,3 +304,39 @@ def cqt_compare(a, b, fig=None, cmap='jet'):
         ax.set_xlabel("Time")
 
 
+def multi_scatter():
+    pass
+
+
+def macro_vs_micro_scatter(tmc_scores, deep_net_scores):
+    """Plot macro versus class-micro statistics.
+
+    Parameters
+    ----------
+    tmc_scores : np.ndarray, shape=(2,)
+        Baseline scores.
+    deep_net_scores : np.ndarray, shape=(2, 4, 3)
+        Scores to plot for comparison.
+
+    Returns
+    -------
+    ax : matplotlib.pyplot.axis
+        The axes handle of the figure.
+    """
+    fig = figure()
+    ax = fig.gca()
+    r = (tmc_scores ** 2.0).sum()**0.5
+    ax.scatter(tmc_scores[0, 0], tmc_scores[1, 0], marker='x', color='k', s=50)
+    for j, m in enumerate(['o', '^', 's']):
+        for i, c in enumerate(['r', 'g', 'b', 'y']):
+            ax.scatter(deep_net_scores[0, i, j],
+                       deep_net_scores[1, i, j],
+                       marker=m, color=c, s=50)
+
+    n = np.linspace(0, np.pi/2.0, 1000)
+    ax.plot(r*np.cos(n), r*np.sin(n), 'k--')
+    # ax.set_xlim(0.55, 0.8)
+    # ax.set_ylim(0.35, 0.6)
+    ax.set_ylabel("Recall - Averaged")
+    ax.set_xlabel("Recall - Weighted")
+    return ax

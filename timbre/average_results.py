@@ -7,7 +7,7 @@ import marl.fileutils as futil
 
 
 def collapse_results(score_files):
-    scores = [json.load(open(f)).values() for f in score_files]
+    scores = [json.load(open(f)) for f in score_files]
 
     accum = dict()
     for res in scores:
@@ -20,7 +20,7 @@ def collapse_results(score_files):
             accum[k] += np.asarray(v)
 
     for k in accum:
-        accum
+        accum[k] /= float(len(scores))
 
     metrics = scores[0].values()[0].keys()
     metrics.sort()

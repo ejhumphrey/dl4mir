@@ -100,7 +100,7 @@ ${ESTIMATIONS}/${CONFIG}/${idx}/stash/ \
 "best/*.jamset" \
 ${ESTIMATIONS}/${CONFIG}/${idx}/stash/${PARAM_TEXTLIST}
 
-            python ${SRC}/chords/score_jamset_textlist.py \
+            python ${SRC}/chords/score_rockcorpus.py \
 ${REFERENCES} \
 ${ESTIMATIONS}/${CONFIG}/${idx}/stash/${PARAM_TEXTLIST} \
 ${RESULTS}/${CONFIG}/${idx}/final/stash.json \

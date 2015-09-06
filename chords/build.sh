@@ -1,5 +1,6 @@
 #!/bin/bash
-BASEDIR=/Volumes/megatron/dl4mir/chord_estimation
+# BASEDIR=/Volumes/megatron/dl4mir/chord_estimation
+BASEDIR=/Volumes/megatron/dl4mir/rock_corpus
 SRC=~/Dropbox/NYU/marldev/src/dl4mir
 
 # Flat directory of all audio
@@ -12,7 +13,7 @@ META=${BASEDIR}/metadata
 #   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
 BIGGIE=${BASEDIR}/biggie/chords_l2n
 
-AUDIO_EXT="mp3"
+AUDIO_EXT="wav"
 AUDIO_FILES=${AUDIO}/filelist.txt
 CQT_FILES=${CQTS}/filelist.txt
 CQT_PARAMS=${META}/cqt_params.json

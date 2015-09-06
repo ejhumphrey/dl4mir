@@ -59,31 +59,6 @@ def build_model():
     return driver, predictor
 
 
-def parabola(x_range=(-5, 5), scale=1, x_offset=0, y_offset=0):
-    while True:
-        x = np.random.rand()*np.abs(np.diff(x_range)) + x_range[0]
-        y = scale * np.power(x - x_offset, 2.0) - y_offset
-        yield np.array([x, y]).squeeze()
-
-
-def gaussian2d(x_mean, y_mean, x_std, y_std):
-    while True:
-        x = np.random.normal(loc=x_mean, scale=x_std)
-        y = np.random.normal(loc=y_mean, scale=y_std)
-        yield np.array([x, y])
-
-
-def multiplex_streams(streams, probs, batch_size=20):
-    cdf = np.cumsum(probs)
-    while True:
-        x, y = [], []
-        while len(y) < batch_size:
-            idx = (cdf < np.random.rand()).argmin()
-            x.append(streams[idx].next())
-            y.append(idx)
-        yield dict(x=np.array(x), y=np.array(y))
-
-
 def train(stream1, stream2):
     driver1, predictor1 = build_model()
     source1 = multiplex_streams([stream1, stream2], [0.5, 0.5])
