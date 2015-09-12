@@ -1,0 +1,6 @@
+--index-url https://pypi.python.org/simple/
+
+-e https://github.com/ejhumphrey/biggie.git
+-e https://github.com/ejhumphrey/optimus.git
+-e https://github.com/bmcfee/pescador.git
+-e .
