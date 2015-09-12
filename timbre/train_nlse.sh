@@ -6,14 +6,20 @@
 # Requires the following:
 #    - An environment variable `DL4MIR` has been set, pointing to the expected
 #      directory structure of data.
-#    - The script is called from the directory containing the top-level
-#      `dl4mir` source code directory.
+
+if [ -z "${SRC}" ]; then
+    echo "Must specify the dl4mir source directory: 'SRC'."
+    exit 1
+fi
+
+if [ -z "${DL4MIR}" ]; then
+    echo "Must specify the dl4mir working directory: 'DL4MIR'"
+    exit 1
+fi
 
 BASEDIR=${DL4MIR}/timbre_sim
-SRC=./dl4mir
 
 # Directory of optimus data files, divided by index and split, like
-#   ${BIGGIE}/${FOLD}/${SPLIT}.hdf5
 BIGGIE=${BASEDIR}/biggie
 INITS=${BASEDIR}/param_inits
 MODELS=${BASEDIR}/models
@@ -22,7 +28,6 @@ RESULTS=${BASEDIR}/results
 
 TRANSFORM_NAME="transform"
 PARAM_TEXTLIST="paramlist.txt"
-
 
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage:"

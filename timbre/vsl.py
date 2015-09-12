@@ -1,3 +1,5 @@
+"""Tools to manipulate VSL data collection."""
+
 import numpy as np
 import glob
 import os

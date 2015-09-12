@@ -4,7 +4,7 @@ import argparse
 import json
 import librosa
 import marl
-from marl import fileutils as F
+from . import fileutil as F
 from multiprocessing import Pool
 import numpy as np
 import time

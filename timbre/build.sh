@@ -1,6 +1,5 @@
 #!/bin/bash
-BASEDIR=/Volumes/megatron/dl4mir/timbre_sim
-SRC=~/Dropbox/NYU/marldev/src/dl4mir
+BASEDIR=${DL4MIR}/timbre_sim
 
 # Flat directory of all audio
 AUDIO=${BASEDIR}/audio

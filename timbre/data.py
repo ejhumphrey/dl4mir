@@ -1,10 +1,12 @@
-import itertools
-import numpy as np
+"""Methods and routines to manipulate timbre data."""
 
 import biggie
+import itertools
+import numpy as np
 import pescador
 import time
-from dl4mir.common import util
+
+from common import util
 
 
 def slice_cqt_entity(entity, length, idx=None):
