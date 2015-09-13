@@ -34,6 +34,7 @@ cqt_arrays \
 --cqt_params=params.json \
 --num_cpus=2
 """
+from __future__ import print_function
 
 import argparse
 from joblib import delayed
@@ -59,27 +60,29 @@ def audio_file_to_cqt(file_pair):
     Parameters
     ----------
     file_pair : Pair of strings
-        input_file and output file
+        The input_file (first) and output file (second) tuple.
 
     Returns
     -------
-    Nothing, but the output file is written in this call.
+    status : bool
+        True on completion.
     """
     kwargs = dict(**DEFAULT_PARAMS)
     kwargs.update(filepath=file_pair.first)
     time_points, cqt_spectra = cqt(**kwargs)
     np.savez(file_pair.second, time_points=time_points, cqt=cqt_spectra)
-    print "[%s] Finished: %s" % (time.asctime(), file_pair.first)
+    print("[{0}] Finished: {1}".format(time.asctime(), file_pair.first))
+    return True
 
 
-def main(args):
-    if args.cqt_params:
-        DEFAULT_PARAMS.update(json.load(open(args.cqt_params)))
+def main(textlist, output_directory, cqt_params=None, num_cpus=-1):
+    if cqt_params:
+        DEFAULT_PARAMS.update(json.load(open(cqt_params)))
 
-    output_dir = futil.create_directory(args.output_directory)
-    pool = Parallel(n_jobs=args.num_cpus)
+    output_dir = futil.create_directory(output_directory)
+    pool = Parallel(n_jobs=num_cpus)
     dcqt = delayed(audio_file_to_cqt)
-    iterargs = futil.map_path_file_to_dir(args.textlist, output_dir, EXT)
+    iterargs = futil.map_path_file_to_dir(textlist, output_dir, EXT)
     return pool(dcqt(x) for x in iterargs)
 
 
@@ -99,4 +102,7 @@ if __name__ == "__main__":
                         metavar="num_cpus", default=-1,
                         help="Number of CPUs over which to parallelize "
                              "computations.")
-    main(parser.parse_args())
+
+    args = parser.parse_args()
+    main(args.textlist, args.output_directory,
+         args.cqt_params, args.num_cpus)

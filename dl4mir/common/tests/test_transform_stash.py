@@ -5,7 +5,7 @@ import numpy as np
 import optimus
 import biggie
 
-import dl4mir.common.transform_stash as TS
+from dl4mir.common import util
 
 
 def test_convolve():
@@ -26,7 +26,7 @@ def test_convolve():
     x = np.arange(10).reshape(1, 10, 1)
     y = np.array(['a', 'b'])
     entity = biggie.Entity(x_in=x, y=y)
-    z = TS.convolve(entity, transform, 'x_in')
+    z = util.convolve(entity, transform, 'x_in')
 
     np.testing.assert_equal(z.x_out, np.arange(10))
     np.testing.assert_equal(z.y, y)

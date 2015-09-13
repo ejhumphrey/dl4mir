@@ -49,19 +49,37 @@ def apply_lcn(file_pair, key='cqt'):
             "Cannot transform a {}-dim array.".format(data[key].ndim))
     print("[{0}] Finished: {1}".format(time.asctime(), file_pair.first))
     np.savez(file_pair.second, **data)
+    return True
 
 
-def main(args):
+def main(textlist, dim0, dim1, output_directory, param_file, num_cpus=-1):
+    """Apply Local Contrast Normalization to a collection of files.
+
+    Parameters
+    ----------
+    textlist : str
+        A text list of npz filepaths.
+    dim0 : int
+        First dimension of the filter kernel (time).
+    dim1 : int
+        Second dimension of the filter kernel (frequency).
+    output_directory : str
+        Directory to save output arrays.
+    param_file : str
+        Directory to save the parameters used.
+    num_cpus : int, default=-1
+        Number of CPUs over which to parallelize computations.
+    """
     # Set the kernel globally.
-    PARAMS[KERNEL] = create_kernel(args.dim0, args.dim1)
+    PARAMS[KERNEL] = create_kernel(dim0, dim1)
 
-    output_dir = futil.create_directory(args.output_directory)
-    with open(os.path.join(output_dir, args.param_file), "w") as fp:
-        json.dump({"dim0": args.dim0, "dim1": args.dim1}, fp, indent=2)
+    output_dir = futil.create_directory(output_directory)
+    with open(os.path.join(output_dir, param_file), "w") as fp:
+        json.dump({"dim0": dim0, "dim1": dim1}, fp, indent=2)
 
-    pool = Parallel(n_jobs=args.num_cpus)
+    pool = Parallel(n_jobs=num_cpus)
     dlcn = delayed(apply_lcn)
-    iterargs = futil.map_path_file_to_dir(args.textlist, output_dir, EXT)
+    iterargs = futil.map_path_file_to_dir(textlist, output_dir, EXT)
     return pool(dlcn(x) for x in iterargs)
 
 
@@ -69,13 +87,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("textlist",
                         metavar="textlist", type=str,
-                        help="A text list of audio filepaths.")
+                        help="A text list of npz filepaths.")
     parser.add_argument("dim0",
                         metavar="dim0", type=int,
-                        help="First dimension of the array.")
+                        help="First dimension of the array (time).")
     parser.add_argument("dim1",
                         metavar="dim1", type=int,
-                        help="Second dimension of the array.")
+                        help="Second dimension of the filter kernel (freq).")
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
                         help="Directory to save output arrays.")
@@ -86,4 +104,6 @@ if __name__ == "__main__":
                         metavar="num_cpus", default=-1,
                         help="Number of CPUs over which to parallelize "
                              "computations.")
-    main(parser.parse_args())
+    args = parser.parse_args()
+    main(args.textlist, args.dim0, args.dim1, args.output_directory,
+         args.param_file, args.num_cpus)

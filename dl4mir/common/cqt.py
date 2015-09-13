@@ -111,7 +111,7 @@ def cqt(filepath, q=1.0, freq_min=27.5, octaves=7, bins_per_octave=36,
     """
     freq_min_top_octave = freq_min * 2 ** (octaves - 1)
     freq_max = freq_min * 2 ** (octaves)
-    if freq_max < (samplerate / 2.0):
+    if freq_max > (samplerate / 2.0):
         raise ValueError("Samplerate must be greater than {0} for the given "
                          "parameters.".format(freq_max * 2))
 

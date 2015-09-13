@@ -1,8 +1,9 @@
 """Utilities for manipulating files and paths.
 """
-
-import os
+import atexit
 from collections import namedtuple
+import os
+import shutil
 import tempfile as tmp
 
 Pair = namedtuple('Pair', 'first second')
@@ -186,3 +187,54 @@ def temp_file(ext):
         A writeable file path.
     """
     return tmp.mktemp(suffix=".%s" % ext.strip("."), dir=tmp.gettempdir())
+
+
+class TempFile(object):
+    def __init__(self, ext):
+        self.ext = ext.strip(".")
+        self._fd, self._fpath = tmp.mkstemp(suffix=ext)
+        atexit.register(self.close)
+
+    def __del__(self):
+        self.close()
+
+    @property
+    def _alive(self):
+        return self._fd is not None
+
+    def close(self):
+        if self._alive:
+            os.close(self._fd)
+            if os.path.exists(self.path):
+                os.remove(self.path)
+        self._fd = None
+
+    @property
+    def path(self):
+        if not self._alive:
+            raise IOError("TempFile has already expired.")
+        return self._fpath
+
+
+class TempDir(object):
+    def __init__(self):
+        self._dpath = tmp.mkdtemp()
+        atexit.register(self.close)
+
+    def __del__(self):
+        self.close()
+
+    @property
+    def _alive(self):
+        return os.path.exists(self._dpath)
+
+    def close(self):
+        if self._alive:
+            shutil.rmtree(self._dpath)
+        self._fd = None
+
+    @property
+    def path(self):
+        if not self._alive:
+            raise IOError("TempDir has already expired.")
+        return self._dpath
