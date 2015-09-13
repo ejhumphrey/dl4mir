@@ -28,22 +28,23 @@ This script writes the output files under the given output directory:
   "/some/audio/file.mp3" maps to "${output_dir}/file.npz"
 
 Sample Call:
-$ python marl/scripts/audio_files_to_cqt_arrays.py \
-/Volumes/Audio/Chord_Recognition/rwc_filelist.txt \
-/Volumes/Audio/Chord_Recognition/cqt_params.txt \
-/Volumes/Audio/cqt_files
+$ python audio_files_to_cqt_arrays.py \
+rwc_filelist.txt \
+cqt_arrays \
+--cqt_params=params.json \
+--num_cpus=2
 """
 
 import argparse
+from joblib import delayed
+from joblib import Parallel
 import json
 import numpy as np
 import time
 
-from multiprocessing import Pool
-from marl.audio.transforms import cqt
-from marl import fileutils as F
+from dl4mir.common.cqt import cqt
+import dl4mir.common.fileutil as futil
 
-NUM_CPUS = None  # Use None for system max.
 EXT = ".npz"
 DEFAULT_PARAMS = dict(
     filepath=None, q=1.0, freq_min=27.5, octaves=7, bins_per_octave=36,
@@ -72,23 +73,20 @@ def audio_file_to_cqt(file_pair):
 
 
 def main(args):
-    """Main routine for staging parallelization."""
     if args.cqt_params:
         DEFAULT_PARAMS.update(json.load(open(args.cqt_params)))
 
-    pool = Pool(processes=NUM_CPUS)
-    output_dir = F.create_directory(args.output_directory)
-    pool.map_async(
-        func=audio_file_to_cqt,
-        iterable=F.map_path_file_to_dir(args.textlist_file, output_dir, EXT))
-    pool.close()
-    pool.join()
+    output_dir = futil.create_directory(args.output_directory)
+    pool = Parallel(n_jobs=args.num_cpus)
+    dcqt = delayed(audio_file_to_cqt)
+    iterargs = futil.map_path_file_to_dir(args.textlist, output_dir, EXT)
+    return pool(dcqt(x) for x in iterargs)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(usage=__doc__)
-    parser.add_argument("textlist_file",
-                        metavar="textlist_file", type=str,
+    parser.add_argument("textlist",
+                        metavar="textlist", type=str,
                         help="A text file with a list of audio filepaths.")
     parser.add_argument("output_directory",
                         metavar="output_directory", type=str,
@@ -97,8 +95,8 @@ if __name__ == "__main__":
                         metavar="cqt_params", type=str,
                         default='',
                         help="Path to a JSON file of CQT parameters.")
-    parser.add_argument("--chunksize",
-                        metavar="chunksize", type=int,
-                        default=0,
-                        help="Chunksize for map_async.")
+    parser.add_argument("--num_cpus", type=int,
+                        metavar="num_cpus", default=-1,
+                        help="Number of CPUs over which to parallelize "
+                             "computations.")
     main(parser.parse_args())

@@ -1,12 +1,15 @@
-import numpy as np
-import scipy.stats
-import json
-import os
-import shutil
-from itertools import groupby
-
+from __future__ import print_function
 import biggie
+from itertools import groupby
+import json
+import numpy as np
+import optimus
+import os
 import pyjams
+import scipy.stats
+import shutil
+from sklearn.cross_validation import KFold
+import time
 
 
 def hwr(x):
@@ -22,7 +25,7 @@ def mode2(x_in, axis):
     idx_to_value = dict()
     for x in x_in:
         obj = buffer(x)
-        if not obj in value_to_idx:
+        if obj not in value_to_idx:
             idx = len(value_to_idx)
             value_to_idx[obj] = idx
             idx_to_value[idx] = x
@@ -163,7 +166,7 @@ def normalize(x, axis=None):
     z : np.ndarray, shape=x.shape
         Normalized array.
     """
-    if not axis is None:
+    if axis is not None:
         shape = list(x.shape)
         shape[axis] = 1
         scalar = x.astype(float).sum(axis=axis).reshape(shape)
@@ -191,7 +194,7 @@ def lp_scale(x, p=2.0, axis=None):
     z : np.ndarray, shape=x.shape
         Normalized array.
     """
-    if not axis is None:
+    if axis is not None:
         shape = list(x.shape)
         shape[axis] = 1
         scalar = np.power(np.power(np.abs(x.astype(float)), p).sum(axis=axis),
@@ -352,6 +355,40 @@ def slice_tile(x_in, idx, length):
     return tile
 
 
+def stratify(items, num_folds, valid_ratio=0.1):
+    """Stratify a collection of items `num_folds` times into partitions for
+    train, validation, and test.
+
+    Parameters
+    ----------
+    items : array_like
+        Collection of unique items to stratify.
+    num_folds : int
+        Number of times to partition the data.
+    valid_ratio : scalar, 0 < r < 1.0
+        Ratio of the training set to carve off for validation.
+
+    Returns
+    -------
+    folds : dict of dicts
+        Sets of {'train', 'valid', 'test'} sets, indexed by fold.
+    """
+    items = np.asarray(items)
+    splitter = KFold(n=len(items), n_folds=num_folds, shuffle=True)
+    folds = dict()
+    for fold_idx, data_idxs in enumerate(splitter):
+        train_items, test_items = items[data_idxs[0]], items[data_idxs[1]]
+        num_train = len(train_items)
+        train_idx = np.random.permutation(num_train)
+        valid_count = int(valid_ratio * num_train)
+        valid_items = train_items[train_idx[:valid_count]]
+        train_items = train_items[train_idx[valid_count:]]
+        folds[fold_idx] = dict(train=train_items.tolist(),
+                               valid=valid_items.tolist(),
+                               test=test_items.tolist())
+    return folds
+
+
 def gibbs(energy, beta):
     """Normalize an energy vector as a Gibbs distribution."""
     axis = {1: None, 2: 1}[energy.ndim]
@@ -451,7 +488,7 @@ def join_endata(enmfp_data, track_data):
             data = track_data[key].copy()
         uid = data.pop('id')
         data['local_key'] = key
-        if not uid in result:
+        if uid not in result:
             result[uid] = list()
         result[uid].append(data)
     return result
@@ -550,3 +587,75 @@ def save_jamset(jamset, filepath):
 
     with open(filepath, 'w') as fp:
         json.dump(output_data, fp)
+
+
+def convolve(entity, graph, input_key, axis=1, chunk_size=250):
+    """Apply a graph convolutionally to a field in an an entity.
+
+    Parameters
+    ----------
+    entity : biggie.Entity
+        Observation to predict.
+    graph : optimus.Graph
+        Network for processing an entity.
+    data_key : str
+        Name of the field to use for the input.
+    chunk_size : int, default=None
+        Number of slices to transform in a given step. When None, parses one
+        slice at a time.
+
+    Returns
+    -------
+    output : biggie.Entity
+        Result of the convolution operation.
+    """
+    # TODO(ejhumphrey): Make this more stable, somewhat fragile as-is
+    time_dim = graph.inputs.values()[0].shape[2]
+    values = entity.values()
+    input_stepper = optimus.array_stepper(
+        values.pop(input_key), time_dim, axis=axis, mode='same')
+    results = dict([(k, list()) for k in graph.outputs])
+    if chunk_size:
+        chunk = []
+        for x in input_stepper:
+            chunk.append(x)
+            if len(chunk) == chunk_size:
+                for k, v in graph(np.array(chunk)).items():
+                    results[k].append(v)
+                chunk = []
+        if len(chunk):
+            for k, v in graph(np.array(chunk)).items():
+                results[k].append(v)
+    else:
+        for x in input_stepper:
+            for k, v in graph(x[np.newaxis, ...]).items():
+                results[k].append(v)
+    for k in results:
+        results[k] = np.concatenate(results[k], axis=0)
+    values.update(results)
+    return biggie.Entity(**values)
+
+
+def process_stash(stash, transform, output, input_key, verbose=False):
+    """Apply an optimus transform to all the entities in a stash, producing a
+    separate output stash.
+
+    Parameters
+    ----------
+    stash : biggie.Stash
+        Collection of entities to transform.
+    transform : optimus.Graph
+        Network to apply to each entity.
+    output : biggie.Stash
+        Stash for writing outputs.
+    input_key : str
+        Name of the field to use for the input.
+    """
+    total_count = len(stash.keys())
+    for idx, key in enumerate(stash.keys()):
+        output.add(key, convolve(stash.get(key), transform, input_key))
+        if verbose:
+            print("[{0}] {1:7} / {2:7}: {3}".format(
+                  time.asctime(), idx, total_count, key))
+
+    output.close()

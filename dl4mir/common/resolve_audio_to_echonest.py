@@ -1,14 +1,14 @@
-"""
-"""
+"""Resolve a collection of audio files against the EchoNest API."""
 
 import argparse
 import json
-import marl.fileutils as futil
 import glob
 from pyechonest import track as T
 from os import path
 import socket
 import time
+
+import dl4mir.common.fileutil as futil
 
 
 class Throttle(object):

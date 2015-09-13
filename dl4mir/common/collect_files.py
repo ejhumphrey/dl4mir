@@ -1,12 +1,14 @@
 """Collect files in a directory matching a pattern.
 
-Comparable to `ls {input_directory}/{file_pattern} > {output_file}`.
+Comparable to `ls {input_directory}/{file_pattern} > {output_file}`, with the
+exception that files are always sorted regardless of operating system.
 """
 
 import argparse
 import glob
-import fileutil as futil
 from os.path import join
+
+import dl4mir.common.fileutil as futil
 
 
 def main(args):
