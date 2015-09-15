@@ -1,12 +1,21 @@
 #!/bin/bash
+
+if [ -z "${SRC}" ]; then
+    echo "Must specify the dl4mir source directory: 'SRC'."
+    exit 1
+fi
+
+if [ -z "${DL4MIR}" ]; then
+    echo "Must specify the dl4mir working directory: 'DL4MIR'"
+    exit 1
+fi
+
 BASEDIR=${DL4MIR}/timbre_sim
 
 # Flat directory of all audio
 AUDIO=${BASEDIR}/audio
 CQTS=${BASEDIR}/features/cqts
 META=${BASEDIR}/metadata
-# Directory of biggie Stashes, divided by index and split, like
-#   ${DATA}/${FOLD_IDX}/${SPLIT_NAME}.hdf5
 BIGGIE=${BASEDIR}/biggie
 
 AUDIO_EXT="wav"

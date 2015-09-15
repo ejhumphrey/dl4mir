@@ -1,12 +1,14 @@
-"""write meeee"""
+"""Primary training driver for the NLSE models."""
+
+from __future__ import print_function
 import argparse
 import biggie
 import optimus
 from os import path
-import marl.fileutils as futil
 
-import dl4mir.timbre.data as D
+import dl4mir.common.fileutil as futil
 import dl4mir.common.streams as S
+import dl4mir.timbre.data as D
 from dl4mir.timbre import models
 
 DRIVER_ARGS = dict(
@@ -25,10 +27,10 @@ def main(args):
     time_dim = trainer.inputs['cqt'].shape[2]
 
     if args.init_param_file:
-        print "Loading parameters: %s" % args.init_param_file
+        print("Loading parameters: {0}".format(args.init_param_file))
         trainer.load_param_values(args.init_param_file)
 
-    print "Opening %s" % args.training_file
+    print("Opening {0}".format(args.training_file))
     stash = biggie.Stash(args.training_file, cache=True)
     stream = S.minibatch(
         D.create_pairwise_stream(stash, time_dim,
@@ -39,7 +41,7 @@ def main(args):
         stream, zerofilter, threshold=2.0**-16, min_batch=1,
         max_consecutive_skips=100, sim_margin=sim_margin, diff_margin=RADIUS)
 
-    print "Starting '%s'" % args.trial_name
+    print("Starting '{0}'".format(args.trial_name))
     driver = optimus.Driver(
         graph=trainer,
         name=args.trial_name,
@@ -56,15 +58,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(description=__doc__)
 
     # Inputs
     parser.add_argument("training_file",
                         metavar="training_file", type=str,
                         help="Path to a biggie Stash file for training.")
-    # parser.add_argument("arch_size",
-    #                     metavar="arch_size", type=str, default='large',
-    #                     help="Size of the architecture.")
     parser.add_argument("margin",
                         metavar="margin", type=float,
                         help="Margin parameter")

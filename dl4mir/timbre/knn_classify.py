@@ -1,6 +1,11 @@
+"""Train a kNN classifier over a biggie stash."""
 
+from __future__ import print_function
 import argparse
+import biggie
 import json
+import os
+import time
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import precision_recall_curve
@@ -8,11 +13,8 @@ from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix
 
-import os
-import time
 import dl4mir.timbre.data as D
-import biggie
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 
 def classify(train, valid, test, num_neighbors=[1, 5, 9, 15, 21, 35, 51, 75],
@@ -29,8 +31,8 @@ def classify(train, valid, test, num_neighbors=[1, 5, 9, 15, 21, 35, 51, 75],
         if score > best_score:
             best_knn = knn
             best_score = score
-            print "[{0}] New Best @ k={1}: {2:.4}".format(
-                time.asctime(), k, best_score)
+            print("[{0}] New Best @ k={1}: {2:.4}"
+                  "".format(time.asctime(), k, best_score))
 
     proba_test = knn.predict_proba(x_test)
     Y_test = label_binarize(y_test, classes=best_knn.classes_)
@@ -62,7 +64,7 @@ def main(args):
                        num_train=50000, num_valid=10000, num_test=25000)
 
     for k in 'train', 'valid', 'test':
-        print "{0}: {1:.4}".format(k, results['{0}_score'.format(k)])
+        print("{0}: {1:.4}".format(k, results['{0}_score'.format(k)]))
 
     output_dir = os.path.split(args.stats_file)[0]
     futil.create_directory(output_dir)
@@ -71,7 +73,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(description=__doc__)
 
     # Inputs
     parser.add_argument("data_directory",

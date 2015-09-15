@@ -1,16 +1,17 @@
-"""write meeee"""
+"""Fit a PCA-LDA model to a training stash file."""
+
+from __future__ import print_function
 import argparse
 import biggie
 import numpy as np
 import optimus
 from os import path
 import time
-
-import dl4mir.timbre.data as D
-import marl.fileutils as futil
-
 from sklearn.lda import LDA
 from sklearn.decomposition import PCA
+
+import dl4mir.timbre.data as D
+import dl4mir.common.fileutil as futil
 
 PRINT_FREQ = 500
 
@@ -74,22 +75,21 @@ def main(args):
     time_dim = input_shape[2]
     input_shape[0] = args.num_points
 
-    print "Opening %s" % args.training_file
+    print("Opening {0}".format(args.training_file))
     stash = biggie.Stash(args.training_file, cache=True)
     stream = D.create_labeled_stream(
         stash, time_dim, working_size=1000, threshold=0.05)
 
-    print "Starting '%s'" % args.trial_name
+    print("Starting '{0}'".format(args.trial_name))
     data, labels = np.zeros(input_shape), []
     for idx, x in enumerate(stream):
         data[idx, ...] = x.cqt
         labels.append(x.label)
         if len(labels) == args.num_points:
-            print float(data.nbytes) / 1024 / 1024 / 1024
             break
         elif (len(labels) % PRINT_FREQ) == 0:
-            print "[{0}] {1:5} / {2:5}".format(
-                time.asctime(), len(labels), args.num_points)
+            print("[{0}] {1:5} / {2:5}"
+                  "".format(time.asctime(), len(labels), args.num_points))
 
     predictor.param_values = fit_params(data, labels, args.n_components, 3)
     output_directory = futil.create_directory(args.output_directory)
@@ -99,7 +99,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(description=__doc__)
 
     # Inputs
     parser.add_argument("training_file",

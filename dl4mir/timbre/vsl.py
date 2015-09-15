@@ -1,11 +1,13 @@
 """Tools to manipulate VSL data collection."""
 
+from __future__ import print_function
 import numpy as np
 import glob
 import os
 import re
-import marl.fileutils as futil
 from scipy.spatial.distance import cdist
+
+import dl4mir.common.fileutil as futil
 
 
 def _pitch_classes():
@@ -33,7 +35,7 @@ def pitch_class_to_semitone(pitch_class):
 
     Raises
     ------
-    InvalidFormatException
+    ValueError if a given pitch class cannot be parsed.
     """
     semitone = 0
     for idx, char in enumerate(pitch_class):
@@ -44,19 +46,18 @@ def pitch_class_to_semitone(pitch_class):
         elif idx == 0:
             semitone = PITCH_CLASSES.get(char)
         else:
-            raise InvalidFormatException(
-                "Pitch class improperly formed: %s" % pitch_class)
+            raise ValueError(
+                "Pitch class improperly formed: {0}".format(pitch_class))
     return semitone % 12
 
 
 def collect_single_notes(basedir):
     # en = "Einzelnoten"
-    en = "*"
     filepaths = []
     for n in range(6):
         subpattern = "*/" + "*/" * n + "*.wav"
         fpath = os.path.join(basedir, subpattern)
-        print fpath
+        print(fpath)
         filepaths += glob.glob(fpath)
 
     return filepaths
@@ -71,7 +72,7 @@ def file_to_instrument_code2(filename):
 
 
 _reduced_set = {
-    "AFL": ['AFLmV', 'AFLmV0leg',],
+    "AFL": ['AFLmV', 'AFLmV0leg'],
     "FL1": ['FL1RR', 'FL1RRstac', 'FL1mV',
             'FL1mV0leg', 'FL1mV0po', 'FL1mVleg'],
     "FL2": ['FL2RR', 'FL2RRst', 'FL2mV', 'FL2mV0leg', 'FL2mVleg'],
@@ -95,7 +96,7 @@ def group_by_instrument(file_list):
     base_set = dict()
     for f in file_list:
         key = file_to_instrument_code(f)
-        if not key in base_set:
+        if key not in base_set:
             base_set[key] = list()
         base_set[key].append(f)
 
@@ -105,7 +106,7 @@ def group_by_instrument(file_list):
             if base_key in redux:
                 base_key = real_key
                 break
-        if not base_key in vsl_set:
+        if base_key not in vsl_set:
             vsl_set[base_key] = list()
         vsl_set[base_key] += base_set[base_key]
     return vsl_set

@@ -1,13 +1,14 @@
 import argparse
 import json
 import numpy as np
-import marl.fileutils as futils
 from sklearn.cross_validation import KFold
+
+import dl4mir.common.fileutil as futil
 
 
 def main(args):
-    files = futils.load_textlist(args.textlist_file)
-    keys = np.array([futils.filebase(f) for f in files])
+    files = futil.load_textlist(args.textlist_file)
+    keys = np.array([futil.filebase(f) for f in files])
     subsets = json.load(open(args.subset_file))
 
     folds = dict()

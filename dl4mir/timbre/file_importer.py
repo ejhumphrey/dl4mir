@@ -1,12 +1,14 @@
-"""Loader for multiple data splits into optimus Files."""
+"""Loader for multiple data splits into biggie Stash files."""
 
+from __future__ import print_function
 import argparse
-import json
-from marl import fileutils as futils
-import numpy as np
 import biggie
+import json
+import numpy as np
 from os import path
 import time
+
+import dl4mir.common.fileutil as futil
 
 FILE_FMT = "{subset}/{fold_idx}/{split}.hdf5"
 NPZ_EXT = "npz"
@@ -29,7 +31,7 @@ def create_entity(npz_file, dtype=np.float32):
             {cqt, time_points, icode, note_number, fcode}.
     """
     (icode, note_number,
-        fcode) = [np.array(_) for _ in futils.filebase(npz_file).split('_')]
+        fcode) = [np.array(_) for _ in futil.filebase(npz_file).split('_')]
     entity = biggie.Entity(icode=icode, note_number=note_number,
                            fcode=fcode, **np.load(npz_file))
     entity.cqt = entity.cqt.astype(dtype)
@@ -56,7 +58,8 @@ def populate_stash(keys, cqt_directory, stash, dtype=np.float32):
     for idx, key in enumerate(keys):
         cqt_file = path.join(cqt_directory, "{0}.{1}".format(key, NPZ_EXT))
         stash.add(key, create_entity(cqt_file, dtype))
-        print "[%s] %12d / %12d: %s" % (time.asctime(), idx, total_count, key)
+        print("[{0}] {1:12} / {2:12}: {3}"
+              "".format(time.asctime(), idx, total_count, key))
 
 
 def main(args):
@@ -69,17 +72,17 @@ def main(args):
             for split, keys in splits.items():
                 output_file = output_file_fmt.format(
                     subset=set_name, fold_idx=fold_idx, split=split)
-                futils.create_directory(path.split(output_file)[0])
+                futil.create_directory(path.split(output_file)[0])
                 if args.verbose:
-                    print "[%s] Creating: %s" % (time.asctime(), output_file)
+                    print("[{0}] Creating: {1}"
+                          "".format(time.asctime(), output_file))
                 stash = biggie.Stash(output_file)
                 populate_stash(keys, args.cqt_directory, stash, np.float32)
                 stash.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Load chord data into optimus files")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("split_file",
                         metavar="split_file", type=str,
                         help="Path to splits of the data as JSON.")

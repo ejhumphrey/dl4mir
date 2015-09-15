@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 import json
 import numpy as np
@@ -7,20 +8,27 @@ import marl.fileutils as futil
 
 
 def collapse_results(score_files):
+    """...?
+
+    Parameters
+    ----------
+    score_files : list of str
+        Collection of JSON filepaths.
+    """
     scores = [json.load(open(f)) for f in score_files]
 
     accum = dict()
     for res in scores:
-        for k, v in res.iteritems():
-            if k == 'class_labels':
+        for key, value in res.iteritems():
+            if key == 'class_labels':
                 continue
-            if not k in accum:
-                accum[k] = np.zeros_like(v)
+            if key not in accum:
+                accum[key] = np.zeros_like(value)
 
-            accum[k] += np.asarray(v)
+            accum[key] += np.asarray(value)
 
-    for k in accum:
-        accum[k] /= float(len(scores))
+    for key in accum:
+        accum[key] /= float(len(scores))
 
     metrics = scores[0].values()[0].keys()
     metrics.sort()
@@ -46,7 +54,7 @@ def collapse_results(score_files):
 
 def main(args):
     data = collapse_results(futil.load_textlist(args.score_textlist))
-    print tabulate.tabulate(data['table'], headers=data['headers'])
+    print(tabulate.tabulate(data['table'], headers=data['headers']))
 
     with open(args.output_file, 'w') as fp:
         json.dump(data, fp)
