@@ -1,17 +1,18 @@
 """Utility to count the class distribution in a Biggie Stash."""
-import argparse
-import marl.fileutils as futils
 
+import argparse
 from os import path
 import biggie
 import json
+
+import dl4mir.common.fileutil as futil
 import dl4mir.chords.data as D
 import dl4mir.chords.lexicon as lex
 
 
 def main(args):
     stash = biggie.Stash(args.input_file)
-    futils.create_directory(path.split(args.output_file)[0])
+    futil.create_directory(path.split(args.output_file)[0])
 
     stats = dict()
     vocab = lex.Strict(157)

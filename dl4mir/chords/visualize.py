@@ -1,14 +1,11 @@
 import numpy as np
 
-# from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.pyplot import figure, subplot
 from matplotlib import gridspec
 import mir_eval
 from scipy.spatial import distance
 import dl4mir.chords.labels as L
 import dl4mir.common.util as util
-# import dl4mir.chords.find_best_params as FBP
-
 
 
 COLORS = [
@@ -108,7 +105,7 @@ def draw_posterior(posterior, chord_idx, pred_idx):
     ax.set_ylabel("Chord Index")
 
 
-def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
+def plot_validation_sweep(validation_stats, pvals, iter_idx=-4, ax=None,
                           metric='recall'):
     if ax is None:
         fig = figure()
@@ -121,9 +118,6 @@ def plot_validation_sweep(validation_stats, pvals=None, iter_idx=-4, ax=None,
 
     keys = stats.keys()
     keys.sort()
-
-    if pvals is None:
-        pvals = FBP.sort_pvals(stats[keys[0]].keys())
 
     n_iter = [int(k.split('-')[iter_idx]) for k in keys]
 
@@ -243,15 +237,6 @@ def plot_chord_regions(index_map, vocab, colorspace=None):
     legend.set_yticks([])
     return ax, legend
 
-"""
-plt.plot(a_iter, a[0,5,:], 'g');plt.plot(a_iter, a[1,5,:], 'g--')
-plt.plot(g_iter, g[0,4,:], 'b');plt.plot(g_iter, g[1,4,:], 'b--')
-plt.plot(d_iter, d[0,1,:], 'c');plt.plot(d_iter, d[1,1,:], 'c--')
-plt.plot(e_iter, e[0,0,:], 'm');plt.plot(e_iter, e[1,0,:], 'm--')
-plt.plot(f_iter, f[0,-3,:], 'y');plt.plot(f_iter, f[1,-3,:], 'y--')
-
-"""
-
 
 def plot_labeled_intervals(intervals, labels, colorspace=None):
     time_points, labels = mir_eval.util.intervals_to_samples(intervals, labels)
@@ -302,10 +287,6 @@ def cqt_compare(a, b, fig=None, cmap='jet'):
         ax.set_yticklabels([])
         ax.set_ylabel("Frequency")
         ax.set_xlabel("Time")
-
-
-def multi_scatter():
-    pass
 
 
 def macro_vs_micro_scatter(tmc_scores, deep_net_scores):

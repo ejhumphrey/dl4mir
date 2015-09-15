@@ -3,7 +3,7 @@ import json
 import os
 import tabulate
 
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 from dl4mir.common import util
 import dl4mir.chords.evaluate as EVAL

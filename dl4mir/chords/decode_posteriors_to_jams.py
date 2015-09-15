@@ -15,7 +15,6 @@ import json
 import os
 import time
 
-import marl.fileutils as futils
 import pyjams
 
 from dl4mir.chords import PENALTY_VALUES
@@ -23,6 +22,7 @@ from dl4mir.chords.lexicon import Strict
 from dl4mir.chords.decode import decode_stash_parallel
 
 from dl4mir.common import util
+from dl4mir.common import fileutil as futils
 
 NUM_CPUS = 8
 

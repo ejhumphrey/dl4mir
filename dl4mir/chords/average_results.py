@@ -1,9 +1,10 @@
+from __future__ import print_function
 import argparse
 import json
 import numpy as np
 import tabulate
 
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 
 def collapse_results(scores):
@@ -37,7 +38,7 @@ def main(args):
     score_files = futil.load_textlist(args.score_textlist)
     scores = [json.load(open(f)).values()[0] for f in score_files]
     data = collapse_results(scores)
-    print tabulate.tabulate(data['table'], headers=data['headers'])
+    print(tabulate.tabulate(data['table'], headers=data['headers']))
 
     with open(args.output_file, 'w') as fp:
         json.dump(data, fp)

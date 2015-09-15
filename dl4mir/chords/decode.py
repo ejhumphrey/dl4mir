@@ -96,7 +96,9 @@ def decode_posterior_parallel(entity, penalties, vocab, num_cpus=NUM_CPUS,
     annotation : pyjams.JAMS.RangeAnnotation
         Populated JAMS annotation.
     """
-    assert not __interactive__
+    if not __interactive__:
+        raise EnvironmentError(
+            "Parallelization is only kosher in non-interactive operation.")
     pool = Parallel(n_jobs=num_cpus)
     decode = delayed(decode_posterior)
     return pool(decode(entity, p, vocab) for p in penalties)

@@ -2,8 +2,6 @@ import numpy as np
 from dl4mir.chords import labels
 
 import biggie
-from marl.utils.matrix import circshift
-from marl.utils.matrix import translate
 
 import dl4mir.common.util as util
 
@@ -25,7 +23,7 @@ def _circshift(entity, pitch_shift, bins_per_pitch):
         chord_label = new_label
 
     # Always rotate the CQT.
-    data = circshift(data, 0, pitch_shift)
+    data = util.circshift(data, 0, pitch_shift)
     return biggie.Entity(data=data, chord_label=chord_label, **values)
 
 
@@ -49,7 +47,7 @@ def _padshift(entity, pitch_shift, bins_per_pitch, fill_value=0.0):
 
     # Always rotate the CQT.
     bin_shift = pitch_shift*bins_per_pitch
-    data = translate(data[0], 0, bin_shift, fill_value)[np.newaxis, ...]
+    data = util.translate(data[0], 0, bin_shift, fill_value)[np.newaxis, ...]
     return biggie.Entity(data=data, chord_label=chord_label, **values)
 
 
@@ -265,7 +263,7 @@ def rotate_chroma_to_root(stream, target_root):
         chord_idx = labels.chord_label_to_class_index(chord_label, 157)
         shift = target_root - chord_idx % 12
         # print chord_idx, shift, chord_label
-        yield circshift(chroma, 0, shift).flatten()
+        yield util.circshift(chroma, 0, shift).flatten()
 
 
 def rotate_chord_to_root(stream, target_root):
@@ -278,7 +276,7 @@ def rotate_chord_to_root(stream, target_root):
         chord_idx = labels.chord_label_to_class_index(chord_label, 157)
         shift = target_root - chord_idx % 12
         # print chord_idx, shift, chord_label
-        yield _pitch_shift(entity, shift, 3)
+        yield _padshift(entity, shift, 3)
 
 
 def unpack_contrastive_pairs(stream, vocab_dim, min_val=0.0, max_val=1.0,
@@ -299,7 +297,7 @@ def unpack_contrastive_pairs(stream, vocab_dim, min_val=0.0, max_val=1.0,
                                                           vocab_dim)
         if np.random.binomial(1, rotate_prob):
             shift = (pos_chord_idx - neg_chord_idx) % 12
-            neg_entity = _pitch_shift(neg_entity, shift, 3)
+            neg_entity = _padshift(neg_entity, shift, 3)
         yield biggie.Entity(cqt=pos_entity.cqt, chord_idx=pos_chord_idx,
                             target=np.array([max_val]))
         yield biggie.Entity(cqt=neg_entity.cqt, chord_idx=pos_chord_idx,

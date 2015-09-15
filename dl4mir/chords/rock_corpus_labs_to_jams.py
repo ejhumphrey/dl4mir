@@ -5,7 +5,7 @@ import glob
 import os
 import pyjams
 
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 
 def main(args):

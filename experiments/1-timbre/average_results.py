@@ -4,7 +4,7 @@ import json
 import numpy as np
 import tabulate
 
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 
 def collapse_results(score_files):

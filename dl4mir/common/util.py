@@ -659,3 +659,82 @@ def process_stash(stash, transform, output, input_key, verbose=False):
                   time.asctime(), idx, total_count, key))
 
     output.close()
+
+
+def translate(x_input, dim0=0, dim1=0, fill_value=0):
+    """Translate a matrix in two dimensions.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input 2d matrix.
+    dim0 : int
+        Shift along the first axis.
+    dim1 : int
+        Shift along the second axis.
+
+    Returns
+    -------
+    y : np.ndarray
+        The translated matrix.
+    """
+    # Sanity check
+    assert x_input.ndim == 2, "Input must be 2D; ndim=%s" % x_input.ndim
+    in_dim0, in_dim1 = x_input.shape
+    z_output = np.zeros([in_dim0 + 2*abs(dim0), in_dim1 + 2*abs(dim1)],
+                        dtype=x_input.dtype) + fill_value
+    z_output[abs(dim0):abs(dim0) + in_dim0,
+             abs(dim1):abs(dim1) + in_dim1] = x_input
+    dim0 = 2*abs(dim0) if dim0 < 0 else 0
+    dim1 = 2*abs(dim1) if dim1 < 0 else 0
+    return z_output[dim0:dim0 + in_dim0, dim1:dim1 + in_dim1]
+
+
+def circshift(x_input, dim0=0, dim1=0):
+    """Circular shift a matrix in two dimensions.
+
+    For example...
+
+          dim0
+         aaa|bb      dd|ccc
+    dim1 ------  ->  ------
+         ccc|dd      bb|aaa
+
+    Default behavior is a pass-through.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input 2d matrix.
+    dim0 : int
+        Rotation along the first axis.
+    dim1 : int
+        Rotation along the second axis.
+
+    Returns
+    -------
+    y : np.ndarray
+        The circularly shifted matrix.
+    """
+    # Sanity check
+    assert x_input.ndim == 2, "Input must be 2D; ndim=%s" % x_input.ndim
+
+    in_d0, in_d1 = x_input.shape
+    z_output = np.zeros([in_d0, in_d1])
+
+    # Make sure the rotation is bounded on [0,d0) & [0,d1)
+    dim0, dim1 = dim0 % in_d0, dim1 % in_d1
+    if not dim0 and dim1:
+        z_output[:, :dim1] = x_input[:, -dim1:]  # A
+        z_output[:, dim1:] = x_input[:, :-dim1]  # C
+    elif not dim1 and dim0:
+        z_output[:dim0, :] = x_input[-dim0:, :]  # A
+        z_output[dim0:, :] = x_input[:-dim0, :]  # B
+    elif dim0 and dim1:
+        z_output[:dim0, :dim1] = x_input[-dim0:, -dim1:]  # A
+        z_output[dim0:, :dim1] = x_input[:-dim0, -dim1:]  # B
+        z_output[:dim0, dim1:] = x_input[-dim0:, :-dim1]  # C
+        z_output[dim0:, dim1:] = x_input[:-dim0, :-dim1]  # D
+    else:
+        z_output = x_input
+    return z_output

@@ -3,10 +3,10 @@ import argparse
 import biggie
 import optimus
 from os import path
-import marl.fileutils as futil
 import numpy as np
 import json
 
+import dl4mir.common.fileutil as futil
 import dl4mir.chords.data as D
 import dl4mir.common.streams as S
 from dl4mir.chords import DRIVER_ARGS

@@ -6,7 +6,7 @@ import time
 import pyjams
 
 from dl4mir.common import util
-import marl.fileutils as futil
+import dl4mir.common.fileutil as futil
 
 
 def main(args):

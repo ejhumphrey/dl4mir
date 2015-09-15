@@ -1,7 +1,7 @@
 """Loader for multiple data splits into optimus Files."""
 
 import argparse
-from marl import fileutils as futils
+import dl4mir.common.fileutil as futils
 import mir_eval
 import dl4mir.chords.labels as L
 import numpy as np

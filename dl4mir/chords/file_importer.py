@@ -2,13 +2,14 @@
 
 import argparse
 import json
-from marl import fileutils as futils
 import mir_eval
 import pyjams
 import numpy as np
 import biggie
 from os import path
 import time
+
+import dl4mir.common.fileutil as futils
 
 # fold / split
 FILE_FMT = "%s/%s.hdf5"
