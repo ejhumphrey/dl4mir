@@ -30,6 +30,7 @@ setup(
         'scikit-learn >= 0.14.0',
         'matplotlib',
         'theano >= 0.6.0',
-        'joblib'
+        'joblib',
+        'tabulate'
     ]
 )
