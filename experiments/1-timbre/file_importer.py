@@ -9,33 +9,10 @@ from os import path
 import time
 
 import dl4mir.common.fileutil as futil
+import dl4mir.timbre.data as D
 
 FILE_FMT = "{subset}/{fold_idx}/{split}.hdf5"
 NPZ_EXT = "npz"
-
-
-def create_entity(npz_file, dtype=np.float32):
-    """Create an entity from the given file.
-
-    Parameters
-    ----------
-    npz_file: str
-        Path to a 'npz' archive, containing at least a value for 'cqt'.
-    dtype: type
-        Data type for the cqt array.
-
-    Returns
-    -------
-    entity: biggie.Entity
-        Populated entity, with the following fields:
-            {cqt, time_points, icode, note_number, fcode}.
-    """
-    (icode, note_number,
-        fcode) = [np.array(_) for _ in futil.filebase(npz_file).split('_')]
-    entity = biggie.Entity(icode=icode, note_number=note_number,
-                           fcode=fcode, **np.load(npz_file))
-    entity.cqt = entity.cqt.astype(dtype)
-    return entity
 
 
 def populate_stash(keys, cqt_directory, stash, dtype=np.float32):
@@ -57,7 +34,7 @@ def populate_stash(keys, cqt_directory, stash, dtype=np.float32):
     total_count = len(keys)
     for idx, key in enumerate(keys):
         cqt_file = path.join(cqt_directory, "{0}.{1}".format(key, NPZ_EXT))
-        stash.add(key, create_entity(cqt_file, dtype))
+        stash.add(key, D.create_entity(cqt_file, dtype))
         print("[{0}] {1:12} / {2:12}: {3}"
               "".format(time.asctime(), idx, total_count, key))
 

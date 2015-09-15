@@ -7,6 +7,31 @@ import pescador
 import time
 
 from dl4mir.common import util
+from dl4mir.common import fileutil as futil
+
+
+def create_entity(npz_file, dtype=np.float32):
+    """Create an entity from the given file.
+
+    Parameters
+    ----------
+    npz_file: str
+        Path to a 'npz' archive, containing at least a value for 'cqt'.
+    dtype: type
+        Data type for the cqt array.
+
+    Returns
+    -------
+    entity: biggie.Entity
+        Populated entity, with the following fields:
+            {cqt, time_points, icode, note_number, fcode}.
+    """
+    (icode, note_number,
+        fcode) = [np.array(_) for _ in futil.filebase(npz_file).split('_')]
+    entity = biggie.Entity(icode=icode, note_number=note_number,
+                           fcode=fcode, **np.load(npz_file))
+    entity.cqt = entity.cqt.astype(dtype)
+    return entity
 
 
 def slice_cqt_entity(entity, length, idx=None):
