@@ -514,7 +514,7 @@ def slice_cqt_entity(entity, length, idx=None):
 
     Returns
     -------
-    sample: biggie.Entity with fields {cqt, frets}
+    sample: biggie.Entity with fields {cqt, chord_label}
         The windowed chord observation.
     """
     idx = np.random.randint(entity.cqt.shape[1]) if idx is None else idx

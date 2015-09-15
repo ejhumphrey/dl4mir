@@ -1,27 +1,29 @@
 """Apply a graph convolutionally to datapoints in an optimus file."""
 
 import argparse
-import optimus
 import biggie
+import optimus
 import os
-import time
 
-import dl4mir.common.fileutil as futils
+import dl4mir.common.fileutil as futil
 import dl4mir.common.util as util
 
 
-def main(args):
-    transform = optimus.load(args.transform_file, args.param_file)
-    stash = biggie.Stash(args.data_file)
-    process_stash(stash, transform, args.output_file, args.input_key)
+def main(stash_file, input_key, transform_file,
+         param_file, output_file, verbose=True):
+    transform = optimus.load(transform_file, param_file)
+    stash = biggie.Stash(stash_file)
+    futil.create_directory(os.path.split(output_file)[0])
+    output = biggie.Stash(output_file)
+    util.process_stash(stash, transform, output, input_key, verbose=verbose)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
 
     # Inputs
-    parser.add_argument("data_file",
-                        metavar="data_file", type=str,
+    parser.add_argument("stash_file",
+                        metavar="stash_file", type=str,
                         help="Path to an optimus file for validation.")
     parser.add_argument("input_key",
                         metavar="input_key", type=str,
@@ -36,4 +38,6 @@ if __name__ == "__main__":
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="Path for the transformed output.")
-    main(parser.parse_args())
+    args = parser.parse_args()
+    main(args.stash_file, args.input_key, args.transform_file,
+         args.param_file, args.output_file)

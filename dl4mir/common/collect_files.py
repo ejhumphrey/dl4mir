@@ -11,10 +11,21 @@ from os.path import join
 import dl4mir.common.fileutil as futil
 
 
-def main(args):
-    files = glob.glob(join(args.input_directory, args.file_pattern))
+def main(input_directory, file_pattern, output_file):
+    """Collect files in a directory matching a filepattern.
+
+    Parameters
+    ----------
+    input_directory : str
+        Path to a directory to scrape.
+    file_pattern : str
+        Pattern to use for file matching.
+    output_file : str
+        Directory to save output textfile.
+    """
+    files = glob.glob(join(input_directory, file_pattern))
     files.sort()
-    futil.dump_textlist(files, args.output_file)
+    futil.dump_textlist(files, output_file)
 
 
 if __name__ == "__main__":
@@ -28,4 +39,5 @@ if __name__ == "__main__":
     parser.add_argument("output_file",
                         metavar="output_file", type=str,
                         help="Directory to save output textfile.")
-    main(parser.parse_args())
+    args = parser.parse_args()
+    main(args.input_directory, args.file_pattern, args.output_file)
