@@ -19,7 +19,9 @@ setup(
         'dl4mir.timbre',
         'dl4mir.guitar'
     ],
-    package_data={},
+    package_data={
+        'dl4mir.guitar': ['*.json']
+    },
     classifiers=[
         "License :: OSI Approved :: ISC License (ISCL)",
         "Programming Language :: Python",
