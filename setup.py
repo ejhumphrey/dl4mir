@@ -6,13 +6,13 @@ description = \
 
 setup(
     name='dl4mir',
-    version='1.0.0',
+    version='0.1.0',
     description=description,
     author='Eric J. Humphrey',
     author_email='ejhumphrey@nyu.edu',
     url='http://github.com/ejhumphrey/dl4mir',
     download_url='http://github.com/ejhumphrey/dl4mir/releases',
-    packages=[],
+    packages=['dl4mir'],
     package_data={},
     classifiers=[
         "License :: OSI Approved :: ISC License (ISCL)",
