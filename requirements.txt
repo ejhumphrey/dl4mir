@@ -3,7 +3,7 @@
 -e https://github.com/ejhumphrey/claudio.git
 -e https://github.com/ejhumphrey/biggie.git
 -e https://github.com/ejhumphrey/optimus.git
--e https://github.com/marl/jams.git==1.0.0
+-e https://github.com/marl/jams.git==0.1 # This isn't going to work.
 -e https://github.com/bmcfee/pescador.git
 
 -e .

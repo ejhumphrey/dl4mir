@@ -3,9 +3,8 @@ import json
 import os
 import tabulate
 
+from dl4mir.common import jams_util
 import dl4mir.common.fileutil as futil
-
-from dl4mir.common import util
 import dl4mir.chords.evaluate as EVAL
 
 
@@ -14,8 +13,8 @@ METRICS_ENUM = dict([(k, i) for i, k in enumerate(METRICS)])
 
 
 def main(args):
-    ref_jamset = util.load_jamset(args.ref_jamset)
-    est_jamset = util.load_jamset(args.est_jamset)
+    ref_jamset = jams_util.load_jamset(args.ref_jamset)
+    est_jamset = jams_util.load_jamset(args.est_jamset)
     keys = est_jamset.keys()
     keys.sort()
 

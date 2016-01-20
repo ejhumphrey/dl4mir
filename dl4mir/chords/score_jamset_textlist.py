@@ -6,7 +6,7 @@ import time
 
 import dl4mir.common.fileutil as futil
 
-from dl4mir.common import util
+from dl4mir.common import jams_util
 import dl4mir.chords.evaluate as EVAL
 
 
@@ -15,7 +15,7 @@ METRICS_ENUM = dict([(k, i) for i, k in enumerate(METRICS)])
 
 
 def score_one(ref_jamset, jamset_file, min_support):
-    est_jamset = util.load_jamset(jamset_file)
+    est_jamset = jams_util.load_jamset(jamset_file)
     keys = est_jamset.keys()
     keys.sort()
 
@@ -26,7 +26,7 @@ def score_one(ref_jamset, jamset_file, min_support):
 
 
 def main(args):
-    ref_jamset = util.load_jamset(args.ref_jamset)
+    ref_jamset = jams_util.load_jamset(args.ref_jamset)
     jamset_files = futil.load_textlist(args.jamset_textlist)
 
     pool = Parallel(n_jobs=args.num_cpus)
