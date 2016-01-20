@@ -12,7 +12,13 @@ setup(
     author_email='ejhumphrey@nyu.edu',
     url='http://github.com/ejhumphrey/dl4mir',
     download_url='http://github.com/ejhumphrey/dl4mir/releases',
-    packages=['dl4mir'],
+    packages=[
+        'dl4mir',
+        'dl4mir.chords',
+        'dl4mir.common',
+        'dl4mir.timbre',
+        'dl4mir.guitar'
+    ],
     package_data={},
     classifiers=[
         "License :: OSI Approved :: ISC License (ISCL)",
