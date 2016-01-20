@@ -92,7 +92,27 @@ _reduced_set = {
     "VC": ['VCmVcres2']}
 
 
-def group_by_instrument(file_list):
+_instrument_codes = ['FL1', 'HO', 'TrC', 'VC', 'VI', 'BP', 'BT', 'VA', 'CI',
+                     'Tr', 'WT', 'TP', 'PFL', 'KLB', 'AFL', 'KB', 'TU', 'FA',
+                     'EG', 'SXS', 'AKG', 'PT', 'PO', 'OB']
+
+
+def group_by_instrument(file_list, limit_to_reduced=True):
+    """Group a collection of filepaths by instrument "code" abbreviations.
+
+    Parameters
+    ----------
+    file_list : list of str
+        VSL-style string filepaths.
+    limit_to_reduced : bool, default=True
+        Restrict the returned set to those instrument codes in the "reduced"
+        set.
+
+    Returns
+    -------
+    file_groups : dict
+        Hash map of instrument codes and a list of corresponding filepaths.
+    """
     base_set = dict()
     for f in file_list:
         key = file_to_instrument_code(f)
@@ -109,12 +129,15 @@ def group_by_instrument(file_list):
         if base_key not in vsl_set:
             vsl_set[base_key] = list()
         vsl_set[base_key] += base_set[base_key]
+
+    # Prune filepaths, if requested.
+    if limit_to_reduced:
+        inst_codes = vsl_set.keys()
+        for code in inst_codes:
+            if code not in _instrument_codes:
+                del vsl_set[code]
+
     return vsl_set
-
-
-_instrument_codes = ['FL1', 'HO', 'TrC', 'VC', 'VI', 'BP', 'BT', 'VA', 'CI',
-                     'Tr', 'WT', 'TP', 'PFL', 'KLB', 'AFL', 'KB', 'TU', 'FA',
-                     'EG', 'SXS', 'AKG', 'PT', 'PO', 'OB']
 
 
 def has_pitch(f):
