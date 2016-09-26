@@ -2,7 +2,7 @@ import numpy as np
 from scipy.signal.signaltools import convolve2d
 from scipy.signal.windows import gaussian
 
-from util import hwr
+from .util import hwr
 
 
 def lcn(X, kernel):
